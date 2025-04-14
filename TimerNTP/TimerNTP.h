@@ -16,8 +16,12 @@
 #define PRINT_INTERVAL_MS  5000
 #define HOURS_SYNC_INTERVAL 12
 
+#define NTP_BUFFER 128
 #define HTTP_BUFFER 2048
 #define HTTP_TIMEOUT 10000
+#define PARAM_LENGTH 20
+
+#define CHECK_METHOD(val) strcmp(method, val) == 0
 
 enum {
   STATE_NOT_CONNECTED = 0, 

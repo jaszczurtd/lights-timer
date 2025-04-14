@@ -3,15 +3,15 @@
 
 static int currentState = STATE_NOT_CONNECTED;
 static unsigned long connectionStartTime;
-static char buffer[80];
+static char buffer[NTP_BUFFER];
 static bool initialized = false;
 
-WiFiClient currentClient; 
-char requestBuffer[HTTP_BUFFER];
-unsigned int bufferIndex = 0;
-unsigned long lastActivityTime = 0;
+static char requestBuffer[HTTP_BUFFER];
+static unsigned int bufferIndex = 0;
+static unsigned long lastActivityTime = 0;
 
-WiFiServer server(80);
+static WiFiServer server(80);
+static WiFiClient currentClient; 
 
 int getWifiStrength(int32_t rssi) {
   if (rssi >= 0) return 0; 
@@ -105,7 +105,10 @@ void stateMachine(void) {
     break;
 
     case STATE_NTP_SYNCHRO: {
-      static unsigned long ntpStartTime = millis();
+      static unsigned long ntpStartTime = 0;
+      if (ntpStartTime == 0) {
+        ntpStartTime = millis();
+      }
 
       if (WIFI_CONNECTED) {
 
@@ -158,6 +161,56 @@ void stateMachine(void) {
   }
 }
 
+static char dateHourStart[PARAM_LENGTH] = "";
+static char dateHourEnd[PARAM_LENGTH] = "";
+static char isOn[PARAM_LENGTH] = "";
+
+bool findParameter(const char *toFind, const char *query, char *parameterValue) {
+  if(toFind == NULL || query == NULL || parameterValue == NULL) {
+    return false;
+  }    
+    
+  const char *found = strstr(query, toFind);
+  if (found) {
+    if (found != query && *(found - 1) != '&') return false;
+
+    found += strlen(toFind);
+    const char *start = found;
+
+    while (*found != '&' && *found != '\0') {
+      found++;
+    }
+
+    size_t len = found - start;
+    if (len >= PARAM_LENGTH) len = PARAM_LENGTH - 1;
+
+    char raw[PARAM_LENGTH] = {0};
+    strncpy(raw, start, len);
+    raw[len] = '\0';
+
+    urlDecode(raw, parameterValue);
+    return true;
+  }
+  return false;    
+}
+
+bool parseParameters(const char* query) {
+
+  int parametersFound = 0;
+
+  if(findParameter("dateHourStart=", query, dateHourStart)) {
+    parametersFound++;
+  }
+  if(findParameter("dateHourEnd=", query, dateHourEnd)) {
+    parametersFound++;
+  }
+  if(findParameter("isOn=", query, isOn)) {
+    parametersFound++;
+  }
+  
+  return (parametersFound == 3);
+}
+
 void handleHTTPClient() {
   if (!currentClient) {
     currentClient = server.accept();
@@ -173,26 +226,73 @@ void handleHTTPClient() {
       char c = currentClient.read();
       if (bufferIndex < sizeof(requestBuffer) - 1) {
         requestBuffer[bufferIndex++] = c;
-        requestBuffer[bufferIndex] = '\0'; 
+        requestBuffer[bufferIndex] = 0;
       }
 
       lastActivityTime = millis();
 
-      if (strstr(requestBuffer, "\r\n\r\n")) {
-        deb("Full request:\n");
-        deb("%s", requestBuffer);
+      if (currentClient.available() == 0) {
+        deb("Full request:");
+        deb(requestBuffer);
 
         char responseBuffer[HTTP_BUFFER]; 
-        snprintf(responseBuffer, sizeof(responseBuffer),
-          "HTTP/1.1 200 OK\r\n"
-          "Content-Type: text/plain\r\n"
-          "Connection: close\r\n"
-          "\r\n"
-          "OK, %s", buffer);
+        char* method = strtok(requestBuffer, " ");
+        char* path = strtok(NULL, " ");
+
+        if (method && path) {
+          if(CHECK_METHOD("GET")) {
+            char* query = strchr(path, '?');
+            if (query) {
+              *query = '\0';
+              parseParameters(query + 1);
+            }
+
+            snprintf(responseBuffer, HTTP_BUFFER,
+              "HTTP/1.1 200 OK\r\n"
+              "Content-Type: text/plain\r\n"
+              "Connection: close\r\n\r\n"
+              "dateHourStart:%s\r\n"
+              "dateHourEnd:%s\r\n"
+              "isOn:%s\r\n"
+              "localTime:%s\r\n",
+              dateHourStart, dateHourEnd, isOn, strlen(buffer) ? buffer : "not available yet.");
+
+          } else if (CHECK_METHOD("POST")) {
+            char* body = requestBuffer + strlen("POST") + 1 + strlen("/?");
+            bool ok = false;
+            if (body) {
+              deb("body: %s", body);
+              ok = parseParameters(body);
+            }
+
+            snprintf(responseBuffer, HTTP_BUFFER,
+              "HTTP/1.1 %s\r\n"
+              "Content-Type: text/plain\r\n"
+              "Connection: close\r\n\r\n"
+              "dateHourStart:%s\r\n"
+              "dateHourEnd:%s\r\n"
+              "isOn:%s\r\n"
+              "localTime:%s\r\n", (ok) ? "200 OK" : "400 Bad request", 
+              dateHourStart, dateHourEnd, isOn, strlen(buffer) ? buffer : "not available yet.");
+
+          } else {
+            snprintf(responseBuffer, HTTP_BUFFER,
+              "HTTP/1.1 405 Method Not Allowed\r\n"
+              "Content-Type: text/plain\r\n"
+              "Connection: close\r\n\r\n"
+              "Method not allowed");
+          }
+        } else {
+          snprintf(responseBuffer, HTTP_BUFFER,
+            "HTTP/1.1 400 Bad Request\r\n"
+            "Content-Type: text/plain\r\n"
+            "Connection: close\r\n\r\n"
+            "Bad Request");
+        }
 
         currentClient.print(responseBuffer);
         currentClient.stop();
-        return; 
+        return;
       }
     }
 
