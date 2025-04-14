@@ -227,6 +227,10 @@ void handleHTTPClient() {
       if (bufferIndex < sizeof(requestBuffer) - 1) {
         requestBuffer[bufferIndex++] = c;
         requestBuffer[bufferIndex] = 0;
+      } else {
+        currentClient.print("HTTP/1.1 413 Payload Too Large\r\nConnection: close\r\n\r\n");
+        currentClient.stop();
+        return;
       }
 
       lastActivityTime = millis();
