@@ -7,7 +7,7 @@ void NTPMachine::start(MyHardware *h, MyWebServer *w) {
   (hardware = h)->start(this);
   web = w;
 
-  WiFi.setHostname(customHostname);
+  WiFi.setHostname(getFriendlyHostname(getMyMAC()));
 }
 
 int NTPMachine::getCurrentState(void) {
@@ -151,7 +151,8 @@ void NTPMachine::stateMachine(void) {
     if (WIFI_CONNECTED && 
         currentState >= STATE_CONNECTED) {
 
-      deb("%s, IP: %s, MAC:%s signal strength: %d/5", getTimeFormatted(), getMyIP(), getMyMAC(), getWifiStrength());
+      deb("%s, IP:%s, host:%s, mac:%s, wifi strength: %d/5", 
+          getTimeFormatted(), getMyIP(), getFriendlyHostname(getMyMAC()), getMyMAC(), getWifiStrength());
     }
   }
 
