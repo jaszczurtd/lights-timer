@@ -10,13 +10,9 @@ MyHardware hardware;
 
 static bool initialized;
 
-const char* multicastIP = "239.255.255.250";
 const int udpPort = 12345;
-
+char packetBuffer[255];
 WiFiUDP udp;
-unsigned long nextResponseTime = 0;
-bool responsePending = false;
-IPAddress responderIP;
 bool multicastInitialized = false;
 
 
@@ -47,39 +43,28 @@ void handleDiscoveryRequests() {
 
   if(WIFI_CONNECTED) {
     if(!multicastInitialized) {
-      udp.beginMulticast(WiFi.localIP(), IPAddress().fromString(multicastIP), udpPort);
+      udp.begin(udpPort);
+  
       multicastInitialized = true;
       deb("Multicast has been initialized");
     }
 
-    char packet[32];
-    int packetSize = udp.parsePacket();
-    
-    if (packetSize > 0 && udp.read(packet, sizeof(packet)) > 0) {
-      if (strcmp(packet, "DISCOVER") == 0) {
-        nextResponseTime = millis() + random(50);
-        responderIP = udp.remoteIP();
-        responsePending = true;
-      }
-    }
+    if(multicastInitialized) {
+      int packetSize = udp.parsePacket();
+      if (packetSize) {
+        udp.read(packetBuffer, sizeof(packetBuffer));
+        packetBuffer[packetSize] = '\0';
 
-    if (responsePending && millis() >= nextResponseTime) {
-      sendResponse();
-      responsePending = false;
+        if (strcmp(packetBuffer, "PICO_DISCOVER") == 0) {
+          String response = "PICO_FOUND|" + WiFi.macAddress() + "|" + WiFi.localIP().toString();
+          udp.beginPacket(udp.remoteIP(), udp.remotePort());
+          udp.write(response.c_str());
+          udp.endPacket();
+        }
+      }
+
     }
   }
 
 }
 
-void sendResponse() {
-  char response[64];
-  snprintf(response, sizeof(response), 
-    "PICO|%s|%s",
-    WiFi.macAddress().c_str(),
-    WiFi.localIP().toString().c_str()
-  );
-  
-  udp.beginPacket(responderIP, udp.remotePort());
-  udp.write(response);
-  udp.endPacket();
-}
