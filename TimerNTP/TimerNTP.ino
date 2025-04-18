@@ -55,7 +55,11 @@ void handleDiscoveryRequests() {
         udp.read(packetBuffer, sizeof(packetBuffer));
         packetBuffer[packetSize] = '\0';
 
+        deb("received discovery packet:%s", packetBuffer);
+
         if (strcmp(packetBuffer, "PICO_DISCOVER") == 0) {
+          delay(random(5, 100));
+
           String response = "PICO_FOUND|" + WiFi.macAddress() + "|" + WiFi.localIP().toString();
           udp.beginPacket(udp.remoteIP(), udp.remotePort());
           udp.write(response.c_str());
