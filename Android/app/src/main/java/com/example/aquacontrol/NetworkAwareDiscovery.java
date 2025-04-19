@@ -14,23 +14,30 @@ import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
+import java.util.Arrays;
 
 
 public class NetworkAwareDiscovery {
 
+    private static final String TAG = "NetworkAwareDiscovery";
+
     public static class DeviceInfo {
         String mac;
         String ip;
+        String hostName;
+        int switches;
 
-        DeviceInfo(String mac, String ip) {
+        DeviceInfo(String mac, String ip, String hostName, int switches) {
             this.mac = mac;
             this.ip = ip;
+            this.hostName = hostName;
+            this.switches = switches;
         }
 
         @NonNull
         @Override
         public String toString() {
-            return mac + " (" + ip + ")";
+            return mac + " (" + ip + ") " + hostName + " " + switches + " sw";
         }
     }
 
@@ -73,6 +80,15 @@ public class NetworkAwareDiscovery {
         stopDiscovery();
     }
 
+    public int extractNumber(String input) {
+        if (input == null || !input.contains(":")) return -1;
+        try {
+            return Integer.parseInt(input.split(":")[1]);
+        } catch (NumberFormatException e) {
+            return -1;
+        }
+    }
+
     private void startDiscovery() {
         if (running) return;
 
@@ -103,13 +119,20 @@ public class NetworkAwareDiscovery {
                         String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
                         if (received.startsWith("PICO_FOUND|")) {
                             String[] parts = received.split("\\|");
+
+                            Log.i(TAG, Arrays.toString(parts));
+
                             if (parts.length >= 3) {
                                 String mac = parts[1];
                                 String ip = parts[2];
+                                String hostName = parts[3];
+                                int switches = extractNumber(parts[4]);
 
                                 DeviceInfo device = new DeviceInfo(
                                         mac, // MAC
-                                        ip // IP
+                                        ip, // IP
+                                        hostName,
+                                        switches
                                 );
 
                                 listener.onDeviceDiscovered(device);
@@ -121,7 +144,7 @@ public class NetworkAwareDiscovery {
                 }
 
             } catch (IOException e) {
-                Log.e("NetworkAwareDiscovery", "Discovery error: " + e.getMessage());
+                Log.e(TAG, "Discovery error: " + e.getMessage());
             } finally {
                 if (socket != null) {
                     socket.close();

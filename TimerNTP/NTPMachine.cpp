@@ -7,7 +7,7 @@ void NTPMachine::start(MyHardware *h, MyWebServer *w) {
   (hardware = h)->start(this);
   web = w;
 
-  WiFi.setHostname(getFriendlyHostname(getMyMAC()));
+  WiFi.setHostname(getMyHostname());
 }
 
 int NTPMachine::getCurrentState(void) {
@@ -39,6 +39,16 @@ const char *NTPMachine::getMyIP(void) {
 const char *NTPMachine::getMyMAC(void) {
   snprintf(mac_str, sizeof(mac_str), "%s", WiFi.macAddress().c_str());
   return (const char *)mac_str;
+}
+
+const char *NTPMachine::getMyHostname(void) {
+  snprintf(hostname_str, sizeof(hostname_str), "%s", getFriendlyHostname(getMyMAC()));
+  return (const char *)hostname_str;
+}
+
+const char*NTPMachine::getAmountOfSwitches(void) {
+  snprintf(switches_str, sizeof(switches_str), "SW:%d", getSwitchesNumber(getMyMAC()));
+  return (const char *)switches_str;
 }
 
 void NTPMachine::stateMachine(void) {

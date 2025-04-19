@@ -44,6 +44,8 @@ public:
   int getWifiStrength(void);
   const char *getMyIP(void);
   const char *getMyMAC(void);
+  const char *getMyHostname(void);
+  const char *getAmountOfSwitches(void);
 
 private:
   MyWebServer *web;
@@ -53,6 +55,8 @@ private:
   char buffer[NTP_BUFFER];
   char ip_str[sizeof("255.255.255.255") + 1];
   char mac_str[sizeof("FF:FF:FF:FF:FF:FF") + 1];
+  char hostname_str[32];
+  char switches_str[8];
 };
 
 
