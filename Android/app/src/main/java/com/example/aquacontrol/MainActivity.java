@@ -43,6 +43,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onTimeSetButton(NetworkAwareDiscovery.DeviceInfo device) {
                 Log.d(TAG, "set time for:" + device.mac);
+
+                TimeRangeDialog.show(MainActivity.this, (startH, startM, endH, endM) -> {
+                    String range = String.format("%02d:%02d - %02d:%02d", startH, startM, endH, endM);
+                    Log.d(TAG, "time set result: " + range);
+                });
+
             }
         });
 

@@ -79,6 +79,18 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
             holder.switchSecondary.setVisibility(View.GONE);
         }
 
+        HttpRequestHelper.get("http://" + device.ip, new HttpRequestHelper.Callback() {
+            @Override
+            public void onResponse(String response) {
+                Log.d(TAG, response);
+            }
+
+            @Override
+            public void onError(Exception e) {
+                Log.e(TAG, "Error", e);
+            }
+        });
+
         holder.time.setOnClickListener((buttonView) -> {
             toggleListener.onTimeSetButton(device);
         });
