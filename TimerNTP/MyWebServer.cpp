@@ -1,6 +1,7 @@
 
 #include "MyWebServer.h"
 
+void parse_example();
 
 MyWebServer::MyWebServer() : server(80), currentClient() { }
 
@@ -8,6 +9,8 @@ void MyWebServer::start(NTPMachine *n, MyHardware *h) {
   server.begin();
   ntp = n;
   hardware = h;
+
+  parse_example();
 }
 
 bool MyWebServer::findParameter(const char *toFind, const char *query, char *parameterValue) {
@@ -89,6 +92,15 @@ void MyWebServer::handleHTTPClient() {
         char* path = strtok(NULL, " ");
 
         if (method && path) {
+
+          cJSON* root = cJSON_CreateObject();
+          cJSON_AddNumberToObject(root, "dateHourStart", strtoul(dateHourStart, NULL, 10));
+          cJSON_AddNumberToObject(root, "dateHourEnd", strtoul(dateHourEnd, NULL, 10));
+          cJSON_AddBoolToObject(root, "isOn", (strcasecmp(isOn, "true") == 0));
+          cJSON_AddStringToObject(root, "localTime", strlen(ntp->getTimeFormatted()) ? ntp->getTimeFormatted() : "not available yet.");
+
+          char* json = cJSON_PrintUnformatted(root); 
+
           if(CHECK_METHOD("GET")) {
             char* query = strchr(path, '?');
             if (query) {
@@ -100,11 +112,7 @@ void MyWebServer::handleHTTPClient() {
               "HTTP/1.1 200 OK\r\n"
               "Content-Type: text/plain\r\n"
               "Connection: close\r\n\r\n"
-              "dateHourStart:%s\r\n"
-              "dateHourEnd:%s\r\n"
-              "isOn:%s\r\n"
-              "localTime:%s\r\n",
-              dateHourStart, dateHourEnd, isOn, strlen(ntp->getTimeFormatted()) ? ntp->getTimeFormatted() : "not available yet.");
+              "%s", json);
 
           } else if (CHECK_METHOD("POST")) {
             char* body = requestBuffer + strlen("POST") + 1 + strlen("/?");
@@ -118,11 +126,7 @@ void MyWebServer::handleHTTPClient() {
               "HTTP/1.1 %s\r\n"
               "Content-Type: text/plain\r\n"
               "Connection: close\r\n\r\n"
-              "dateHourStart:%s\r\n"
-              "dateHourEnd:%s\r\n"
-              "isOn:%s\r\n"
-              "localTime:%s\r\n", (ok) ? "200 OK" : "400 Bad request", 
-              dateHourStart, dateHourEnd, isOn, strlen(ntp->getTimeFormatted()) ? ntp->getTimeFormatted() : "not available yet.");
+              "%s", ok ? "200 OK" : "400 Bad Request", json);
 
           } else {
             snprintf(responseBuffer, HTTP_BUFFER,
@@ -131,6 +135,10 @@ void MyWebServer::handleHTTPClient() {
               "Connection: close\r\n\r\n"
               "Method not allowed");
           }
+
+          cJSON_Delete(root);
+          free(json);
+
         } else {
           snprintf(responseBuffer, HTTP_BUFFER,
             "HTTP/1.1 400 Bad Request\r\n"
@@ -149,4 +157,23 @@ void MyWebServer::handleHTTPClient() {
       currentClient.stop();
     }
   }
+}
+
+const char* json = "{\"temp\":22.5,\"status\":\"ok\"}";
+
+void parse_example() {
+    cJSON* root = cJSON_Parse(json);
+    if (!root) return;
+
+    cJSON* temp = cJSON_GetObjectItem(root, "temp");
+    cJSON* status = cJSON_GetObjectItem(root, "status");
+
+    if (cJSON_IsNumber(temp)) {
+        deb("Temp: %f\n", temp->valuedouble);
+    }
+    if (cJSON_IsString(status)) {
+        deb("Status: %s\n", status->valuestring);
+    }
+
+    cJSON_Delete(root);
 }

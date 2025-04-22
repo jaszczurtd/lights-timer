@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include "NTPMachine.h"
+#include "cJSON.h"
 
 #define HTTP_BUFFER 2048
 #define HTTP_TIMEOUT 10000
