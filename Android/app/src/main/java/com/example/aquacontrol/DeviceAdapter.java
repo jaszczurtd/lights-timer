@@ -18,6 +18,8 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Objects;
 
 public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceViewHolder> {
@@ -25,10 +27,8 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
     private final ArrayList<NetworkAwareDiscovery.DeviceInfo> devices = new ArrayList<>();
 
-    public boolean isOn1, isOn2, isOn3, isOn4;
-
     public interface OnDeviceToggleListener {
-        void onToggle(NetworkAwareDiscovery.DeviceInfo device, boolean isOn);
+        void onToggle(NetworkAwareDiscovery.DeviceInfo device, int switchIndex, boolean isOn);
         void onTimeSetButton(NetworkAwareDiscovery.DeviceInfo device);
     }
 
@@ -71,38 +71,16 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
             if (d.switches > index) {
                 containers[index].setVisibility(View.VISIBLE);
 
-                boolean isChecked = false;
-                switch (index) {
-                    case 0: isChecked = isOn1; break;
-                    case 1: isChecked = isOn2; break;
-                    case 2: isChecked = isOn3; break;
-                    case 3: isChecked = isOn4; break;
-                }
+                boolean isChecked = h.isOnFlags[index];
 
-                switches[index].setChecked(isChecked);
-                switches[index].setText(isChecked ? "ON" : "OFF");
+                setSwitch(switches[index], isChecked);
 
                 switches[index].setOnCheckedChangeListener((btn, checked) -> {
                     btn.setText(checked ? "ON" : "OFF");
 
-                    boolean changed = false;
-                    switch (index) {
-                        case 0:
-                            if (checked != isOn1) { isOn1 = checked; changed = true; }
-                            break;
-                        case 1:
-                            if (checked != isOn2) { isOn2 = checked; changed = true; }
-                            break;
-                        case 2:
-                            if (checked != isOn3) { isOn3 = checked; changed = true; }
-                            break;
-                        case 3:
-                            if (checked != isOn4) { isOn4 = checked; changed = true; }
-                            break;
-                    }
-
-                    if (changed) {
-                        toggleListener.onToggle(d, checked);
+                    if(checked != h.isOnFlags[index]) {
+                        h.isOnFlags[index] = checked;
+                        toggleListener.onToggle(d, index, checked);
                     }
                 });
 
@@ -112,28 +90,42 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         }
     }
 
+    static void setSwitch(SwitchCompat sw, boolean state) {
+        sw.setText(state ? "ON" : "OFF");
+        sw.setChecked(state);
+    }
+
+    private static final Map<NetworkAwareDiscovery.DeviceInfo, DeviceViewHolder> activeHolders = new HashMap<>();
+
+    public static DeviceViewHolder getDeviceViewBy(NetworkAwareDiscovery.DeviceInfo device) {
+        return activeHolders.get(device);
+    }
+
+    @Override
+    public void onViewRecycled(@NonNull DeviceViewHolder holder) {
+        super.onViewRecycled(holder);
+        activeHolders.values().remove(holder);
+    }
+
     @Override
     public void onBindViewHolder(@NonNull DeviceViewHolder holder, int position) {
         NetworkAwareDiscovery.DeviceInfo device = devices.get(position);
+        activeHolders.put(device, holder);
+
         holder.label.setText(formatLabel(device.hostName));
-        holder.isOn1.setChecked(false);
-        holder.isOn2.setChecked(false);
-        holder.isOn3.setChecked(false);
-        holder.isOn4.setChecked(false);
 
         Log.i(TAG, "switches:" + device.switches);
 
         configureSwitches(holder, device);
 
-        String initialQueryURL = "http://" + device.ip + "?";
-        String query = HttpRequestHelper.PARAM_DATE_HOUR_START + "&" +
-                        HttpRequestHelper.PARAM_DATE_HOUR_END + "&" +
-                        HttpRequestHelper.PARAM_IS_ON + "1";
-        if(device.switches > 1) {
-            query += HttpRequestHelper.PARAM_IS_ON + "&2";
+        StringBuilder query = new StringBuilder();
+        query.append("dateHourStart&dateHourEnd");
+
+        for (int i = 1; i <= device.switches; i++) {
+            query.append("&isOn").append(i);
         }
 
-        String fullUrl = initialQueryURL + query;
+        String fullUrl = "http://" + device.ip + "/?" + query;
         Log.i(TAG, "full url:" + fullUrl);
 
         HttpRequestHelper.get(fullUrl, new HttpRequestHelper.Callback() {
@@ -147,39 +139,27 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
                     JSONObject obj = new JSONObject(response);
                     final long start = Long.parseLong(obj.getString(HttpRequestHelper.PARAM_DATE_HOUR_START));
                     final long end = Long.parseLong(obj.getString(HttpRequestHelper.PARAM_DATE_HOUR_END));
-                    isOn1 = obj.getBoolean(HttpRequestHelper.PARAM_IS_ON + "1");
-                    if (device.switches > 1) {
-                        isOn2 = obj.getBoolean(HttpRequestHelper.PARAM_IS_ON + "2");
-                    } else {
-                        isOn2 = false;
-                    }
-                    if (device.switches > 2) {
-                        isOn3 = obj.getBoolean(HttpRequestHelper.PARAM_IS_ON + "3");
-                    } else {
-                        isOn3 = false;
-                    }
-                    if (device.switches > 4) {
-                        isOn4 = obj.getBoolean(HttpRequestHelper.PARAM_IS_ON + "4");
-                    } else {
-                        isOn4 = false;
+
+                    SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
+                    String paramPrefix = HttpRequestHelper.PARAM_IS_ON;
+
+                    StringBuilder b = new StringBuilder();
+                    for (int i = 0; i < device.switches; i++) {
+                        holder.isOnFlags[i] = obj.optBoolean(paramPrefix + (i + 1), false);
+                        b.append("isOn").append(i).append(":").append(holder.isOnFlags[i]).append(" ");
                     }
 
                     mainHandler.post(() -> {
-                        holder.isOn1.setText(isOn1 ? "ON" : "OFF");
-                        holder.isOn1.setChecked(isOn1);
+                        holder.startTimeText.setText(TimeRangeDialog.formatTime(start));
+                        holder.endTimeText.setText(TimeRangeDialog.formatTime(end));
 
-                        if (device.switches > 1) {
-                            holder.isOn2.setText(isOn2 ? "ON" : "OFF");
-                            holder.isOn2.setChecked(isOn2);
+                        for (int i = 0; i < device.switches; i++) {
+                            setSwitch(switches[i], holder.isOnFlags[i]);
                         }
                     });
 
                     Log.i(TAG, "parsed values: start:" + start +
-                            " end:" + end +
-                            " isOn1:" + isOn1 +
-                            " isOn2:" + isOn2 +
-                            " isOn3:" + isOn3 +
-                            " isOn4:" + isOn4);
+                            " end:" + end + " " + b);
 
                 } catch (JSONException e) {
                     Log.e(TAG, Objects.requireNonNull(e.getMessage()));
@@ -202,9 +182,12 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         return devices.size();
     }
 
-    static class DeviceViewHolder extends RecyclerView.ViewHolder {
-        TextView label;
+    public static class DeviceViewHolder extends RecyclerView.ViewHolder {
+        TextView label, startTimeText, endTimeText;
+
         SwitchCompat isOn1, isOn2, isOn3, isOn4;
+        public boolean[] isOnFlags = new boolean[4];
+
         LinearLayout sw1Container, sw2Container, sw3Container, sw4Container;
         ImageButton time;
 
@@ -220,7 +203,12 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
             sw2Container = itemView.findViewById(R.id.sw2Container);
             sw3Container = itemView.findViewById(R.id.sw3Container);
             sw4Container = itemView.findViewById(R.id.sw4Container);
+
+            startTimeText = itemView.findViewById(R.id.startTimeText);
+            endTimeText = itemView.findViewById(R.id.endTimeText);
+
             time = itemView.findViewById(R.id.timeButton);
         }
+
     }
 }

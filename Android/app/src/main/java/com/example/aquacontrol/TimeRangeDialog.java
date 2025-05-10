@@ -8,9 +8,43 @@ import android.widget.TimePicker;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import java.util.Calendar;
+import java.util.Locale;
+
 public class TimeRangeDialog extends AppCompatActivity {
+    public static int getHour(long totalMinutes) {
+        return (int)totalMinutes / 60;
+    }
+
+    public static int getMinute(long totalMinutes) {
+        return (int)totalMinutes % 60;
+    }
+
+    public static String formatTime(long time) {
+        return String.format(Locale.ENGLISH, "%02d:%02d", getHour(time), getMinute(time));
+    }
+
+    public static long getTimeNowInMinutes() {
+        Calendar now = Calendar.getInstance();
+        int hour = now.get(Calendar.HOUR_OF_DAY);
+        int minute = now.get(Calendar.MINUTE);
+        return hour * 60 + minute;
+    }
+
+    public static boolean isTimeInRange(long now, long start, long end) {
+        if (start <= end) {
+            return now >= start && now < end;
+        } else {
+            return now >= start || now < end;
+        }
+    }
+
     public interface OnTimeRangeSelected {
-        void onRangeSelected(int startHour, int startMinute, int endHour, int endMinute);
+        void onRangeSelected(int startMinutes, int endMinutes);
+    }
+
+    public static int toMinutes(int hour, int minute) {
+        return hour * 60 + minute;
     }
 
     public static void show(Context context, OnTimeRangeSelected callback) {
@@ -46,7 +80,7 @@ public class TimeRangeDialog extends AppCompatActivity {
                             .show();
                 } else {
                     dialog.dismiss();
-                    callback.onRangeSelected(startHour, startMinute, endHour, endMinute);
+                    callback.onRangeSelected(toMinutes(startHour, startMinute), toMinutes(endHour, endMinute));
                 }
             });
         });

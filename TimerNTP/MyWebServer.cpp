@@ -80,7 +80,7 @@ long MyWebServer::processToken(const char* token) {
   }
   else if (strcmp(token, "isOn1") == 0) {
     deb("giving relay 1 state"); 
-    value = true;//(strcasecmp(isOn1, "true") == 0);
+    value = (strcasecmp(isOn1, "true") == 0);
   }
   else if (strcmp(token, "isOn2") == 0) {
     deb("giving relay 2 state"); 
