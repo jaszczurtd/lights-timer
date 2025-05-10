@@ -5,6 +5,8 @@ import android.net.ConnectivityManager;
 import android.net.Network;
 import android.net.NetworkCapabilities;
 import android.net.NetworkRequest;
+import android.os.Handler;
+import android.os.HandlerThread;
 import android.util.Log;
 
 import androidx.annotation.NonNull;
@@ -15,6 +17,7 @@ import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
 import java.util.Arrays;
+import java.util.Objects;
 
 
 public class NetworkAwareDiscovery {
@@ -92,67 +95,61 @@ public class NetworkAwareDiscovery {
     private void startDiscovery() {
         if (running) return;
 
+        HandlerThread handlerThread = new HandlerThread("DiscoveryThread");
+        handlerThread.start();
+
+        Handler handler = new Handler(handlerThread.getLooper());
+
         running = true;
-        new Thread(() -> {
-            try {
-                socket = new DatagramSocket();
-                socket.setBroadcast(true);
-                socket.setSoTimeout(2000);
 
-                // Wyślij zapytanie broadcastowe
-                String message = "PICO_DISCOVER";
-                byte[] sendData = message.getBytes();
-                DatagramPacket sendPacket = new DatagramPacket(
-                        sendData,
-                        sendData.length,
-                        InetAddress.getByName("255.255.255.255"),
-                        12345
-                );
-                socket.send(sendPacket);
+        Runnable task = new Runnable() {
+            @Override
+            public void run() {
+                if (!running) return;
 
-                byte[] recvBuf = new byte[256];
-                while (running) {
-                    try {
-                        DatagramPacket receivePacket = new DatagramPacket(recvBuf, recvBuf.length);
-                        socket.receive(receivePacket);
+                try (DatagramSocket socket = new DatagramSocket()) {
+                    socket.setBroadcast(true);
+                    socket.setSoTimeout(2000);
 
-                        String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
-                        if (received.startsWith("PICO_FOUND|")) {
-                            String[] parts = received.split("\\|");
+                    byte[] sendData = "PICO_DISCOVER".getBytes();
+                    DatagramPacket sendPacket = new DatagramPacket(
+                            sendData, sendData.length,
+                            InetAddress.getByName("255.255.255.255"), 12345);
+                    socket.send(sendPacket);
 
-                            Log.i(TAG, Arrays.toString(parts));
+                    byte[] recvBuf = new byte[256];
+                    while (true) {
+                        try {
+                            DatagramPacket receivePacket = new DatagramPacket(recvBuf, recvBuf.length);
+                            socket.receive(receivePacket);
 
-                            if (parts.length >= 3) {
-                                String mac = parts[1];
-                                String ip = parts[2];
-                                String hostName = parts[3];
-                                int switches = extractNumber(parts[4]);
+                            String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
 
-                                DeviceInfo device = new DeviceInfo(
-                                        mac, // MAC
-                                        ip, // IP
-                                        hostName,
-                                        switches
-                                );
-
-                                listener.onDeviceDiscovered(device);
+                            if (received.startsWith("PICO_FOUND|")) {
+                                String[] parts = received.split("\\|");
+                                if (parts.length >= 5) {
+                                    String mac = parts[1];
+                                    String ip = parts[2];
+                                    String hostName = parts[3];
+                                    int switches = extractNumber(parts[4]);
+                                    DeviceInfo device = new DeviceInfo(mac, ip, hostName, switches);
+                                    listener.onDeviceDiscovered(device);
+                                }
                             }
+                        } catch (SocketTimeoutException e) {
+                            Log.i(TAG, Objects.requireNonNull(e.getMessage()));
+                            break;
                         }
-                    } catch (SocketTimeoutException ignored) {
-                        break;
                     }
+                } catch (Exception e) {
+                    Log.e(TAG, "Discovery error: " + e.getMessage());
                 }
 
-            } catch (IOException e) {
-                Log.e(TAG, "Discovery error: " + e.getMessage());
-            } finally {
-                if (socket != null) {
-                    socket.close();
-                    socket = null;
-                }
-                running = false;
+                handler.postDelayed(this, 1000);
             }
-        }).start();
+        };
+
+        handler.post(task);
     }
 
     private void stopDiscovery() {

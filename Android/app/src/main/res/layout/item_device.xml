@@ -18,17 +18,17 @@
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
-    <!-- Zawartość główna (nazwa + przełączniki) -->
+    <!-- Zawartość główna -->
     <LinearLayout
         android:id="@+id/contentContainer"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="vertical"
+        android:layout_marginEnd="8dp"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toStartOf="@id/timeButton"
         app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintBottom_toBottomOf="parent"
-        android:layout_marginEnd="8dp">
+        app:layout_constraintBottom_toBottomOf="parent">
 
         <TextView
             android:id="@+id/deviceName"
@@ -39,59 +39,180 @@
             android:textSize="16sp"
             android:paddingBottom="4dp" />
 
-        <!-- Przełączniki -->
+        <!-- Nowe pola czasu -->
         <LinearLayout
-            android:layout_width="match_parent"
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:orientation="horizontal"
-            android:weightSum="2">
+            android:gravity="center_horizontal"
+            android:layout_gravity="start"
+            android:paddingBottom="8dp"
+            android:layout_marginTop="4dp">
 
-            <!-- Switch 1 -->
+            <!-- Pole startu -->
             <LinearLayout
-                android:layout_width="0dp"
+                android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
+                android:orientation="horizontal"
+                android:gravity="start"
+                android:layout_marginEnd="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Start:"
+                    android:textSize="14sp"
+                    android:paddingEnd="4dp" />
+
+                <TextView
+                    android:id="@+id/startTimeText"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="--:--"
+                    android:textSize="14sp" />
+            </LinearLayout>
+
+            <!-- Pole końca -->
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:gravity="center_vertical">
 
                 <TextView
-                    android:id="@+id/labelMain"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Lampa 1"
+                    android:text="Koniec:"
                     android:textSize="14sp"
-                    android:paddingEnd="8dp" />
-
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/switchMain"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="OFF" />
-            </LinearLayout>
-
-            <!-- Switch 2 -->
-            <LinearLayout
-                android:id="@+id/secondaryContainer"
-                android:layout_width="0dp"
-                android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:orientation="horizontal"
-                android:gravity="center_vertical"
-                android:visibility="gone">
+                    android:paddingEnd="4dp" />
 
                 <TextView
-                    android:id="@+id/labelSecondary"
+                    android:id="@+id/endTimeText"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="Lampa 2"
-                    android:textSize="14sp"
-                    android:paddingEnd="8dp" />
+                    android:text="--:--"
+                    android:textSize="14sp" />
+            </LinearLayout>
+        </LinearLayout>
 
-                <androidx.appcompat.widget.SwitchCompat
-                    android:id="@+id/switchSecondary"
-                    android:layout_width="wrap_content"
+        <!-- Przełączniki -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Pierwszy rząd: Lampa 1 + 2 -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2">
+
+                <!-- Switch 1 -->
+                <LinearLayout
+                    android:id="@+id/sw1Container"
+                    android:layout_width="0dp"
                     android:layout_height="wrap_content"
-                    android:text="OFF" />
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/labelMain"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Lampa 1"
+                        android:textSize="14sp"
+                        android:paddingEnd="8dp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/isOn1"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="OFF" />
+                </LinearLayout>
+
+                <!-- Switch 2 -->
+                <LinearLayout
+                    android:id="@+id/sw2Container"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:visibility="gone">
+
+                    <TextView
+                        android:id="@+id/labelSecondary"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Lampa 2"
+                        android:textSize="14sp"
+                        android:paddingEnd="8dp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/isOn2"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="OFF" />
+                </LinearLayout>
+            </LinearLayout>
+
+            <!-- Drugi rząd: Lampa 3 + 4 -->
+            <LinearLayout
+                android:id="@+id/sw3Container"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2"
+                android:paddingTop="8dp">
+
+                <!-- Switch 3 -->
+                <LinearLayout
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/labelTertiary"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Lampa 3"
+                        android:textSize="14sp"
+                        android:paddingEnd="8dp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/isOn3"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="OFF" />
+                </LinearLayout>
+
+                <!-- Switch 4 -->
+                <LinearLayout
+                    android:id="@+id/sw4Container"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical">
+
+                    <TextView
+                        android:id="@+id/labelQuaternary"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Lampa 4"
+                        android:textSize="14sp"
+                        android:paddingEnd="8dp" />
+
+                    <androidx.appcompat.widget.SwitchCompat
+                        android:id="@+id/isOn4"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="OFF" />
+                </LinearLayout>
             </LinearLayout>
         </LinearLayout>
     </LinearLayout>

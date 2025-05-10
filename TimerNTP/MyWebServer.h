@@ -27,8 +27,6 @@ public:
 
   MyWebServer();
   void start(NTPMachine *ntp, MyHardware *h);
-  bool findParameter(const char *toFind, const char *query, char *parameterValue);
-  bool parseParameters(const char* query);
   void handleHTTPClient();
 
 private:
@@ -41,7 +39,15 @@ private:
   char requestBuffer[HTTP_BUFFER];
   char dateHourStart[PARAM_LENGTH] = "";
   char dateHourEnd[PARAM_LENGTH] = "";
-  char isOn[PARAM_LENGTH] = "";
+  char isOn1[PARAM_LENGTH] = "";
+  char isOn2[PARAM_LENGTH] = "";
+  char isOn3[PARAM_LENGTH] = "";
+  char isOn4[PARAM_LENGTH] = "";
+
+  long processToken(const char* token);
+  bool findParameter(const char *toFind, const char *query, char *parameterValue);
+  char *parseGETParameters(const char* query);
+  bool parsePOSTParameters(const char* query);
 
 };
 

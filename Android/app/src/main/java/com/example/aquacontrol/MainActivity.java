@@ -31,15 +31,9 @@ public class MainActivity extends AppCompatActivity {
 
         adapter = new DeviceAdapter(new DeviceAdapter.OnDeviceToggleListener() {
             @Override
-            public void onToggleMain(NetworkAwareDiscovery.DeviceInfo device, boolean isOn) {
-                Log.d(TAG, "switch 1:" + device.mac + ": " + (isOn ? "ON" : "OFF"));
+            public void onToggle(NetworkAwareDiscovery.DeviceInfo device, boolean isOn) {
+                Log.d(TAG, "device:" + device + ": " + (isOn ? "ON" : "OFF"));
             }
-
-            @Override
-            public void onToggleSecondary(NetworkAwareDiscovery.DeviceInfo device, boolean isOn) {
-                Log.d(TAG, "switch 2:" + device.mac + ": " + (isOn ? "ON" : "OFF"));
-            }
-
             @Override
             public void onTimeSetButton(NetworkAwareDiscovery.DeviceInfo device) {
                 Log.d(TAG, "set time for:" + device.mac);

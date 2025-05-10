@@ -13,6 +13,10 @@ import java.util.Map;
 
 public class HttpRequestHelper {
 
+    public static String PARAM_DATE_HOUR_START = "dateHourStart";
+    public static String PARAM_DATE_HOUR_END = "dateHourEnd";
+    public static String PARAM_IS_ON = "isOn";
+
     public interface Callback {
         void onResponse(String response);
         void onError(Exception e);

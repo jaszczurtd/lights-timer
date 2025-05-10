@@ -1,6 +1,7 @@
 #ifndef HARDWARE_C
 #define HARDWARE_C
 
+#include <EEPROM.h>
 #include "NTPMachine.h"
 
 #pragma once

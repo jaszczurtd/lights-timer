@@ -42,7 +42,7 @@ bool MyWebServer::findParameter(const char *toFind, const char *query, char *par
   return false;    
 }
 
-bool MyWebServer::parseParameters(const char* query) {
+bool MyWebServer::parsePOSTParameters(const char* query) {
 
   int parametersFound = 0;
 
@@ -52,11 +52,77 @@ bool MyWebServer::parseParameters(const char* query) {
   if(findParameter("dateHourEnd=", query, dateHourEnd)) {
     parametersFound++;
   }
-  if(findParameter("isOn=", query, isOn)) {
+  if(findParameter("isOn1=", query, isOn1)) {
+    parametersFound++;
+  }
+  if(findParameter("isOn2=", query, isOn2)) {
+    parametersFound++;
+  }
+  if(findParameter("isOn3=", query, isOn3)) {
+    parametersFound++;
+  }
+  if(findParameter("isOn4=", query, isOn4)) {
     parametersFound++;
   }
   
-  return (parametersFound == 3);
+  return (parametersFound > 0);
+}
+
+long MyWebServer::processToken(const char* token) {
+  long value = -1;
+  if (strcmp(token, "dateHourStart") == 0) {
+    deb("giving start hour"); 
+    value = strtoul(dateHourStart, NULL, 10);
+  }
+  else if (strcmp(token, "dateHourEnd") == 0) {
+    deb("giving end hour"); 
+    value = strtoul(dateHourEnd, NULL, 10);
+  }
+  else if (strcmp(token, "isOn1") == 0) {
+    deb("giving relay 1 state"); 
+    value = true;//(strcasecmp(isOn1, "true") == 0);
+  }
+  else if (strcmp(token, "isOn2") == 0) {
+    deb("giving relay 2 state"); 
+    value = (strcasecmp(isOn2, "true") == 0);
+  }
+  else if (strcmp(token, "isOn3") == 0) {
+    deb("giving relay 3 state"); 
+    value = (strcasecmp(isOn3, "true") == 0);
+  }
+  else if (strcmp(token, "isOn4") == 0) {
+    deb("giving relay 4 state"); 
+    value = (strcasecmp(isOn1, "true") == 0);
+  }
+  else {
+    deb("unknown token: %s\n", token);
+  }
+
+  return value;
+}
+
+char *MyWebServer::parseGETParameters(const char *query) {
+  deb("query: %s\n", query);
+
+  const char* delim = "&";
+  char* token = strtok((char*)query, delim);
+  long value;
+
+  cJSON* root = cJSON_CreateObject();
+    
+  while (token != NULL) {
+    value = processToken(token);
+    if(value != -1) {
+      if(startsWith(token, "isOn")) {
+        cJSON_AddBoolToObject(root, token, value != 0);
+      } else {
+        cJSON_AddNumberToObject(root, token, value);
+      }
+    }
+    token = strtok(NULL, delim);
+  }
+
+  return cJSON_PrintUnformatted(root); 
 }
 
 void MyWebServer::handleHTTPClient() {
@@ -96,7 +162,10 @@ void MyWebServer::handleHTTPClient() {
           cJSON* root = cJSON_CreateObject();
           cJSON_AddNumberToObject(root, "dateHourStart", strtoul(dateHourStart, NULL, 10));
           cJSON_AddNumberToObject(root, "dateHourEnd", strtoul(dateHourEnd, NULL, 10));
-          cJSON_AddBoolToObject(root, "isOn", (strcasecmp(isOn, "true") == 0));
+          cJSON_AddBoolToObject(root, "isOn1", (strcasecmp(isOn1, "true") == 0));
+          cJSON_AddBoolToObject(root, "isOn2", (strcasecmp(isOn2, "true") == 0));
+          cJSON_AddBoolToObject(root, "isOn3", (strcasecmp(isOn3, "true") == 0));
+          cJSON_AddBoolToObject(root, "isOn4", (strcasecmp(isOn4, "true") == 0));
           cJSON_AddStringToObject(root, "localTime", strlen(ntp->getTimeFormatted()) ? ntp->getTimeFormatted() : "not available yet.");
 
           char* json = cJSON_PrintUnformatted(root); 
@@ -105,7 +174,9 @@ void MyWebServer::handleHTTPClient() {
             char* query = strchr(path, '?');
             if (query) {
               *query = '\0';
-              parseParameters(query + 1);
+              free(json);
+              json = parseGETParameters(query + 1);
+              deb("response json: %s", json);
             }
 
             snprintf(responseBuffer, HTTP_BUFFER,
@@ -119,7 +190,7 @@ void MyWebServer::handleHTTPClient() {
             bool ok = false;
             if (body) {
               deb("body: %s", body);
-              ok = parseParameters(body);
+              ok = parsePOSTParameters(body);
             }
 
             snprintf(responseBuffer, HTTP_BUFFER,
