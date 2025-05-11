@@ -1,3 +1,11 @@
 <resources>
     <string name="app_name">AquaControl</string>
+    <string name="on">"ON"</string>
+    <string name="off">"OFF"</string>
+    <string name="ok">"OK"</string>
+    <string name="cancel">"Anuluj"</string>
+    <string name="error">"Błąd"</string>
+    <string name="time_range">"Zakres czasu"</string>
+    <string name="time_range_error">"Czas zakończenia musi być późniejszy niż czas rozpoczęcia!"</string>
+    <string name="no_devices_detected">"Brak wykrytych urządzeń."</string>
 </resources>

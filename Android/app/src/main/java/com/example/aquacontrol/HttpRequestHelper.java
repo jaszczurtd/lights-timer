@@ -17,8 +17,10 @@ public class HttpRequestHelper {
     public static String PARAM_DATE_HOUR_END = "dateHourEnd";
     public static String PARAM_IS_ON = "isOn";
 
+    public static String METHOD = "http://";
+
     public interface Callback {
-        void onResponse(String response);
+        void onResponse(int status, String response);
         void onError(Exception e);
     }
 
@@ -29,8 +31,9 @@ public class HttpRequestHelper {
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
 
+                int status = conn.getResponseCode();
                 String response = readResponse(conn);
-                callback.onResponse(response);
+                callback.onResponse(status, response);
             } catch (Exception e) {
                 callback.onError(e);
             }
@@ -52,8 +55,9 @@ public class HttpRequestHelper {
                     os.write(postData.getBytes(StandardCharsets.UTF_8));
                 }
 
+                int status = conn.getResponseCode();
                 String response = readResponse(conn);
-                callback.onResponse(response);
+                callback.onResponse(status, response);
             } catch (Exception e) {
                 callback.onError(e);
             }

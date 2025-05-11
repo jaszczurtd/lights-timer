@@ -56,10 +56,10 @@ public class TimeRangeDialog extends AppCompatActivity {
         timePickerEnd.setIs24HourView(true);
 
         AlertDialog dialog = new AlertDialog.Builder(context)
-                .setTitle("Zakres czasu")
+                .setTitle(context.getString(R.string.time_range))
                 .setView(view)
-                .setPositiveButton("OK", null) // kliknięcie obsługujemy ręcznie niżej
-                .setNegativeButton("Anuluj", null)
+                .setPositiveButton(context.getString(R.string.ok), null)
+                .setNegativeButton(context.getString(R.string.cancel), null)
                 .create();
 
         dialog.setOnShowListener(d -> {
@@ -74,9 +74,9 @@ public class TimeRangeDialog extends AppCompatActivity {
 
                 if (!isValid) {
                     new AlertDialog.Builder(context)
-                            .setTitle("Błąd")
-                            .setMessage("Czas zakończenia musi być późniejszy niż czas rozpoczęcia!")
-                            .setPositiveButton("OK", (dialog1, which) -> dialog1.dismiss())
+                            .setTitle(context.getString(R.string.error))
+                            .setMessage(context.getString(R.string.time_range_error))
+                            .setPositiveButton(context.getString(R.string.ok), (dialog1, which) -> dialog1.dismiss())
                             .show();
                 } else {
                     dialog.dismiss();

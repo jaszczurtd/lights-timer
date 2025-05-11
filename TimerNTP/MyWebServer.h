@@ -36,7 +36,8 @@ private:
   WiFiClient currentClient;   
   unsigned int bufferIndex = 0;
   unsigned long lastActivityTime = 0;
-  char requestBuffer[HTTP_BUFFER];
+  char requestBuffer[HTTP_BUFFER] = "";
+  char returnBuffer[HTTP_BUFFER] = "";
   char dateHourStart[PARAM_LENGTH] = "";
   char dateHourEnd[PARAM_LENGTH] = "";
   char isOn1[PARAM_LENGTH] = "";
@@ -44,6 +45,7 @@ private:
   char isOn3[PARAM_LENGTH] = "";
   char isOn4[PARAM_LENGTH] = "";
 
+  char* extractPostBody(char* http_request);
   long processToken(const char* token);
   bool findParameter(const char *toFind, const char *query, char *parameterValue);
   char *parseGETParameters(const char* query);

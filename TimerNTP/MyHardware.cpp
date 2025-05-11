@@ -42,3 +42,12 @@ void MyHardware::updateBuildInLed(void) {
   }
 }
 
+void MyHardware::setTimeRange(long start, long end) {
+
+  extract_time(start, &startHour, &startMinute);
+  extract_time(end, &endHour, &endMinute);
+
+  deb("set start: %02d:%02d", startHour, startMinute);
+  deb("set end: %02d:%02d", endHour, endMinute);
+
+}

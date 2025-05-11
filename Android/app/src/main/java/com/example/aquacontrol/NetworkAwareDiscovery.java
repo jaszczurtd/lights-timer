@@ -107,9 +107,12 @@ public class NetworkAwareDiscovery {
             public void run() {
                 if (!running) return;
 
-                try (DatagramSocket socket = new DatagramSocket()) {
+                try {
+                    DatagramSocket socket = new DatagramSocket();
+                    Objects.requireNonNull(connectivityManager.getActiveNetwork()).bindSocket(socket);
+
                     socket.setBroadcast(true);
-                    socket.setSoTimeout(2000);
+                    socket.setSoTimeout(3000);
 
                     byte[] sendData = "PICO_DISCOVER".getBytes();
                     DatagramPacket sendPacket = new DatagramPacket(

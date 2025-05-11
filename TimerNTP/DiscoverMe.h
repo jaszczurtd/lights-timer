@@ -24,9 +24,13 @@ public:
 
 private:
   NTPMachine *ntp; 
-  char packetBuffer[255];
+  char packetBuffer[255] = {0};
   WiFiUDP udp;
   bool multicastInitialized = false;
+  bool pendingResponse = false;
+  unsigned long scheduledResponseTime = 0;
+  IPAddress remoteIp;
+  uint16_t remotePort;  
 };
 
 #endif

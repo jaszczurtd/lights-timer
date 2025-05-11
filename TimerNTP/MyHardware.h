@@ -13,9 +13,15 @@ public:
   MyHardware();
   void start(NTPMachine *m);
   void updateBuildInLed(void);
+  void setTimeRange(long start, long end);
 
 private:
   NTPMachine *ntp;
+
+  int startHour;
+  int startMinute;
+  int endHour;
+  int endMinute;
 };
 
 

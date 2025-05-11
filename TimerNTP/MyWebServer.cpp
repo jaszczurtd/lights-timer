@@ -13,23 +13,23 @@ void MyWebServer::start(NTPMachine *n, MyHardware *h) {
   parse_example();
 }
 
+char* MyWebServer::extractPostBody(char* http_request) {
+  char* body = (char*)strstr(http_request, "\r\n\r\n");
+  if (!body) body = (char*)strstr(http_request, "\n\n");
+  return body ? body + ((body[1] == '\n') ? 2 : 4) : http_request;
+}
+
 bool MyWebServer::findParameter(const char *toFind, const char *query, char *parameterValue) {
-  if(toFind == NULL || query == NULL || parameterValue == NULL) {
-    return false;
-  }    
-    
-  const char *found = strstr(query, toFind);
-  if (found) {
-    if (found != query && *(found - 1) != '&') return false;
+    if (!toFind || !query || !parameterValue) return false;
 
-    found += strlen(toFind);
-    const char *start = found;
+    const char *found = strstr(query, toFind);
+    if (!found) return false;
+    char prev = (found == query) ? '\0' : *(found - 1);
+    if (prev != '\0' && prev != '&' && prev != '\r' && prev != '\n') return false;
 
-    while (*found != '&' && *found != '\0') {
-      found++;
-    }
-
-    size_t len = found - start;
+    const char *start = found + strlen(toFind);
+    const char *end = strchr(start, '&');
+    size_t len = end ? (size_t)(end - start) : strlen(start);
     if (len >= PARAM_LENGTH) len = PARAM_LENGTH - 1;
 
     char raw[PARAM_LENGTH] = {0};
@@ -38,8 +38,6 @@ bool MyWebServer::findParameter(const char *toFind, const char *query, char *par
 
     urlDecode(raw, parameterValue);
     return true;
-  }
-  return false;    
 }
 
 bool MyWebServer::parsePOSTParameters(const char* query) {
@@ -54,7 +52,7 @@ bool MyWebServer::parsePOSTParameters(const char* query) {
   }
   if(findParameter("isOn1=", query, isOn1)) {
     parametersFound++;
-  }
+  } 
   if(findParameter("isOn2=", query, isOn2)) {
     parametersFound++;
   }
@@ -72,11 +70,11 @@ long MyWebServer::processToken(const char* token) {
   long value = -1;
   if (strcmp(token, "dateHourStart") == 0) {
     deb("giving start hour"); 
-    value = strtoul(dateHourStart, NULL, 10);
+    value = strtol(dateHourStart, NULL, 10);
   }
   else if (strcmp(token, "dateHourEnd") == 0) {
     deb("giving end hour"); 
-    value = strtoul(dateHourEnd, NULL, 10);
+    value = strtol(dateHourEnd, NULL, 10);
   }
   else if (strcmp(token, "isOn1") == 0) {
     deb("giving relay 1 state"); 
@@ -108,21 +106,30 @@ char *MyWebServer::parseGETParameters(const char *query) {
   char* token = strtok((char*)query, delim);
   long value;
 
+  memset(returnBuffer, 0, sizeof(returnBuffer));
   cJSON* root = cJSON_CreateObject();
-    
-  while (token != NULL) {
-    value = processToken(token);
-    if(value != -1) {
-      if(startsWith(token, "isOn")) {
-        cJSON_AddBoolToObject(root, token, value != 0);
-      } else {
-        cJSON_AddNumberToObject(root, token, value);
+  if(root) {
+    while (token != NULL) {
+      value = processToken(token);
+      if(value != -1) {
+        if(startsWith(token, "isOn")) {
+          cJSON_AddBoolToObject(root, token, value != 0);
+        } else {
+          cJSON_AddNumberToObject(root, token, value);
+        }
       }
+      token = strtok(NULL, delim);
     }
-    token = strtok(NULL, delim);
+
+    char *json = cJSON_PrintUnformatted(root); 
+    if(json) {
+      strncpy(returnBuffer, json, sizeof(returnBuffer) - 1);
+      free(json);
+    }
+    cJSON_Delete(root);
   }
 
-  return cJSON_PrintUnformatted(root); 
+  return returnBuffer;
 }
 
 void MyWebServer::handleHTTPClient() {
@@ -153,51 +160,69 @@ void MyWebServer::handleHTTPClient() {
         deb("Full request:");
         deb(requestBuffer);
 
-        char responseBuffer[HTTP_BUFFER]; 
+        char responseBuffer[HTTP_BUFFER] = {0}; 
         char* method = strtok(requestBuffer, " ");
         char* path = strtok(NULL, " ");
 
         if (method && path) {
 
-          cJSON* root = cJSON_CreateObject();
-          cJSON_AddNumberToObject(root, "dateHourStart", strtoul(dateHourStart, NULL, 10));
-          cJSON_AddNumberToObject(root, "dateHourEnd", strtoul(dateHourEnd, NULL, 10));
-          cJSON_AddBoolToObject(root, "isOn1", (strcasecmp(isOn1, "true") == 0));
-          cJSON_AddBoolToObject(root, "isOn2", (strcasecmp(isOn2, "true") == 0));
-          cJSON_AddBoolToObject(root, "isOn3", (strcasecmp(isOn3, "true") == 0));
-          cJSON_AddBoolToObject(root, "isOn4", (strcasecmp(isOn4, "true") == 0));
-          cJSON_AddStringToObject(root, "localTime", strlen(ntp->getTimeFormatted()) ? ntp->getTimeFormatted() : "not available yet.");
-
-          char* json = cJSON_PrintUnformatted(root); 
-
           if(CHECK_METHOD("GET")) {
             char* query = strchr(path, '?');
             if (query) {
               *query = '\0';
-              free(json);
-              json = parseGETParameters(query + 1);
+              char *json = parseGETParameters(query + 1);
               deb("response json: %s", json);
-            }
 
-            snprintf(responseBuffer, HTTP_BUFFER,
-              "HTTP/1.1 200 OK\r\n"
-              "Content-Type: text/plain\r\n"
-              "Connection: close\r\n\r\n"
-              "%s", json);
+              snprintf(responseBuffer, HTTP_BUFFER,
+                "HTTP/1.1 200 OK\r\n"
+                "Content-Type: text/plain\r\n"
+                "Connection: close\r\n\r\n"
+                "%s", json);
+            }
 
           } else if (CHECK_METHOD("POST")) {
             char* body = requestBuffer + strlen("POST") + 1 + strlen("/?");
             bool ok = false;
             if (body) {
+              body = extractPostBody(body);
               deb("body: %s", body);
               ok = parsePOSTParameters(body);
-            }
 
-            snprintf(responseBuffer, HTTP_BUFFER,
-              "HTTP/1.1 %s\r\n"
-              "Content-Type: text/plain\r\n"
-              "Connection: close\r\n\r\n"
-              "%s", ok ? "200 OK" : "400 Bad Request", json);
+              long timeStart = 0;
+              long timeEnd = 0;
+
+              memset(returnBuffer, 0, sizeof(returnBuffer));
+              cJSON* root = cJSON_CreateObject();
+              if(root) {
+                timeStart = strtol(dateHourStart, NULL, 10);
+                timeEnd = strtol(dateHourEnd, NULL, 10);
+
+                cJSON_AddNumberToObject(root, "dateHourStart", timeStart);
+                cJSON_AddNumberToObject(root, "dateHourEnd", timeEnd);
+                cJSON_AddBoolToObject(root, "isOn1", (strcasecmp(isOn1, "true") == 0));
+                cJSON_AddBoolToObject(root, "isOn2", (strcasecmp(isOn2, "true") == 0));
+                cJSON_AddBoolToObject(root, "isOn3", (strcasecmp(isOn3, "true") == 0));
+                cJSON_AddBoolToObject(root, "isOn4", (strcasecmp(isOn4, "true") == 0));
+                cJSON_AddStringToObject(root, "localTime", strlen(ntp->getTimeFormatted()) ? ntp->getTimeFormatted() : "not available yet.");
+
+                char* json = cJSON_PrintUnformatted(root);
+                if(json) {
+                  strncpy(returnBuffer, json, sizeof(returnBuffer) - 1);
+                  free(json);
+                }
+                cJSON_Delete(root);
+              }
+
+              snprintf(responseBuffer, HTTP_BUFFER,
+                "HTTP/1.1 %s\r\n"
+                "Content-Type: text/plain\r\n"
+                "Connection: close\r\n\r\n"
+                "%s", ok ? "200 OK" : "400 Bad Request", returnBuffer);
+
+              if(ok) {
+                hardware->setTimeRange(timeStart, timeEnd);
+              }
+            }
 
           } else {
             snprintf(responseBuffer, HTTP_BUFFER,
@@ -206,9 +231,6 @@ void MyWebServer::handleHTTPClient() {
               "Connection: close\r\n\r\n"
               "Method not allowed");
           }
-
-          cJSON_Delete(root);
-          free(json);
 
         } else {
           snprintf(responseBuffer, HTTP_BUFFER,

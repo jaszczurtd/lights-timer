@@ -76,7 +76,9 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
                 setSwitch(switches[index], isChecked);
 
                 switches[index].setOnCheckedChangeListener((btn, checked) -> {
-                    btn.setText(checked ? "ON" : "OFF");
+                    btn.setText(checked ?
+                            ContextProvider.getContext().getString(R.string.on) :
+                            ContextProvider.getContext().getString(R.string.off));
 
                     if(checked != h.isOnFlags[index]) {
                         h.isOnFlags[index] = checked;
@@ -91,7 +93,9 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
     }
 
     static void setSwitch(SwitchCompat sw, boolean state) {
-        sw.setText(state ? "ON" : "OFF");
+        sw.setText(state ?
+                ContextProvider.getContext().getString(R.string.on) :
+                ContextProvider.getContext().getString(R.string.off));
         sw.setChecked(state);
     }
 
@@ -125,13 +129,13 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
             query.append("&isOn").append(i);
         }
 
-        String fullUrl = "http://" + device.ip + "/?" + query;
+        String fullUrl = HttpRequestHelper.METHOD + device.ip + "/?" + query;
         Log.i(TAG, "full url:" + fullUrl);
 
         HttpRequestHelper.get(fullUrl, new HttpRequestHelper.Callback() {
             @Override
-            public void onResponse(String response) {
-                Log.d(TAG, "response json:" + response);
+            public void onResponse(int status, String response) {
+                Log.d(TAG, "status:" + status + " response json:" + response);
 
                 Handler mainHandler = new Handler(Looper.getMainLooper());
 
