@@ -195,17 +195,23 @@ void MyWebServer::handleHTTPClient() {
               deb("body: %s", body);
               ok = parsePOSTParameters(body);
 
-              long timeStart = 0;
-              long timeEnd = 0;
+              long timeStart = 0, timeEnd = 0;
+
+              if(ok) {
+                timeStart = strtol(dateHourStart, NULL, 10);
+                timeEnd = strtol(dateHourEnd, NULL, 10);
+                hardware->setTimeRange(timeStart, timeEnd);
+                hardware->checkConditionsForStartEnAction(ntp->getTimeNow());
+                char *representation[4] = {isOn1, isOn2, isOn3, isOn4};
+                for(int a = 0; a < 4; a++) {
+                  hardware->setRelayTo(a, (strcasecmp(representation[a], "true") == 0));
+                }
+                updateRelaysStatesForClient();
+              }
 
               memset(returnBuffer, 0, sizeof(returnBuffer));
               cJSON* root = cJSON_CreateObject();
               if(root) {
-                timeStart = strtol(dateHourStart, NULL, 10);
-                timeEnd = strtol(dateHourEnd, NULL, 10);
-
-                updateRelaysStatesForClient();
-
                 cJSON_AddNumberToObject(root, "dateHourStart", timeStart);
                 cJSON_AddNumberToObject(root, "dateHourEnd", timeEnd);
                 cJSON_AddBoolToObject(root, "isOn1", (strcasecmp(isOn1, "true") == 0));
@@ -228,9 +234,6 @@ void MyWebServer::handleHTTPClient() {
                 "Connection: close\r\n\r\n"
                 "%s", ok ? "200 OK" : "400 Bad Request", returnBuffer);
 
-              if(ok) {
-                hardware->setTimeRange(timeStart, timeEnd);
-              }
             }
 
           } else {

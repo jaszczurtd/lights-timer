@@ -11,12 +11,15 @@ import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+
+import org.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.Locale;
@@ -36,6 +39,29 @@ public class MainActivity extends AppCompatActivity {
         boolean isEmpty = adapter.getItemCount() == 0;
         emptyView.setVisibility(isEmpty ? View.VISIBLE : View.GONE);
         findViewById(R.id.deviceList).setVisibility(isEmpty ? View.GONE : View.VISIBLE);
+    }
+
+    private final Handler loaderHandler = new Handler(Looper.getMainLooper());
+    private Runnable showLoaderRunnable;
+    private boolean loaderPending = false;
+
+    public void showLoaderDelayed(long delayMillis) {
+        if (loaderPending) return;
+
+        loaderPending = true;
+        showLoaderRunnable = () -> {
+            loader.setVisibility(View.VISIBLE);
+            loaderPending = false;
+        };
+        loaderHandler.postDelayed(showLoaderRunnable, delayMillis);
+    }
+
+    public void hideLoader() {
+        if (loaderPending) {
+            loaderHandler.removeCallbacks(showLoaderRunnable);
+            loaderPending = false;
+        }
+        loader.setVisibility(View.GONE);
     }
 
     @SuppressLint("SourceLockedOrientationActivity")
@@ -60,6 +86,54 @@ public class MainActivity extends AppCompatActivity {
             public void onToggle(NetworkAwareDiscovery.DeviceInfo device, int switchIndex, boolean isOn) {
                 Log.d(TAG, "device:" + device + ": idx:" + switchIndex + "/" +
                         (isOn ? getString(R.string.on) : getString(R.string.off)));
+                DeviceAdapter.DeviceViewHolder holder = DeviceAdapter.getDeviceViewBy(device);
+                if(holder != null) {
+                    showLoaderDelayed(1500);
+                    SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
+
+                    Map<String, String> params = new HashMap<>();
+
+                    holder.isOnFlags[switchIndex] = isOn;
+                    DeviceAdapter.setSwitch(switches[switchIndex], holder.isOnFlags[switchIndex]);
+                    params.put(HttpRequestHelper.PARAM_IS_ON + (switchIndex + 1), String.valueOf(holder.isOnFlags[switchIndex]));
+
+                    String fullUrl = HttpRequestHelper.METHOD + device.ip;
+
+                    HttpRequestHelper.post(fullUrl, params, new HttpRequestHelper.Callback() {
+                        @Override
+                        public void onResponse(int status, String response) {
+                            new Handler(Looper.getMainLooper()).post(MainActivity.this::hideLoader);
+                            Log.i(TAG, "status:" + status + " post response:" + response);
+
+                            try {
+                                JSONObject obj = new JSONObject(response);
+                                boolean isOn = obj.getBoolean(HttpRequestHelper.PARAM_IS_ON + (switchIndex + 1));
+                                if(holder.isOnFlags[switchIndex] == isOn) {
+                                    Log.i(TAG, "Action went successfully");
+                                } else {
+                                    new Handler(Looper.getMainLooper()).post(() -> {
+                                        Toast.makeText(ContextProvider.getContext(),
+                                                getText(R.string.error_setting), Toast.LENGTH_LONG).show();
+                                    });
+                                }
+
+                            } catch (Exception e) {
+                                Log.e(TAG, Objects.requireNonNull(e.getMessage()));
+                            }
+
+                        }
+
+                        @Override
+                        public void onError(Exception e) {
+                            new Handler(Looper.getMainLooper()).post(() -> {
+                                hideLoader();
+                                Toast.makeText(ContextProvider.getContext(),
+                                        getText(R.string.error_connecting), Toast.LENGTH_LONG).show();
+                            });
+                            Log.e(TAG, Objects.requireNonNull(e.getMessage()));
+                        }
+                    });
+                }
             }
             @Override
             public void onTimeSetButton(NetworkAwareDiscovery.DeviceInfo device) {
@@ -84,30 +158,48 @@ public class MainActivity extends AppCompatActivity {
                         params.put(HttpRequestHelper.PARAM_DATE_HOUR_START, String.valueOf(startMinutes));
                         params.put(HttpRequestHelper.PARAM_DATE_HOUR_END, String.valueOf(endMinutes));
 
-                        for(int a = 0; a < device.switches; a++) {
-                            holder.isOnFlags[a] = TimeRangeDialog.isTimeInRange(now, startMinutes, endMinutes);
-                            DeviceAdapter.setSwitch(switches[a], holder.isOnFlags[a]);
-                            params.put(HttpRequestHelper.PARAM_IS_ON + (a + 1), String.valueOf(holder.isOnFlags[a]));
-                        }
+                        int a = 0;
+                        holder.isOnFlags[a] = TimeRangeDialog.isTimeInRange(now, startMinutes, endMinutes);
+                        DeviceAdapter.setSwitch(switches[a], holder.isOnFlags[a]);
+                        params.put(HttpRequestHelper.PARAM_IS_ON + (a + 1), String.valueOf(holder.isOnFlags[a]));
+
                         String fullUrl = HttpRequestHelper.METHOD + device.ip;
 
                         HttpRequestHelper.post(fullUrl, params, new HttpRequestHelper.Callback() {
                             @Override
                             public void onResponse(int status, String response) {
-                                new Handler(Looper.getMainLooper()).post(() -> {
-                                    loader.setVisibility(View.GONE);
-                                });
-
+                                new Handler(Looper.getMainLooper()).post(MainActivity.this::hideLoader);
                                 Log.i(TAG, "status:" + status + " post response:" + response);
+
+                                try {
+                                    JSONObject obj = new JSONObject(response);
+                                    boolean isOn = obj.getBoolean(HttpRequestHelper.PARAM_IS_ON + (a + 1));
+                                    long start = obj.getLong(HttpRequestHelper.PARAM_DATE_HOUR_START);
+                                    long end = obj.getLong(HttpRequestHelper.PARAM_DATE_HOUR_END);
+
+                                    if(holder.isOnFlags[a] == isOn && start == startMinutes && end == endMinutes) {
+                                        Log.i(TAG, "Action went successfully");
+                                    } else {
+                                        new Handler(Looper.getMainLooper()).post(() -> {
+                                            Toast.makeText(ContextProvider.getContext(),
+                                                    getText(R.string.error_setting), Toast.LENGTH_LONG).show();
+                                        });
+                                    }
+
+                                } catch (Exception e) {
+                                    Log.e(TAG, Objects.requireNonNull(e.getMessage()));
+                                }
+
 
                             }
 
                             @Override
                             public void onError(Exception e) {
                                 new Handler(Looper.getMainLooper()).post(() -> {
-                                    loader.setVisibility(View.GONE);
+                                    hideLoader();
+                                    Toast.makeText(ContextProvider.getContext(),
+                                            getText(R.string.error_connecting), Toast.LENGTH_LONG).show();
                                 });
-
                                 Log.e(TAG, Objects.requireNonNull(e.getMessage()));
                             }
                         });

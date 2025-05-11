@@ -38,8 +38,8 @@ private:
   WiFiClient currentClient;   
   unsigned int bufferIndex = 0;
   unsigned long lastActivityTime = 0;
-  char requestBuffer[HTTP_BUFFER] = "";
-  char returnBuffer[HTTP_BUFFER / 2] = "";
+  char requestBuffer[HTTP_BUFFER * 2] = "";
+  char returnBuffer[HTTP_BUFFER] = "";
   char dateHourStart[PARAM_LENGTH] = "";
   char dateHourEnd[PARAM_LENGTH] = "";
   char isOn1[PARAM_LENGTH] = "";

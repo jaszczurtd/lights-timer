@@ -137,10 +137,15 @@ void MyHardware::checkConditionsForStartEnAction(long timeNow) {
 }
 
 void MyHardware::setLightsTo(bool state) {
-  switches[0] = state;
-
   deb("got order to set the lights to %s!", (state) ? "on" : "off");
+  setRelayTo(0, state);
+}
 
+void MyHardware::setRelayTo(int index, bool state) {
+  switches[index] = state;
+  deb("got order to set the relay %d to %s!", index, (state) ? "on" : "off");
+
+  //hardware action here
 }
 
 bool *MyHardware::getSwitchesStates(void) {

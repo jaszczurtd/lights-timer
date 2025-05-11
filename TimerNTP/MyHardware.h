@@ -27,6 +27,7 @@ public:
   void loadStartEnd(long *start, long *end);
   void checkConditionsForStartEnAction(long timeNow);
   void setLightsTo(bool state);
+  void setRelayTo(int index, bool state);
   bool *getSwitchesStates(void);
 
 private:
