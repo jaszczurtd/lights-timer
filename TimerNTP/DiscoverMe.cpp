@@ -4,29 +4,48 @@
 DiscoverMe::DiscoverMe() {  }
 
 void DiscoverMe::start(NTPMachine *n, MyHardware *h) {
-  srand((unsigned int)time_us_64());
   ntp = n;
   hardware = h;
+
+  const char* mac = hardware->getMyMAC();
+  unsigned long seed = time_us_64();
+
+  for (size_t i = 0; i < strlen(mac); i++) {
+    seed ^= mac[i] << (i % 4);
+  }
+
+  srand((unsigned int)seed);
 }
 
 void DiscoverMe::handleDiscoveryRequests() {
-  if (!WIFI_CONNECTED) return;
+  if (!WIFI_CONNECTED) {
+    pendingResponse = false;
+    return;
+  }
 
   if (!multicastInitialized) {
-    udp.begin(udpPort);
+    if (!udp.begin(udpPort)) {
+      deb("UDP begin failed on port %d", udpPort);
+      return;
+    }
     multicastInitialized = true;
-    deb("Multicast has been initialized");
+    deb("Multicast on port %d has been initialized", udpPort);
   }
 
   int packetSize = udp.parsePacket();
   if (packetSize) {
+    if (packetSize < 0 || (size_t)packetSize >= sizeof(packetBuffer)) {
+      deb("Received packet too large (%d bytes), ignoring", packetSize);
+      return;
+    }
+
     udp.read(packetBuffer, sizeof(packetBuffer));
     packetBuffer[packetSize] = '\0';
 
     deb("received discovery packet:%s", packetBuffer);
 
-    if (strcmp(packetBuffer, "PICO_DISCOVER") == 0) {
-      unsigned long delayMs = random(5, 250);
+    if (strcmp(packetBuffer, "AQUA_DISCOVER") == 0) {
+      unsigned long delayMs = random(5, 300);
       scheduledResponseTime = millis() + delayMs;
       remoteIp = udp.remoteIP();
       remotePort = udp.remotePort();
@@ -36,14 +55,15 @@ void DiscoverMe::handleDiscoveryRequests() {
   }
 
   if (pendingResponse && millis() >= scheduledResponseTime) {
-    String response = "PICO_FOUND|" + 
-      String(hardware->getMyMAC()) + "|" + 
-      String(hardware->getMyIP()) + "|" + 
-      String(hardware->getMyHostname()) + "|" +
-      String(hardware->getAmountOfSwitches());
+    char response[128];
+    snprintf(response, sizeof(response), "AQUA_FOUND|%s|%s|%s|%s",
+      hardware->getMyMAC(),
+      hardware->getMyIP(),
+      hardware->getMyHostname(),
+      hardware->getAmountOfSwitches());
 
     udp.beginPacket(remoteIp, remotePort);
-    udp.write(response.c_str());
+    udp.write(response);
     udp.endPacket();
 
     pendingResponse = false;

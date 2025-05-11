@@ -24,6 +24,7 @@ void NTPMachine::stateMachine(void) {
       memset(buffer, 0, sizeof(buffer));
 
       hardware->restartWiFi();
+      hardware->drawCenteredText("NO CONNECTION");
       connectionStartTime = millis();
 
       currentState = STATE_CONNECTING;
@@ -44,12 +45,15 @@ void NTPMachine::stateMachine(void) {
         if(WIFI_CONNECTED) {
           deb("Connected. IP address: %s", hardware->getMyIP());
 
+          hardware->drawCenteredText("CONNECTED");
+
           setenv("TZ", "CET-1CEST,M3.5.0/2,M10.5.0/3", 1);
           tzset();
           configTime(0, 0, ntpServer1, ntpServer2);
 
           long s = 0, e = 0;
           hardware->loadStartEnd(&s, &e);
+          hardware->loadSwitches();
           hardware->extractTime(s, e);
 
           web->setTimeRangeForHTTPResponses(s, e);
@@ -68,6 +72,8 @@ void NTPMachine::stateMachine(void) {
       }
 
       if (WIFI_CONNECTED) {
+
+        hardware->drawCenteredText("NTP SYNCHRO");
 
         if(time(nullptr) > 24 * 3600 * 2) {
           currentState = STATE_CONNECTED;
@@ -108,12 +114,13 @@ void NTPMachine::stateMachine(void) {
           time(&now);
           localtime_r(&now, &timeinfo);
           
-          strftime(buffer, sizeof(buffer), "%A, %d %B %Y %H:%M:%S", &timeinfo);
+          strftime(buffer, sizeof(buffer), "%d/%m/%Y %H:%M:%S", &timeinfo);
 
           now_time = timeinfo.tm_hour * 60 + timeinfo.tm_min;
           hardware->checkConditionsForStartEnAction(now_time);
         }
         web->handleHTTPClient();
+        hardware->displayLoop();
 
       } else {
         currentState = STATE_NOT_CONNECTED;

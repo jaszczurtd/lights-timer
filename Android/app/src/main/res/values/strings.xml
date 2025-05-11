@@ -10,4 +10,6 @@
     <string name="no_devices_detected">"Brak wykrytych urządzeń."</string>
     <string name="error_connecting">Problem z połączeniem</string>
     <string name="error_setting">Nie udało się ustawić stanu.</string>
+    <string name="no_wifi_error">Aplikacja wymaga do działania włączonego WiFi.</string>
+    <string name="open_settings">Otwórz ustawienia</string>
 </resources>

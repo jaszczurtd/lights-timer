@@ -3,9 +3,21 @@
 
 #include <EEPROM.h>
 #include <Credentials.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
+
 #include "NTPMachine.h"
 
 #pragma once
+
+#define PIN_SDA 0
+#define PIN_SCL 1
+#define I2C_ADDR 0x3C
+
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 32
+#define LINE_HEIGHT 10
 
 class NTPMachine;
 class MyWebServer;
@@ -29,8 +41,17 @@ public:
   void setLightsTo(bool state);
   void setRelayTo(int index, bool state);
   bool *getSwitchesStates(void);
+  void displayLoop(void);
+  void drawCenteredText(const char* text);
+  void loadSwitches(void);
+  void saveSwitches(void);
 
 private:
+  void updateDisplay(void);
+  void clearLine(int line);
+  void drawWifiSignal(uint8_t strength);
+  const char* getSwitchStatus(void);
+
   NTPMachine *ntp;
   MyWebServer *web;
 
@@ -49,6 +70,13 @@ private:
   char switches_str[8];
 
   bool switches[4];
+
+  char lastTimes[21] = "";
+  char lastTime[21] = "";
+  char lastSwitches[33] = "";
+
+  unsigned long lastUpdateMillis = 0;
+  const unsigned long updateInterval = 500; 
 };
 
 

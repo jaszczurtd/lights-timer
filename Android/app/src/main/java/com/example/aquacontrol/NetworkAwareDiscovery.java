@@ -48,6 +48,10 @@ public class NetworkAwareDiscovery {
         void onDeviceDiscovered(DeviceInfo device);
     }
 
+    HandlerThread handlerThread;
+    Handler handler;
+    Runnable task;
+
     private final ConnectivityManager connectivityManager;
     private final DeviceListener listener;
     private DatagramSocket socket;
@@ -81,6 +85,7 @@ public class NetworkAwareDiscovery {
     public void stop() {
         connectivityManager.unregisterNetworkCallback(networkCallback);
         stopDiscovery();
+        running = false;
     }
 
     public int extractNumber(String input) {
@@ -95,14 +100,14 @@ public class NetworkAwareDiscovery {
     private void startDiscovery() {
         if (running) return;
 
-        HandlerThread handlerThread = new HandlerThread("DiscoveryThread");
+        handlerThread = new HandlerThread("DiscoveryThread");
         handlerThread.start();
 
-        Handler handler = new Handler(handlerThread.getLooper());
+        handler = new Handler(handlerThread.getLooper());
 
         running = true;
 
-        Runnable task = new Runnable() {
+        task = new Runnable() {
             @Override
             public void run() {
                 if (!running) return;
@@ -114,7 +119,7 @@ public class NetworkAwareDiscovery {
                     socket.setBroadcast(true);
                     socket.setSoTimeout(3000);
 
-                    byte[] sendData = "PICO_DISCOVER".getBytes();
+                    byte[] sendData = "AQUA_DISCOVER".getBytes();
                     DatagramPacket sendPacket = new DatagramPacket(
                             sendData, sendData.length,
                             InetAddress.getByName("255.255.255.255"), 12345);
@@ -128,7 +133,7 @@ public class NetworkAwareDiscovery {
 
                             String received = new String(receivePacket.getData(), 0, receivePacket.getLength());
 
-                            if (received.startsWith("PICO_FOUND|")) {
+                            if (received.startsWith("AQUA_FOUND|")) {
                                 String[] parts = received.split("\\|");
                                 if (parts.length >= 5) {
                                     String mac = parts[1];
@@ -148,6 +153,7 @@ public class NetworkAwareDiscovery {
                     Log.e(TAG, "Discovery error: " + e.getMessage());
                 }
 
+                if (!running) return;
                 handler.postDelayed(this, 1000);
             }
         };
@@ -161,5 +167,10 @@ public class NetworkAwareDiscovery {
             socket.close();
             socket = null;
         }
+
+        handler.removeCallbacks(task);
+        handlerThread.quit();
+        handler = null;
+        handlerThread = null;
     }
 }

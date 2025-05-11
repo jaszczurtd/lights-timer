@@ -141,8 +141,8 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
                 try {
                     JSONObject obj = new JSONObject(response);
-                    final long start = Long.parseLong(obj.getString(HttpRequestHelper.PARAM_DATE_HOUR_START));
-                    final long end = Long.parseLong(obj.getString(HttpRequestHelper.PARAM_DATE_HOUR_END));
+                    holder.start = Long.parseLong(obj.getString(HttpRequestHelper.PARAM_DATE_HOUR_START));
+                    holder.end = Long.parseLong(obj.getString(HttpRequestHelper.PARAM_DATE_HOUR_END));
 
                     SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
                     String paramPrefix = HttpRequestHelper.PARAM_IS_ON;
@@ -154,16 +154,16 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
                     }
 
                     mainHandler.post(() -> {
-                        holder.startTimeText.setText(TimeRangeDialog.formatTime(start));
-                        holder.endTimeText.setText(TimeRangeDialog.formatTime(end));
+                        holder.startTimeText.setText(TimeRangeDialog.formatTime(holder.start));
+                        holder.endTimeText.setText(TimeRangeDialog.formatTime(holder.end));
 
                         for (int i = 0; i < device.switches; i++) {
                             setSwitch(switches[i], holder.isOnFlags[i]);
                         }
                     });
 
-                    Log.i(TAG, "parsed values: start:" + start +
-                            " end:" + end + " " + b);
+                    Log.i(TAG, "parsed values: start:" + holder.start +
+                            " end:" + holder.end + " " + b);
 
                 } catch (JSONException e) {
                     Log.e(TAG, Objects.requireNonNull(e.getMessage()));
@@ -191,6 +191,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
         SwitchCompat isOn1, isOn2, isOn3, isOn4;
         public boolean[] isOnFlags = new boolean[4];
+        long start, end;
 
         LinearLayout sw1Container, sw2Container, sw3Container, sw4Container;
         ImageButton time;
@@ -215,4 +216,13 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         }
 
     }
+
+    public void clearDevices() {
+        int size = devices.size();
+        if (size > 0) {
+            devices.clear();
+            notifyItemRangeRemoved(0, size);
+        }
+    }
+
 }

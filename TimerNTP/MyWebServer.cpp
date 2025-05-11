@@ -1,8 +1,6 @@
 
 #include "MyWebServer.h"
 
-void parse_example();
-
 MyWebServer::MyWebServer() : server(80), currentClient() { }
 
 void MyWebServer::start(NTPMachine *n, MyHardware *h) {
@@ -88,7 +86,7 @@ long MyWebServer::processToken(const char* token) {
   }
   else if (strcmp(token, "isOn4") == 0) {
     deb("giving relay 4 state"); 
-    value = (strcasecmp(isOn1, "true") == 0);
+    value = (strcasecmp(isOn4, "true") == 0);
   }
   else {
     deb("unknown token: %s\n", token);
@@ -103,6 +101,7 @@ char *MyWebServer::parseGETParameters(const char *query) {
   const char* delim = "&";
   char* token = strtok((char*)query, delim);
   long value;
+  bool ok = true;
 
   memset(returnBuffer, 0, sizeof(returnBuffer));
   cJSON* root = cJSON_CreateObject();
@@ -111,18 +110,25 @@ char *MyWebServer::parseGETParameters(const char *query) {
       value = processToken(token);
       if(value != -1) {
         if(startsWith(token, "isOn")) {
-          cJSON_AddBoolToObject(root, token, value != 0);
+          ok &= (cJSON_AddBoolToObject(root, token, value != 0) != nullptr);
         } else {
-          cJSON_AddNumberToObject(root, token, value);
+          ok &= (cJSON_AddNumberToObject(root, token, value) != nullptr);
         }
+      }
+      if(!ok) {
+        break;
       }
       token = strtok(NULL, delim);
     }
 
-    char *json = cJSON_PrintUnformatted(root); 
-    if(json) {
-      strncpy(returnBuffer, json, sizeof(returnBuffer) - 1);
-      free(json);
+    if(ok) {
+      char *json = cJSON_PrintUnformatted(root); 
+      if(json) {
+        strncpy(returnBuffer, json, sizeof(returnBuffer) - 1);
+        free(json);
+      }
+    } else {
+      strncpy(returnBuffer, "{\"error\":\"json print failed\"}", sizeof(returnBuffer) - 1);
     }
     cJSON_Delete(root);
   }
@@ -138,9 +144,10 @@ void MyWebServer::updateRelaysStatesForClient(void) {
 }
 
 void MyWebServer::handleHTTPClient() {
-  if (!currentClient) {
-    currentClient = server.accept();
-    if (currentClient) {
+  if (!currentClient || !currentClient.connected()) {
+    WiFiClient newClient = server.accept();
+    if (newClient && newClient.connected()) {
+      currentClient = newClient;
       bufferIndex = 0;
       lastActivityTime = millis();
       memset(requestBuffer, 0, sizeof(requestBuffer));
@@ -183,8 +190,9 @@ void MyWebServer::handleHTTPClient() {
               snprintf(responseBuffer, HTTP_BUFFER,
                 "HTTP/1.1 200 OK\r\n"
                 "Content-Type: text/plain\r\n"
+                "Content-Length: %d\r\n"
                 "Connection: close\r\n\r\n"
-                "%s", json);
+                "%s", strlen(json), json);
             }
 
           } else if (CHECK_METHOD("POST")) {
@@ -207,33 +215,40 @@ void MyWebServer::handleHTTPClient() {
                   hardware->setRelayTo(a, (strcasecmp(representation[a], "true") == 0));
                 }
                 updateRelaysStatesForClient();
+                hardware->saveSwitches();
               }
 
               memset(returnBuffer, 0, sizeof(returnBuffer));
               cJSON* root = cJSON_CreateObject();
               if(root) {
-                cJSON_AddNumberToObject(root, "dateHourStart", timeStart);
-                cJSON_AddNumberToObject(root, "dateHourEnd", timeEnd);
-                cJSON_AddBoolToObject(root, "isOn1", (strcasecmp(isOn1, "true") == 0));
-                cJSON_AddBoolToObject(root, "isOn2", (strcasecmp(isOn2, "true") == 0));
-                cJSON_AddBoolToObject(root, "isOn3", (strcasecmp(isOn3, "true") == 0));
-                cJSON_AddBoolToObject(root, "isOn4", (strcasecmp(isOn4, "true") == 0));
-                cJSON_AddStringToObject(root, "localTime", strlen(ntp->getTimeFormatted()) ? ntp->getTimeFormatted() : "not available yet.");
+                ok &= (cJSON_AddNumberToObject(root, "dateHourStart", timeStart) != nullptr);
+                ok &= (cJSON_AddNumberToObject(root, "dateHourEnd", timeEnd) != nullptr);
+                ok &= (cJSON_AddBoolToObject(root, "isOn1", (strcasecmp(isOn1, "true") == 0)) != nullptr);
+                ok &= (cJSON_AddBoolToObject(root, "isOn2", (strcasecmp(isOn2, "true") == 0)) != nullptr);
+                ok &= (cJSON_AddBoolToObject(root, "isOn3", (strcasecmp(isOn3, "true") == 0)) != nullptr);
+                ok &= (cJSON_AddBoolToObject(root, "isOn4", (strcasecmp(isOn4, "true") == 0)) != nullptr);
+                ok &= (cJSON_AddStringToObject(root, "localTime", 
+                        strlen(ntp->getTimeFormatted()) ? ntp->getTimeFormatted() : "not available yet.") != nullptr);
 
-                char* json = cJSON_PrintUnformatted(root);
-                if(json) {
-                  strncpy(returnBuffer, json, sizeof(returnBuffer) - 1);
-                  free(json);
+                if (ok) {
+                  char* json = cJSON_PrintUnformatted(root);
+                  if (json) {
+                    strncpy(returnBuffer, json, sizeof(returnBuffer) - 1);
+                    free(json);
+                  }
+                } else {
+                  strncpy(returnBuffer, "{\"error\":\"JSON build failed\"}", sizeof(returnBuffer) - 1);
                 }
+
                 cJSON_Delete(root);
               }
 
               snprintf(responseBuffer, HTTP_BUFFER,
                 "HTTP/1.1 %s\r\n"
                 "Content-Type: text/plain\r\n"
+                "Content-Length: %d\r\n"
                 "Connection: close\r\n\r\n"
-                "%s", ok ? "200 OK" : "400 Bad Request", returnBuffer);
-
+                "%s", ok ? "200 OK" : "400 Bad Request", strlen(returnBuffer), returnBuffer);
             }
 
           } else {
@@ -275,7 +290,6 @@ void MyWebServer::setTimeRangeForHTTPResponses(long start, long end) {
 }
 
 const char* json = "{\"temp\":22.5,\"status\":\"ok\"}";
-
 void parse_example() {
     cJSON* root = cJSON_Parse(json);
     if (!root) return;

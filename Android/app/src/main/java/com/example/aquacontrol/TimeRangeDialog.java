@@ -47,10 +47,22 @@ public class TimeRangeDialog extends AppCompatActivity {
         return hour * 60 + minute;
     }
 
-    public static void show(Context context, OnTimeRangeSelected callback) {
+    public static void show(Context context, long start, long end, OnTimeRangeSelected callback) {
         View view = LayoutInflater.from(context).inflate(R.layout.dialog_time_range, null);
         TimePicker timePickerStart = view.findViewById(R.id.timePickerStart);
         TimePicker timePickerEnd = view.findViewById(R.id.timePickerEnd);
+
+        if(start == 0) {
+            start = getTimeNowInMinutes();
+        }
+        if(end == 0) {
+            end = getTimeNowInMinutes();
+        }
+
+        timePickerStart.setHour(getHour(start));
+        timePickerStart.setMinute(getMinute(start));
+        timePickerEnd.setHour(getHour(end));
+        timePickerEnd.setMinute(getMinute(end));
 
         timePickerStart.setIs24HourView(true);
         timePickerEnd.setIs24HourView(true);
