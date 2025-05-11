@@ -3,9 +3,10 @@
 
 DiscoverMe::DiscoverMe() {  }
 
-void DiscoverMe::start(NTPMachine *n) {
+void DiscoverMe::start(NTPMachine *n, MyHardware *h) {
   srand((unsigned int)time_us_64());
   ntp = n;
+  hardware = h;
 }
 
 void DiscoverMe::handleDiscoveryRequests() {
@@ -36,10 +37,10 @@ void DiscoverMe::handleDiscoveryRequests() {
 
   if (pendingResponse && millis() >= scheduledResponseTime) {
     String response = "PICO_FOUND|" + 
-      WiFi.macAddress() + "|" + 
-      WiFi.localIP().toString() + "|" + 
-      String(ntp->getMyHostname()) + "|" +
-      String(ntp->getAmountOfSwitches());
+      String(hardware->getMyMAC()) + "|" + 
+      String(hardware->getMyIP()) + "|" + 
+      String(hardware->getMyHostname()) + "|" +
+      String(hardware->getAmountOfSwitches());
 
     udp.beginPacket(remoteIp, remotePort);
     udp.write(response.c_str());

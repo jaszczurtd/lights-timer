@@ -31,6 +31,8 @@ enum {
 #define ntpServer1 "pool.ntp.org"
 #define ntpServer2 "europe.pool.ntp.org"
 
+#define MAX_TIME (24 * 60)
+
 class MyWebServer;
 class MyHardware;
 
@@ -41,11 +43,7 @@ public:
   int getCurrentState(void);
   void stateMachine(void);
   const char *getTimeFormatted(void);
-  int getWifiStrength(void);
-  const char *getMyIP(void);
-  const char *getMyMAC(void);
-  const char *getMyHostname(void);
-  const char *getAmountOfSwitches(void);
+  long getTimeNow(void);
 
 private:
   MyWebServer *web;
@@ -53,10 +51,7 @@ private:
   int currentState;
   unsigned long connectionStartTime;
   char buffer[NTP_BUFFER];
-  char ip_str[sizeof("255.255.255.255") + 1];
-  char mac_str[sizeof("FF:FF:FF:FF:FF:FF") + 1];
-  char hostname_str[32];
-  char switches_str[8];
+  long now_time;
 };
 
 

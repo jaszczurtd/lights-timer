@@ -9,8 +9,6 @@ void MyWebServer::start(NTPMachine *n, MyHardware *h) {
   server.begin();
   ntp = n;
   hardware = h;
-
-  parse_example();
 }
 
 char* MyWebServer::extractPostBody(char* http_request) {
@@ -132,6 +130,13 @@ char *MyWebServer::parseGETParameters(const char *query) {
   return returnBuffer;
 }
 
+void MyWebServer::updateRelaysStatesForClient(void) {
+  char *representation[4] = {isOn1, isOn2, isOn3, isOn4};
+  for(int a = 0; a < 4; a++) {
+    snprintf(representation[a], PARAM_LENGTH, "%s", (hardware->getSwitchesStates()[a]) ? "true" : "false");
+  }
+}
+
 void MyWebServer::handleHTTPClient() {
   if (!currentClient) {
     currentClient = server.accept();
@@ -170,6 +175,8 @@ void MyWebServer::handleHTTPClient() {
             char* query = strchr(path, '?');
             if (query) {
               *query = '\0';
+
+              updateRelaysStatesForClient();
               char *json = parseGETParameters(query + 1);
               deb("response json: %s", json);
 
@@ -196,6 +203,8 @@ void MyWebServer::handleHTTPClient() {
               if(root) {
                 timeStart = strtol(dateHourStart, NULL, 10);
                 timeEnd = strtol(dateHourEnd, NULL, 10);
+
+                updateRelaysStatesForClient();
 
                 cJSON_AddNumberToObject(root, "dateHourStart", timeStart);
                 cJSON_AddNumberToObject(root, "dateHourEnd", timeEnd);
@@ -250,6 +259,16 @@ void MyWebServer::handleHTTPClient() {
       currentClient.stop();
     }
   }
+}
+
+void MyWebServer::setTimeRangeForHTTPResponses(long start, long end) {
+  memset(dateHourStart, 0, sizeof(dateHourStart));
+  memset(dateHourEnd, 0, sizeof(dateHourEnd));
+
+  snprintf(dateHourStart, sizeof(dateHourStart) -1, "%ld", start);
+  snprintf(dateHourEnd, sizeof(dateHourEnd) - 1, "%ld", end);
+
+  deb("set start/end values for web: %s %s", dateHourStart, dateHourEnd);
 }
 
 const char* json = "{\"temp\":22.5,\"status\":\"ok\"}";

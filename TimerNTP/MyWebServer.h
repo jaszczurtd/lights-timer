@@ -28,6 +28,8 @@ public:
   MyWebServer();
   void start(NTPMachine *ntp, MyHardware *h);
   void handleHTTPClient();
+  void setTimeRangeForHTTPResponses(long start, long end);
+  void updateRelaysStatesForClient(void);
 
 private:
   NTPMachine *ntp; 
@@ -37,7 +39,7 @@ private:
   unsigned int bufferIndex = 0;
   unsigned long lastActivityTime = 0;
   char requestBuffer[HTTP_BUFFER] = "";
-  char returnBuffer[HTTP_BUFFER] = "";
+  char returnBuffer[HTTP_BUFFER / 2] = "";
   char dateHourStart[PARAM_LENGTH] = "";
   char dateHourEnd[PARAM_LENGTH] = "";
   char isOn1[PARAM_LENGTH] = "";

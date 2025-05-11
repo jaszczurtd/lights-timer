@@ -4,51 +4,16 @@ NTPMachine::NTPMachine() { }
 
 void NTPMachine::start(MyHardware *h, MyWebServer *w) {
   currentState = STATE_NOT_CONNECTED;
-  (hardware = h)->start(this);
+  (hardware = h)->start(this, w);
   web = w;
-
-  WiFi.setHostname(getMyHostname());
 }
 
 int NTPMachine::getCurrentState(void) {
   return currentState;
 }
 
-int NTPMachine::getWifiStrength(void) {
-
-  int32_t rssi = WiFi.RSSI();
-
-  if (rssi >= 0) return 0; 
-  if (rssi >= -50) return 5;
-  if (rssi >= -60) return 4;
-  if (rssi >= -70) return 3;
-  if (rssi >= -80) return 2;
-  if (rssi >= -90) return 1;
-  return 0; 
-}
-
 const char *NTPMachine::getTimeFormatted(void) {
   return (const char *)buffer;
-}
-
-const char *NTPMachine::getMyIP(void) {
-  snprintf(ip_str, sizeof(ip_str), "%s", (WIFI_CONNECTED) ? WiFi.localIP().toString().c_str() : "0.0.0.0");
-  return (const char *)ip_str;
-}
-
-const char *NTPMachine::getMyMAC(void) {
-  snprintf(mac_str, sizeof(mac_str), "%s", WiFi.macAddress().c_str());
-  return (const char *)mac_str;
-}
-
-const char *NTPMachine::getMyHostname(void) {
-  snprintf(hostname_str, sizeof(hostname_str), "%s", getFriendlyHostname(getMyMAC()));
-  return (const char *)hostname_str;
-}
-
-const char*NTPMachine::getAmountOfSwitches(void) {
-  snprintf(switches_str, sizeof(switches_str), "SW:%d", getSwitchesNumber(getMyMAC()));
-  return (const char *)switches_str;
 }
 
 void NTPMachine::stateMachine(void) {
@@ -58,9 +23,7 @@ void NTPMachine::stateMachine(void) {
 
       memset(buffer, 0, sizeof(buffer));
 
-      WiFi.disconnect(true);     
-      WiFi.mode(WIFI_STA);
-      WiFi.begin(ssid, password);
+      hardware->restartWiFi();
       connectionStartTime = millis();
 
       currentState = STATE_CONNECTING;
@@ -79,12 +42,17 @@ void NTPMachine::stateMachine(void) {
       if(millis() - last_connecting_cycle > 200) {
         last_connecting_cycle = millis();
         if(WIFI_CONNECTED) {
-          deb("Connected. IP address: %s", getMyIP());
+          deb("Connected. IP address: %s", hardware->getMyIP());
 
           setenv("TZ", "CET-1CEST,M3.5.0/2,M10.5.0/3", 1);
           tzset();
           configTime(0, 0, ntpServer1, ntpServer2);
 
+          long s = 0, e = 0;
+          hardware->loadStartEnd(&s, &e);
+          hardware->extractTime(s, e);
+
+          web->setTimeRangeForHTTPResponses(s, e);
           web->start(this, hardware);
 
           currentState = STATE_NTP_SYNCHRO;
@@ -141,8 +109,10 @@ void NTPMachine::stateMachine(void) {
           localtime_r(&now, &timeinfo);
           
           strftime(buffer, sizeof(buffer), "%A, %d %B %Y %H:%M:%S", &timeinfo);
-        }
 
+          now_time = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+          hardware->checkConditionsForStartEnAction(now_time);
+        }
         web->handleHTTPClient();
 
       } else {
@@ -162,10 +132,18 @@ void NTPMachine::stateMachine(void) {
         currentState >= STATE_CONNECTED) {
 
       deb("%s, IP:%s, host:%s, mac:%s, wifi strength: %d/5", 
-          getTimeFormatted(), getMyIP(), getFriendlyHostname(getMyMAC()), getMyMAC(), getWifiStrength());
+          getTimeFormatted(), 
+          hardware->getMyIP(), 
+          getFriendlyHostname(hardware->getMyMAC()), 
+          hardware->getMyMAC(), 
+          hardware->getWifiStrength());
     }
   }
 
+}
+
+long NTPMachine::getTimeNow(void) {
+  return now_time;
 }
 
 

@@ -13,11 +13,11 @@ import java.util.Map;
 
 public class HttpRequestHelper {
 
-    public static String PARAM_DATE_HOUR_START = "dateHourStart";
-    public static String PARAM_DATE_HOUR_END = "dateHourEnd";
-    public static String PARAM_IS_ON = "isOn";
-
-    public static String METHOD = "http://";
+    public static final String PARAM_DATE_HOUR_START = "dateHourStart";
+    public static final String PARAM_DATE_HOUR_END = "dateHourEnd";
+    public static final String PARAM_IS_ON = "isOn";
+    public static final String METHOD = "http://";
+    public static final int HTTP_TIMEOUT = 4000;
 
     public interface Callback {
         void onResponse(int status, String response);
@@ -30,6 +30,8 @@ public class HttpRequestHelper {
                 URL url = new URL(urlString);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("GET");
+                conn.setConnectTimeout(HTTP_TIMEOUT);
+                conn.setReadTimeout(HTTP_TIMEOUT);
 
                 int status = conn.getResponseCode();
                 String response = readResponse(conn);
@@ -46,6 +48,8 @@ public class HttpRequestHelper {
                 URL url = new URL(urlString);
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
                 conn.setRequestMethod("POST");
+                conn.setConnectTimeout(HTTP_TIMEOUT);
+                conn.setReadTimeout(HTTP_TIMEOUT);
                 conn.setDoOutput(true);
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded");
 

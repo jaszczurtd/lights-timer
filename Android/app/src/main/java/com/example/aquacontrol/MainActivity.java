@@ -5,6 +5,8 @@ import android.annotation.SuppressLint;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
 import android.os.Bundle;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.View;
 import android.widget.FrameLayout;
@@ -92,7 +94,9 @@ public class MainActivity extends AppCompatActivity {
                         HttpRequestHelper.post(fullUrl, params, new HttpRequestHelper.Callback() {
                             @Override
                             public void onResponse(int status, String response) {
-                                loader.setVisibility(View.GONE);
+                                new Handler(Looper.getMainLooper()).post(() -> {
+                                    loader.setVisibility(View.GONE);
+                                });
 
                                 Log.i(TAG, "status:" + status + " post response:" + response);
 
@@ -100,7 +104,10 @@ public class MainActivity extends AppCompatActivity {
 
                             @Override
                             public void onError(Exception e) {
-                                loader.setVisibility(View.GONE);
+                                new Handler(Looper.getMainLooper()).post(() -> {
+                                    loader.setVisibility(View.GONE);
+                                });
+
                                 Log.e(TAG, Objects.requireNonNull(e.getMessage()));
                             }
                         });

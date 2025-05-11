@@ -16,7 +16,7 @@ void setup() {
   debugInit();
  
   ntp.start(&hardware, &web);
-  discover.start(&ntp);
+  discover.start(&ntp, &hardware);
 
   initialized = true;
 

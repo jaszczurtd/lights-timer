@@ -14,16 +14,18 @@
 #define udpPort 12345
 
 class NTPMachine;
+class MyHardware;
 
 class DiscoverMe {
 public:
 
   DiscoverMe();
-  void start(NTPMachine *ntp);
+  void start(NTPMachine *ntp, MyHardware *h);
   void handleDiscoveryRequests();
 
 private:
   NTPMachine *ntp; 
+  MyHardware *hardware;
   char packetBuffer[255] = {0};
   WiFiUDP udp;
   bool multicastInitialized = false;
