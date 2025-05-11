@@ -11,12 +11,10 @@ import android.util.Log;
 
 import androidx.annotation.NonNull;
 
-import java.io.IOException;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.SocketTimeoutException;
-import java.util.Arrays;
 import java.util.Objects;
 
 
@@ -151,7 +149,6 @@ public class NetworkAwareDiscovery {
                         }
                     }
                 } catch (Exception e) {
-                    e.printStackTrace();
                     Log.e(TAG, "Discovery error: " + e.getMessage());
                 }
 
