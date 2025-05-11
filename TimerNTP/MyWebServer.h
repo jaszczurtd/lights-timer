@@ -48,8 +48,8 @@ private:
   char isOn4[PARAM_LENGTH] = "";
 
   char* extractPostBody(char* http_request);
-  long processToken(const char* token);
-  bool findParameter(const char *toFind, const char *query, char *parameterValue);
+  long processGETToken(const char* token);
+  bool findPOSTParameter(const char *toFind, const char *query, char *parameterValue);
   char *parseGETParameters(const char* query);
   bool parsePOSTParameters(const char* query);
 

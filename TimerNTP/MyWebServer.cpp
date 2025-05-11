@@ -15,7 +15,7 @@ char* MyWebServer::extractPostBody(char* http_request) {
   return body ? body + ((body[1] == '\n') ? 2 : 4) : http_request;
 }
 
-bool MyWebServer::findParameter(const char *toFind, const char *query, char *parameterValue) {
+bool MyWebServer::findPOSTParameter(const char *toFind, const char *query, char *parameterValue) {
     if (!toFind || !query || !parameterValue) return false;
 
     const char *found = strstr(query, toFind);
@@ -40,29 +40,29 @@ bool MyWebServer::parsePOSTParameters(const char* query) {
 
   int parametersFound = 0;
 
-  if(findParameter("dateHourStart=", query, dateHourStart)) {
+  if(findPOSTParameter("dateHourStart=", query, dateHourStart)) {
     parametersFound++;
   }
-  if(findParameter("dateHourEnd=", query, dateHourEnd)) {
+  if(findPOSTParameter("dateHourEnd=", query, dateHourEnd)) {
     parametersFound++;
   }
-  if(findParameter("isOn1=", query, isOn1)) {
+  if(findPOSTParameter("isOn1=", query, isOn1)) {
     parametersFound++;
   } 
-  if(findParameter("isOn2=", query, isOn2)) {
+  if(findPOSTParameter("isOn2=", query, isOn2)) {
     parametersFound++;
   }
-  if(findParameter("isOn3=", query, isOn3)) {
+  if(findPOSTParameter("isOn3=", query, isOn3)) {
     parametersFound++;
   }
-  if(findParameter("isOn4=", query, isOn4)) {
+  if(findPOSTParameter("isOn4=", query, isOn4)) {
     parametersFound++;
   }
   
   return (parametersFound > 0);
 }
 
-long MyWebServer::processToken(const char* token) {
+long MyWebServer::processGETToken(const char* token) {
   long value = -1;
   if (strcmp(token, "dateHourStart") == 0) {
     deb("giving start hour"); 
@@ -107,7 +107,7 @@ char *MyWebServer::parseGETParameters(const char *query) {
   cJSON* root = cJSON_CreateObject();
   if(root) {
     while (token != NULL) {
-      value = processToken(token);
+      value = processGETToken(token);
       if(value != -1) {
         if(startsWith(token, "isOn")) {
           ok &= (cJSON_AddBoolToObject(root, token, value != 0) != nullptr);

@@ -113,7 +113,7 @@ public class NetworkAwareDiscovery {
                 if (!running) return;
 
                 try {
-                    DatagramSocket socket = new DatagramSocket();
+                    socket = new DatagramSocket();
                     Objects.requireNonNull(connectivityManager.getActiveNetwork()).bindSocket(socket);
 
                     socket.setBroadcast(true);
@@ -126,7 +126,7 @@ public class NetworkAwareDiscovery {
                     socket.send(sendPacket);
 
                     byte[] recvBuf = new byte[256];
-                    while (true) {
+                    while (running) {
                         try {
                             DatagramPacket receivePacket = new DatagramPacket(recvBuf, recvBuf.length);
                             socket.receive(receivePacket);
@@ -144,13 +144,20 @@ public class NetworkAwareDiscovery {
                                     listener.onDeviceDiscovered(device);
                                 }
                             }
+
                         } catch (SocketTimeoutException e) {
                             Log.i(TAG, Objects.requireNonNull(e.getMessage()));
                             break;
                         }
                     }
                 } catch (Exception e) {
+                    e.printStackTrace();
                     Log.e(TAG, "Discovery error: " + e.getMessage());
+                }
+
+                if(socket != null) {
+                    socket.close();
+                    socket = null;
                 }
 
                 if (!running) return;
@@ -163,14 +170,15 @@ public class NetworkAwareDiscovery {
 
     private void stopDiscovery() {
         running = false;
-        if (socket != null) {
-            socket.close();
-            socket = null;
+
+        if (handler != null && task != null) {
+            handler.removeCallbacks(task);
         }
 
-        handler.removeCallbacks(task);
-        handlerThread.quit();
-        handler = null;
-        handlerThread = null;
+        if (handlerThread != null) {
+            handlerThread.quit();
+            handlerThread = null;
+            handler = null;
+        }
     }
 }
