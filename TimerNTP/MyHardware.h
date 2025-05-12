@@ -17,6 +17,16 @@
 #define PIN_SCL 21
 #define I2C_ADDR 0x3C
 
+#define PIN_RELAY_1 0
+#define PIN_RELAY_2 1
+#define PIN_RELAY_3 2
+#define PIN_RELAY_4 3
+
+#define PIN_BUTTON_1 4
+#define PIN_BUTTON_2 5
+#define PIN_BUTTON_3 6
+#define PIN_BUTTON_4 7
+
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
 #define LINE_HEIGHT 10
@@ -81,8 +91,8 @@ private:
   unsigned long lastUpdateMillis = 0;
   const unsigned long updateInterval = 500; 
 
-  int relaysPins[MAX_AMOUNT_OF_RELAYS] = {0, 1, 2, 3};
-  int buttonPins[MAX_AMOUNT_OF_RELAYS] = {4, 5, 6, 7};
+  int relaysPins[MAX_AMOUNT_OF_RELAYS] = {PIN_RELAY_1, PIN_RELAY_2, PIN_RELAY_3, PIN_RELAY_4};
+  int buttonPins[MAX_AMOUNT_OF_RELAYS] = {PIN_BUTTON_1, PIN_BUTTON_2, PIN_BUTTON_3, PIN_BUTTON_4};
   bool lastStates[MAX_AMOUNT_OF_RELAYS];
 };
 

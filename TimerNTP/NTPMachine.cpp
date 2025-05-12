@@ -24,7 +24,7 @@ void NTPMachine::stateMachine(void) {
       memset(buffer, 0, sizeof(buffer));
 
       hardware->restartWiFi();
-      hardware->drawCenteredText("NO CONNECTION");
+      hardware->drawCenteredText("CONNECTING...");
       connectionStartTime = millis();
 
       currentState = STATE_CONNECTING;
@@ -36,6 +36,7 @@ void NTPMachine::stateMachine(void) {
       if(millis() - connectionStartTime > WIFI_TIMEOUT_MS) {
         deb("\n connection timeout!");
         currentState = STATE_NOT_CONNECTED;
+        hardware->drawCenteredText("NO CONNECTION");
         return;
       }      
 
@@ -90,6 +91,7 @@ void NTPMachine::stateMachine(void) {
 
       } else {
         currentState = STATE_NOT_CONNECTED;
+        hardware->drawCenteredText("NO CONNECTION");
       }
     }
     break;
@@ -124,6 +126,7 @@ void NTPMachine::stateMachine(void) {
 
       } else {
         currentState = STATE_NOT_CONNECTED;
+        hardware->drawCenteredText("NO CONNECTION");
       }
     }
     break;

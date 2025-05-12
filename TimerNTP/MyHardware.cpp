@@ -22,6 +22,7 @@ void MyHardware::start(NTPMachine *m, MyWebServer *w) {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+  drawCenteredText("NO CONNECTION");
 
   for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
     //relays
