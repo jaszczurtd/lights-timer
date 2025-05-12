@@ -46,24 +46,24 @@ public class NetworkAwareDiscovery {
         void onDeviceDiscovered(DeviceInfo device);
     }
 
-    HandlerThread handlerThread;
-    Handler handler;
-    Runnable task;
+    private HandlerThread handlerThread;
+    private Handler handler;
+    private Runnable task;
 
     private final ConnectivityManager connectivityManager;
     private final DeviceListener listener;
-    private DatagramSocket socket;
     private boolean running = false;
+    private boolean wifiAvailable;
 
     private final ConnectivityManager.NetworkCallback networkCallback = new ConnectivityManager.NetworkCallback() {
         @Override
         public void onAvailable(@NonNull Network network) {
-            startDiscovery();
+            wifiAvailable = true;
         }
 
         @Override
         public void onLost(@NonNull Network network) {
-            stopDiscovery();
+            wifiAvailable = false;
         }
     };
 
@@ -83,7 +83,6 @@ public class NetworkAwareDiscovery {
     public void stop() {
         connectivityManager.unregisterNetworkCallback(networkCallback);
         stopDiscovery();
-        running = false;
     }
 
     public int extractNumber(String input) {
@@ -111,7 +110,7 @@ public class NetworkAwareDiscovery {
                 if (!running) return;
 
                 try {
-                    socket = new DatagramSocket();
+                    DatagramSocket socket = new DatagramSocket();
                     Objects.requireNonNull(connectivityManager.getActiveNetwork()).bindSocket(socket);
 
                     socket.setBroadcast(true);
@@ -144,17 +143,14 @@ public class NetworkAwareDiscovery {
                             }
 
                         } catch (SocketTimeoutException e) {
-                            Log.i(TAG, Objects.requireNonNull(e.getMessage()));
+                            Log.i(TAG, Objects.requireNonNull(e.getMessage()) + " wifi:" + wifiAvailable);
                             break;
                         }
                     }
+                    socket.close();
+
                 } catch (Exception e) {
                     Log.e(TAG, "Discovery error: " + e.getMessage());
-                }
-
-                if(socket != null) {
-                    socket.close();
-                    socket = null;
                 }
 
                 if (!running) return;

@@ -137,9 +137,9 @@ char *MyWebServer::parseGETParameters(const char *query) {
 }
 
 void MyWebServer::updateRelaysStatesForClient(void) {
-  char *representation[4] = {isOn1, isOn2, isOn3, isOn4};
-  for(int a = 0; a < 4; a++) {
-    snprintf(representation[a], PARAM_LENGTH, "%s", (hardware->getSwitchesStates()[a]) ? "true" : "false");
+  char *isOnBuffers[MAX_AMOUNT_OF_RELAYS] = {isOn1, isOn2, isOn3, isOn4};
+  for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
+    snprintf(isOnBuffers[a], PARAM_LENGTH, "%s", (hardware->getSwitchesStates()[a]) ? "true" : "false");
   }
 }
 
@@ -210,9 +210,9 @@ void MyWebServer::handleHTTPClient() {
                 timeEnd = strtol(dateHourEnd, NULL, 10);
                 hardware->setTimeRange(timeStart, timeEnd);
                 hardware->checkConditionsForStartEnAction(ntp->getTimeNow());
-                char *representation[4] = {isOn1, isOn2, isOn3, isOn4};
-                for(int a = 0; a < 4; a++) {
-                  hardware->setRelayTo(a, (strcasecmp(representation[a], "true") == 0));
+                char *isOnBuffers[MAX_AMOUNT_OF_RELAYS] = {isOn1, isOn2, isOn3, isOn4};
+                for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
+                  hardware->setRelayTo(a, (strcasecmp(isOnBuffers[a], "true") == 0));
                 }
                 updateRelaysStatesForClient();
                 hardware->saveSwitches();

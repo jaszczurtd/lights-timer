@@ -11,10 +11,11 @@
 #include <string.h>
 
 #include "NTPMachine.h"
+#include "MyHardware.h"
 #include "cJSON.h"
 
 #define HTTP_BUFFER 2048
-#define HTTP_TIMEOUT 10000
+#define HTTP_TIMEOUT 5000
 #define PARAM_LENGTH 20
 
 #define CHECK_METHOD(val) strcmp(method, val) == 0

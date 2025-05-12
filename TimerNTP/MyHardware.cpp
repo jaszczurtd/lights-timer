@@ -22,6 +22,14 @@ void MyHardware::start(NTPMachine *m, MyWebServer *w) {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+
+  for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
+    //relays
+    pinMode(relaysPins[a], OUTPUT);
+    //buttons
+    pinMode(buttonPins[a], INPUT_PULLUP);
+    lastStates[a] = digitalRead(buttonPins[a]);
+  }
 }
 
 void MyHardware::restartWiFi(void) {
@@ -126,6 +134,9 @@ void MyHardware::saveSwitches(void) {
 }
 
 void MyHardware::loadStartEnd(long *start, long *end) {
+
+  *start = *end = 0;
+
   for (int i = 0; i < 4; i++) {
     *start |= ((long)EEPROM.read(i))     << (8 * i);
     *end |= ((long)EEPROM.read(i + 4)) << (8 * i);
@@ -169,7 +180,9 @@ void MyHardware::setRelayTo(int index, bool state) {
   switches[index] = state;
   deb("got order to set the relay %d to %s!", index, (state) ? "on" : "off");
 
-  //hardware action here
+  for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
+    digitalWrite(relaysPins[a], switches[a]);
+  }
 }
 
 bool *MyHardware::getSwitchesStates(void) {
@@ -198,12 +211,22 @@ void MyHardware::drawWifiSignal(uint8_t strength) {
   }
 }
 
-void MyHardware::displayLoop(void) {
+void MyHardware::hardwareLoop(void) {
   unsigned long now = millis();
 
   if (now - lastUpdateMillis >= updateInterval) {
     lastUpdateMillis = now;
     updateDisplay();
+  }
+
+  for (int i = 0; i < getSwitchesNumber(getMyMAC()); i++) {
+    bool currentState = digitalRead(buttonPins[i]);
+
+    if (lastStates[i] == LOW && currentState == HIGH) {
+      handleButtonRelease(i);
+    }
+
+    lastStates[i] = currentState;
   }
 }
 
@@ -277,3 +300,8 @@ void MyHardware::drawCenteredText(const char* text) {
   display.display();
 }
 
+void MyHardware::handleButtonRelease(int buttonIndex) {
+  deb("button action for: %d", buttonIndex);
+  setRelayTo(buttonIndex, !switches[buttonIndex]);
+  web->updateRelaysStatesForClient();
+}

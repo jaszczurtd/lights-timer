@@ -120,7 +120,7 @@ void NTPMachine::stateMachine(void) {
           hardware->checkConditionsForStartEnAction(now_time);
         }
         web->handleHTTPClient();
-        hardware->displayLoop();
+        hardware->hardwareLoop();
 
       } else {
         currentState = STATE_NOT_CONNECTED;

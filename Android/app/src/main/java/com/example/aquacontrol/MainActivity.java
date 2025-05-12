@@ -264,6 +264,7 @@ public class MainActivity extends AppCompatActivity {
         super.onResume();
         new Handler(Looper.getMainLooper()).postDelayed(this::checkWifiConnection, 3000);
         discovery.start();
+        runOnUiThread(this::updateEmptyView);
     }
 
     @Override
