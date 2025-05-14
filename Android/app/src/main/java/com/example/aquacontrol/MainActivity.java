@@ -62,14 +62,17 @@ public class MainActivity extends AppCompatActivity {
             Log.d(TAG, "Wi-Fi connectivity");
         } else {
             Log.d(TAG, "No Wi-Fi");
-            alert = new AlertDialog.Builder(this)
-                    .setTitle(getString(R.string.error))
-                    .setMessage(getString(R.string.no_wifi_error))
-                    .setPositiveButton(getString(R.string.open_settings), (dialog, which) -> {
-                        startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
-                    })
-                    .setNegativeButton(getString(R.string.cancel), null)
-                    .show();
+            if(alert == null) {
+                alert = new AlertDialog.Builder(this)
+                        .setTitle(getString(R.string.error))
+                        .setMessage(getString(R.string.no_wifi_error))
+                        .setPositiveButton(getString(R.string.open_settings), (dialog, which) -> {
+                            startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
+                            alert = null;
+                        })
+                        .setNegativeButton(getString(R.string.cancel), (dialog, which) -> alert = null)
+                        .show();
+            }
         }
     }
     private void updateEmptyView() {
