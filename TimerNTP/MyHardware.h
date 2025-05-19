@@ -77,9 +77,6 @@ private:
   int endHour = 0;
   int endMinute = 0;
 
-  bool flagLights = false;
-  bool lastStateFlagLights = false;
-
   char switches_str[8];
 
   bool switches[MAX_AMOUNT_OF_RELAYS];

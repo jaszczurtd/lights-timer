@@ -163,9 +163,8 @@ void MyHardware::checkConditionsForStartEnAction(long timeNow) {
   long start = startHour * 60 + startMinute;
   long end = endHour * 60 + endMinute;
 
-  flagLights = is_time_in_range(timeNow, start, end);
-  if(lastStateFlagLights != flagLights) {
-    lastStateFlagLights = flagLights;
+  bool flagLights = is_time_in_range(timeNow, start, end);
+  if(switches[0] != flagLights) {
     //modules start action!
     setLightsTo(flagLights);
     web->updateRelaysStatesForClient();
