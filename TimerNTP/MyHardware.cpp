@@ -29,7 +29,7 @@ void MyHardware::start(NTPMachine *m, MyWebServer *w) {
     pinMode(relaysPins[a], OUTPUT);
     //buttons
     pinMode(buttonPins[a], INPUT_PULLUP);
-    lastStates[a] = digitalRead(buttonPins[a]);
+    lastStates[a] = HIGH;
   }
 }
 
@@ -130,6 +130,7 @@ void MyHardware::saveStartEnd(long start, long end) {
 void MyHardware::saveSwitches(void) {
   for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
     EEPROM.write(9 + a, switches[a]);
+    deb("saved %d switch as %s", a, switches[a] ? "on" : "off");
   }
   EEPROM.commit();
 }
@@ -156,6 +157,7 @@ void MyHardware::loadStartEnd(long *start, long *end) {
 void MyHardware::loadSwitches(void) {
   for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
     switches[a] = EEPROM.read(9 + a);
+    deb("loaded %d switch as %s", a, switches[a] ? "on" : "off");
   }
 }
 
@@ -164,7 +166,8 @@ void MyHardware::checkConditionsForStartEnAction(long timeNow) {
   long end = endHour * 60 + endMinute;
 
   bool flagLights = is_time_in_range(timeNow, start, end);
-  if(switches[0] != flagLights) {
+  if(lastLights != flagLights) {
+    lastLights = flagLights;
     //modules start action!
     setLightsTo(flagLights);
     web->updateRelaysStatesForClient();
@@ -179,8 +182,11 @@ void MyHardware::setLightsTo(bool state) {
 void MyHardware::setRelayTo(int index, bool state) {
   switches[index] = state;
   deb("got order to set the relay %d to %s!", index, (state) ? "on" : "off");
+  digitalWrite(relaysPins[index], switches[index]);
+}
 
-  for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
+void MyHardware::applyRelays(void) {
+  for(int a = 1; a < getSwitchesNumber(getMyMAC()); a++) {
     digitalWrite(relaysPins[a], switches[a]);
   }
 }
@@ -304,4 +310,5 @@ void MyHardware::handleButtonRelease(int buttonIndex) {
   deb("button action for: %d", buttonIndex);
   setRelayTo(buttonIndex, !switches[buttonIndex]);
   web->updateRelaysStatesForClient();
+  saveSwitches();
 }

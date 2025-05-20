@@ -56,6 +56,7 @@ void NTPMachine::stateMachine(void) {
           hardware->loadStartEnd(&s, &e);
           hardware->loadSwitches();
           hardware->extractTime(s, e);
+          hardware->applyRelays();
 
           web->setTimeRangeForHTTPResponses(s, e);
           web->start(this, hardware);

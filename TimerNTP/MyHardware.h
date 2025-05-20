@@ -57,6 +57,7 @@ public:
   void drawCenteredText(const char* text);
   void loadSwitches(void);
   void saveSwitches(void);
+  void applyRelays(void);
 
 private:
   void updateDisplay(void);
@@ -91,6 +92,8 @@ private:
   int relaysPins[MAX_AMOUNT_OF_RELAYS] = {PIN_RELAY_1, PIN_RELAY_2, PIN_RELAY_3, PIN_RELAY_4};
   int buttonPins[MAX_AMOUNT_OF_RELAYS] = {PIN_BUTTON_1, PIN_BUTTON_2, PIN_BUTTON_3, PIN_BUTTON_4};
   bool lastStates[MAX_AMOUNT_OF_RELAYS];
+
+  bool lastLights = false;
 };
 
 
