@@ -3,15 +3,16 @@
 
 #pragma once
 
+#include "Config.h"
+
 #include <WiFi.h>
 #include <Credentials.h>
 #include <tools.h>
 #include <WiFiClient.h>
 #include <string.h>
+#include <WiFiUdp.h>
 
 #include "NTPMachine.h"
-
-#define udpPort 12345
 
 class NTPMachine;
 class MyHardware;

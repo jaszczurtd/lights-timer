@@ -1,0 +1,11 @@
+#ifndef T_CONFIG
+#define T_CONFIG
+
+#define WATCHDOG_TIME 3000
+#define CORE_OPERATION_DELAY 1
+
+#define UDP_PORT 12345
+#define DISCOVER_PACKET "AQUA_DISCOVER"
+#define RESPONSE_PACKET "AQUA_FOUND"
+
+#endif

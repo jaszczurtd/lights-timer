@@ -1,37 +1,13 @@
-#include "NTPMachine.h"
-#include "MyWebServer.h"
-#include "MyHardware.h"
-#include "DiscoverMe.h"
 
-#include <WiFiUdp.h>
+#include "Logic.h"
 
-NTPMachine ntp;
-MyWebServer web;
-MyHardware hardware;
-DiscoverMe discover;
-
-static bool initialized;
+Logic logic;
 
 void setup() {
-  debugInit();
- 
-  ntp.start(&hardware, &web);
-  discover.start(&ntp, &hardware);
-
-  initialized = true;
-
-  deb("System has started.");
+  logic.logicSetup();
 }
 
 void loop() {
-
-  if(!initialized) {
-    return;
-  }
-
-  ntp.stateMachine();
-  discover.handleDiscoveryRequests();
-  
-  delay(1);
+  logic.logicLoop();
 }
 
