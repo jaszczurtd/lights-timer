@@ -12,21 +12,19 @@
 #include <string.h>
 #include <WiFiUdp.h>
 
-#include "NTPMachine.h"
-
 class NTPMachine;
 class MyHardware;
+class Logic;
 
 class DiscoverMe {
 public:
 
-  DiscoverMe();
-  void start(NTPMachine *ntp, MyHardware *h);
+  explicit DiscoverMe(Logic& l) : logic(l) {}
+  void start(void);
   void handleDiscoveryRequests();
 
 private:
-  NTPMachine *ntp; 
-  MyHardware *hardware;
+  Logic& logic;
   char packetBuffer[255] = {0};
   WiFiUDP udp;
   bool multicastInitialized = false;
@@ -34,6 +32,8 @@ private:
   unsigned long scheduledResponseTime = 0;
   IPAddress remoteIp;
   uint16_t remotePort;  
+
+  MyHardware& hardware();
 };
 
 #endif

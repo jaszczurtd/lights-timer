@@ -1,13 +1,14 @@
 
 #include "DiscoverMe.h"
+#include "Logic.h"
+#include "NTPMachine.h"
+#include "MyHardware.h"
 
-DiscoverMe::DiscoverMe() {  }
+MyHardware& DiscoverMe::hardware() { return logic.hardwareObj(); }
 
-void DiscoverMe::start(NTPMachine *n, MyHardware *h) {
-  ntp = n;
-  hardware = h;
+void DiscoverMe::start(void) {
 
-  const char* mac = hardware->getMyMAC();
+  const char* mac = hardware().getMyMAC();
   unsigned long seed = time_us_64();
 
   for (size_t i = 0; i < strlen(mac); i++) {
@@ -58,10 +59,10 @@ void DiscoverMe::handleDiscoveryRequests() {
     char response[128];
     snprintf(response, sizeof(response), "%s|%s|%s|%s|%s",
       RESPONSE_PACKET,
-      hardware->getMyMAC(),
-      hardware->getMyIP(),
-      hardware->getMyHostname(),
-      hardware->getAmountOfSwitches());
+      hardware().getMyMAC(),
+      hardware().getMyIP(),
+      hardware().getMyHostname(),
+      hardware().getAmountOfSwitches());
 
     udp.beginPacket(remoteIp, remotePort);
     udp.write(response);

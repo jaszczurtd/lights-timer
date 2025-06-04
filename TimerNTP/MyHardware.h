@@ -7,8 +7,6 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
-#include "NTPMachine.h"
-
 #pragma once
 
 #define MAX_AMOUNT_OF_RELAYS 4
@@ -33,11 +31,12 @@
 
 class NTPMachine;
 class MyWebServer;
+class Logic;
 
 class MyHardware {
 public:
-  MyHardware();
-  void start(NTPMachine *m, MyWebServer *w);
+  explicit MyHardware(Logic& l) : logic(l) {}
+  void start();
   void restartWiFi(void);
   int getWifiStrength(void);
   const char *getMyIP(void);
@@ -60,14 +59,16 @@ public:
   void applyRelays(void);
 
 private:
+  Logic& logic;
+
+  NTPMachine& ntp();
+  MyWebServer& web();
+
   void updateDisplay(void);
   void clearLine(int line);
   void drawWifiSignal(uint8_t strength);
   const char* getSwitchStatus(void);
   void handleButtonRelease(int buttonIndex);
-
-  NTPMachine *ntp;
-  MyWebServer *web;
 
   char ip_str[sizeof("255.255.255.255") + 1];
   char mac_str[sizeof("FF:FF:FF:FF:FF:FF") + 1];

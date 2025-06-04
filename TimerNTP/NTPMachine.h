@@ -35,19 +35,23 @@ enum {
 
 class MyWebServer;
 class MyHardware;
+class Logic;
 
 class NTPMachine {
 public:
-  NTPMachine();
-  void start(MyHardware *h, MyWebServer *w);
+  explicit NTPMachine(Logic& l) : logic(l) {}
+  void start();
   int getCurrentState(void);
   void stateMachine(void);
   const char *getTimeFormatted(void);
   long getTimeNow(void);
 
 private:
-  MyWebServer *web;
-  MyHardware *hardware;
+  Logic& logic;
+
+  MyHardware& hardware();
+  MyWebServer& web();
+
   int currentState;
   unsigned long connectionStartTime;
   char buffer[NTP_BUFFER];

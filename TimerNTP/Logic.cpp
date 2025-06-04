@@ -5,8 +5,8 @@ void Logic::logicSetup(void) {
 
   debugInit();
  
-  ntp.start(&hardware, &web);
-  discover.start(&ntp, &hardware);
+  ntp.start();
+  discover.start();
 
   initialized = true;
 

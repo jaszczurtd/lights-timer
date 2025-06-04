@@ -1,13 +1,15 @@
 
 #include "MyHardware.h"
+#include "NTPMachine.h"
+#include "MyWebServer.h"
+#include "Logic.h"
 
 Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
 
-MyHardware::MyHardware() { }
+NTPMachine& MyHardware::ntp() { return logic.ntpObj(); }
+MyWebServer& MyHardware::web() { return logic.webObj(); }
 
-void MyHardware::start(NTPMachine *m, MyWebServer *w) {
-  ntp = m;
-  web = w;
+void MyHardware::start() {
 
   EEPROM.begin(512);
 
@@ -77,16 +79,16 @@ void MyHardware::updateBuildInLed(void) {
   static unsigned long last_blink;
   static int prevState = -1;
 
-  if (ntp->getCurrentState() != prevState) {
+  if (ntp().getCurrentState() != prevState) {
     last_blink = millis();
     digitalWrite(LED_BUILTIN, LOW);
-    prevState = ntp->getCurrentState();
+    prevState = ntp().getCurrentState();
   }
 
-  switch(ntp->getCurrentState()) {
+  switch(ntp().getCurrentState()) {
     case STATE_CONNECTING:
     case STATE_NTP_SYNCHRO: {
-      unsigned long interval = (ntp->getCurrentState() == STATE_CONNECTING) ? 100 : 300;
+      unsigned long interval = (ntp().getCurrentState() == STATE_CONNECTING) ? 100 : 300;
       if (millis() - last_blink > interval) {
         digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
         last_blink = millis();
@@ -170,7 +172,7 @@ void MyHardware::checkConditionsForStartEnAction(long timeNow) {
     lastLights = flagLights;
     //modules start action!
     setLightsTo(flagLights);
-    web->updateRelaysStatesForClient();
+    web().updateRelaysStatesForClient();
   }
 }
 
@@ -261,7 +263,7 @@ void MyHardware::updateDisplay(void) {
   static char times[20];
   snprintf(times, sizeof(times), "%02d:%02d / %02d:%02d", startHour, startMinute, endHour, endMinute);
 
-  const char* timeStr = ntp->getTimeFormatted();
+  const char* timeStr = ntp().getTimeFormatted();
   const char* switches = getSwitchStatus();
 
   if (strcmp(times, lastTimes) != 0) {
@@ -309,6 +311,6 @@ void MyHardware::drawCenteredText(const char* text) {
 void MyHardware::handleButtonRelease(int buttonIndex) {
   deb("button action for: %d", buttonIndex);
   setRelayTo(buttonIndex, !switches[buttonIndex]);
-  web->updateRelaysStatesForClient();
+  web().updateRelaysStatesForClient();
   saveSwitches();
 }

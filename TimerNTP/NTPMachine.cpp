@@ -1,11 +1,14 @@
 #include "NTPMachine.h"
+#include "Logic.h"
+#include "MyHardware.h"
+#include "MyWebServer.h"
 
-NTPMachine::NTPMachine() { }
+MyHardware& NTPMachine::hardware() { return logic.hardwareObj(); }
+MyWebServer& NTPMachine::web() { return logic.webObj(); }
 
-void NTPMachine::start(MyHardware *h, MyWebServer *w) {
+void NTPMachine::start() {
   currentState = STATE_NOT_CONNECTED;
-  (hardware = h)->start(this, w);
-  web = w;
+  hardware().start();
 }
 
 int NTPMachine::getCurrentState(void) {
@@ -23,8 +26,8 @@ void NTPMachine::stateMachine(void) {
 
       memset(buffer, 0, sizeof(buffer));
 
-      hardware->restartWiFi();
-      hardware->drawCenteredText("CONNECTING...");
+      hardware().restartWiFi();
+      hardware().drawCenteredText("CONNECTING...");
       connectionStartTime = millis();
 
       currentState = STATE_CONNECTING;
@@ -36,7 +39,7 @@ void NTPMachine::stateMachine(void) {
       if(millis() - connectionStartTime > WIFI_TIMEOUT_MS) {
         deb("\n connection timeout!");
         currentState = STATE_NOT_CONNECTED;
-        hardware->drawCenteredText("NO CONNECTION");
+        hardware().drawCenteredText("NO CONNECTION");
         return;
       }      
 
@@ -44,22 +47,22 @@ void NTPMachine::stateMachine(void) {
       if(millis() - last_connecting_cycle > 200) {
         last_connecting_cycle = millis();
         if(WIFI_CONNECTED) {
-          deb("Connected. IP address: %s", hardware->getMyIP());
+          deb("Connected. IP address: %s", hardware().getMyIP());
 
-          hardware->drawCenteredText("CONNECTED");
+          hardware().drawCenteredText("CONNECTED");
 
           setenv("TZ", "CET-1CEST,M3.5.0/2,M10.5.0/3", 1);
           tzset();
           configTime(0, 0, ntpServer1, ntpServer2);
 
           long s = 0, e = 0;
-          hardware->loadStartEnd(&s, &e);
-          hardware->loadSwitches();
-          hardware->extractTime(s, e);
-          hardware->applyRelays();
+          hardware().loadStartEnd(&s, &e);
+          hardware().loadSwitches();
+          hardware().extractTime(s, e);
+          hardware().applyRelays();
 
-          web->setTimeRangeForHTTPResponses(s, e);
-          web->start(this, hardware);
+          web().setTimeRangeForHTTPResponses(s, e);
+          web().start();
 
           currentState = STATE_NTP_SYNCHRO;
         }
@@ -75,7 +78,7 @@ void NTPMachine::stateMachine(void) {
 
       if (WIFI_CONNECTED) {
 
-        hardware->drawCenteredText("NTP SYNCHRO");
+        hardware().drawCenteredText("NTP SYNCHRO");
 
         if(time(nullptr) > 24 * 3600 * 2) {
           currentState = STATE_CONNECTED;
@@ -92,7 +95,7 @@ void NTPMachine::stateMachine(void) {
 
       } else {
         currentState = STATE_NOT_CONNECTED;
-        hardware->drawCenteredText("NO CONNECTION");
+        hardware().drawCenteredText("NO CONNECTION");
       }
     }
     break;
@@ -120,20 +123,20 @@ void NTPMachine::stateMachine(void) {
           strftime(buffer, sizeof(buffer), "%d/%m/%Y %H:%M:%S", &timeinfo);
 
           now_time = timeinfo.tm_hour * 60 + timeinfo.tm_min;
-          hardware->checkConditionsForStartEnAction(now_time);
+          hardware().checkConditionsForStartEnAction(now_time);
         }
-        web->handleHTTPClient();
-        hardware->hardwareLoop();
+        web().handleHTTPClient();
+        hardware().hardwareLoop();
 
       } else {
         currentState = STATE_NOT_CONNECTED;
-        hardware->drawCenteredText("NO CONNECTION");
+        hardware().drawCenteredText("NO CONNECTION");
       }
     }
     break;
   }
 
-  hardware->updateBuildInLed();
+  hardware().updateBuildInLed();
 
   static unsigned long last_loop_cycle;
   if(millis() - last_loop_cycle > PRINT_INTERVAL_MS) {
@@ -144,10 +147,10 @@ void NTPMachine::stateMachine(void) {
 
       deb("%s, IP:%s, host:%s, mac:%s, wifi strength: %d/5", 
           getTimeFormatted(), 
-          hardware->getMyIP(), 
-          getFriendlyHostname(hardware->getMyMAC()), 
-          hardware->getMyMAC(), 
-          hardware->getWifiStrength());
+          hardware().getMyIP(), 
+          getFriendlyHostname(hardware().getMyMAC()), 
+          hardware().getMyMAC(), 
+          hardware().getWifiStrength());
     }
   }
 

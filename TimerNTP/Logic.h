@@ -20,8 +20,14 @@ class DiscoverMe;
 
 class Logic {
 public:
+  Logic() : ntp(*this), web(*this), hardware(*this), discover(*this) { }
   void logicSetup(void);
   void logicLoop(void);
+
+  MyHardware& hardwareObj() { return hardware; }
+  NTPMachine& ntpObj()   { return ntp; }
+  DiscoverMe& discoverObj() { return discover; }
+  MyWebServer& webObj()   { return web; }
 
 private:
   NTPMachine ntp;
