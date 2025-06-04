@@ -4,10 +4,10 @@
 #include "MyWebServer.h"
 #include "Logic.h"
 
-Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1);
-
 NTPMachine& MyHardware::ntp() { return logic.ntpObj(); }
 MyWebServer& MyHardware::web() { return logic.webObj(); }
+
+MyHardware::MyHardware(Logic& l) : logic(l), display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1)  { }
 
 void MyHardware::start() {
 

@@ -35,7 +35,7 @@ class Logic;
 
 class MyHardware {
 public:
-  explicit MyHardware(Logic& l) : logic(l) {}
+  explicit MyHardware(Logic& l);
   void start();
   void restartWiFi(void);
   int getWifiStrength(void);
@@ -60,6 +60,7 @@ public:
 
 private:
   Logic& logic;
+  Adafruit_SSD1306 display;
 
   NTPMachine& ntp();
   MyWebServer& web();
