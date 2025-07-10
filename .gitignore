@@ -1,2 +1,7 @@
 *.salive
 detection.exe
+materials/~*
+# ustawienia lokalne Android Studio
+Android/.idea/*
+
+
