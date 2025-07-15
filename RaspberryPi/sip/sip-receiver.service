@@ -1,0 +1,18 @@
+[Unit]
+Description=SIP Receiver Service
+After=network.target
+
+[Service]
+Type=simple
+User=pi
+WorkingDirectory=/home/pi/Documents/sip
+Environment="LD_LIBRARY_PATH=/usr/lib/arm-linux-gnueabihf"
+ExecStart=/home/pi/Documents/sip/sip_receiver
+Restart=on-failure
+RestartSec=5
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=sip_receiver
+
+[Install]
+WantedBy=multi-user.target
