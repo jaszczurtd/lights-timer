@@ -1,4 +1,8 @@
 *.salive
 detection.exe
 RaspberryPi/sip/sip_receiver
+materials/~*
+# ustawienia lokalne Android Studio
+Android/.idea/*
+
 

@@ -1,13 +1,14 @@
 
 #include "DiscoverMe.h"
+#include "Logic.h"
+#include "NTPMachine.h"
+#include "MyHardware.h"
 
-DiscoverMe::DiscoverMe() {  }
+MyHardware& DiscoverMe::hardware() { return logic.hardwareObj(); }
 
-void DiscoverMe::start(NTPMachine *n, MyHardware *h) {
-  ntp = n;
-  hardware = h;
+void DiscoverMe::start(void) {
 
-  const char* mac = hardware->getMyMAC();
+  const char* mac = hardware().getMyMAC();
   unsigned long seed = time_us_64();
 
   for (size_t i = 0; i < strlen(mac); i++) {
@@ -24,12 +25,12 @@ void DiscoverMe::handleDiscoveryRequests() {
   }
 
   if (!multicastInitialized) {
-    if (!udp.begin(udpPort)) {
-      deb("UDP begin failed on port %d", udpPort);
+    if (!udp.begin(UDP_PORT)) {
+      deb("UDP begin failed on port %d", UDP_PORT);
       return;
     }
     multicastInitialized = true;
-    deb("Multicast on port %d has been initialized", udpPort);
+    deb("Multicast on port %d has been initialized", UDP_PORT);
   }
 
   int packetSize = udp.parsePacket();
@@ -44,7 +45,7 @@ void DiscoverMe::handleDiscoveryRequests() {
 
     deb("received discovery packet:%s", packetBuffer);
 
-    if (strcmp(packetBuffer, "AQUA_DISCOVER") == 0) {
+    if (strcmp(packetBuffer, DISCOVER_PACKET) == 0) {
       unsigned long delayMs = random(5, 300);
       scheduledResponseTime = millis() + delayMs;
       remoteIp = udp.remoteIP();
@@ -56,11 +57,12 @@ void DiscoverMe::handleDiscoveryRequests() {
 
   if (pendingResponse && millis() >= scheduledResponseTime) {
     char response[128];
-    snprintf(response, sizeof(response), "AQUA_FOUND|%s|%s|%s|%s",
-      hardware->getMyMAC(),
-      hardware->getMyIP(),
-      hardware->getMyHostname(),
-      hardware->getAmountOfSwitches());
+    snprintf(response, sizeof(response), "%s|%s|%s|%s|%s",
+      RESPONSE_PACKET,
+      hardware().getMyMAC(),
+      hardware().getMyIP(),
+      hardware().getMyHostname(),
+      hardware().getAmountOfSwitches());
 
     udp.beginPacket(remoteIp, remotePort);
     udp.write(response);

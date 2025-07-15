@@ -3,29 +3,28 @@
 
 #pragma once
 
+#include "Config.h"
+
 #include <WiFi.h>
 #include <Credentials.h>
 #include <tools.h>
 #include <WiFiClient.h>
 #include <string.h>
-
-#include "NTPMachine.h"
-
-#define udpPort 12345
+#include <WiFiUdp.h>
 
 class NTPMachine;
 class MyHardware;
+class Logic;
 
 class DiscoverMe {
 public:
 
-  DiscoverMe();
-  void start(NTPMachine *ntp, MyHardware *h);
+  explicit DiscoverMe(Logic& l) : logic(l) {}
+  void start(void);
   void handleDiscoveryRequests();
 
 private:
-  NTPMachine *ntp; 
-  MyHardware *hardware;
+  Logic& logic;
   char packetBuffer[255] = {0};
   WiFiUDP udp;
   bool multicastInitialized = false;
@@ -33,6 +32,8 @@ private:
   unsigned long scheduledResponseTime = 0;
   IPAddress remoteIp;
   uint16_t remotePort;  
+
+  MyHardware& hardware();
 };
 
 #endif

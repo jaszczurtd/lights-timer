@@ -1,12 +1,16 @@
 
 #include "MyWebServer.h"
+#include "Logic.h"
+#include "NTPMachine.h"
+#include "MyHardware.h"
 
-MyWebServer::MyWebServer() : server(80), currentClient() { }
+NTPMachine& MyWebServer::ntp() { return logic.ntpObj(); }
+MyHardware& MyWebServer::hardware() { return logic.hardwareObj(); }
 
-void MyWebServer::start(NTPMachine *n, MyHardware *h) {
+MyWebServer::MyWebServer(Logic& l) : logic(l), server(80), currentClient() { }
+
+void MyWebServer::start() {
   server.begin();
-  ntp = n;
-  hardware = h;
 }
 
 char* MyWebServer::extractPostBody(char* http_request) {
@@ -139,7 +143,7 @@ char *MyWebServer::parseGETParameters(const char *query) {
 void MyWebServer::updateRelaysStatesForClient(void) {
   char *isOnBuffers[MAX_AMOUNT_OF_RELAYS] = {isOn1, isOn2, isOn3, isOn4};
   for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
-    snprintf(isOnBuffers[a], PARAM_LENGTH, "%s", (hardware->getSwitchesStates()[a]) ? "true" : "false");
+    snprintf(isOnBuffers[a], PARAM_LENGTH, "%s", (hardware().getSwitchesStates()[a]) ? "true" : "false");
   }
 }
 
@@ -208,14 +212,14 @@ void MyWebServer::handleHTTPClient() {
               if(ok) {
                 timeStart = strtol(dateHourStart, NULL, 10);
                 timeEnd = strtol(dateHourEnd, NULL, 10);
-                hardware->setTimeRange(timeStart, timeEnd);
-                hardware->checkConditionsForStartEnAction(ntp->getTimeNow());
+                hardware().setTimeRange(timeStart, timeEnd);
+                hardware().checkConditionsForStartEnAction(ntp().getTimeNow());
                 char *isOnBuffers[MAX_AMOUNT_OF_RELAYS] = {isOn1, isOn2, isOn3, isOn4};
                 for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
-                  hardware->setRelayTo(a, (strcasecmp(isOnBuffers[a], "true") == 0));
+                  hardware().setRelayTo(a, (strcasecmp(isOnBuffers[a], "true") == 0));
                 }
                 updateRelaysStatesForClient();
-                hardware->saveSwitches();
+                hardware().saveSwitches();
               }
 
               memset(returnBuffer, 0, sizeof(returnBuffer));
@@ -228,7 +232,7 @@ void MyWebServer::handleHTTPClient() {
                 ok &= (cJSON_AddBoolToObject(root, "isOn3", (strcasecmp(isOn3, "true") == 0)) != nullptr);
                 ok &= (cJSON_AddBoolToObject(root, "isOn4", (strcasecmp(isOn4, "true") == 0)) != nullptr);
                 ok &= (cJSON_AddStringToObject(root, "localTime", 
-                        strlen(ntp->getTimeFormatted()) ? ntp->getTimeFormatted() : "not available yet.") != nullptr);
+                        strlen(ntp().getTimeFormatted()) ? ntp().getTimeFormatted() : "not available yet.") != nullptr);
 
                 if (ok) {
                   char* json = cJSON_PrintUnformatted(root);

@@ -10,8 +10,6 @@
 #include <WiFiServer.h>
 #include <string.h>
 
-#include "NTPMachine.h"
-#include "MyHardware.h"
 #include "cJSON.h"
 
 #define HTTP_BUFFER 2048
@@ -22,19 +20,19 @@
 
 class NTPMachine;
 class MyHardware;
+class Logic;
 
 class MyWebServer {
 public:
 
-  MyWebServer();
-  void start(NTPMachine *ntp, MyHardware *h);
+  explicit MyWebServer(Logic& l);
+  void start();
   void handleHTTPClient();
   void setTimeRangeForHTTPResponses(long start, long end);
   void updateRelaysStatesForClient(void);
 
 private:
-  NTPMachine *ntp; 
-  MyHardware *hardware;
+  Logic& logic;
   WiFiServer server;
   WiFiClient currentClient;   
   unsigned int bufferIndex = 0;
@@ -47,6 +45,9 @@ private:
   char isOn2[PARAM_LENGTH] = "";
   char isOn3[PARAM_LENGTH] = "";
   char isOn4[PARAM_LENGTH] = "";
+
+  NTPMachine& ntp();
+  MyHardware& hardware();
 
   char* extractPostBody(char* http_request);
   long processGETToken(const char* token);
