@@ -21,7 +21,7 @@ static void call_state_changed(LinphoneCore *lc, LinphoneCall *call,
                               LinphoneCallState cstate, const char *msg) {
     printf("Call state changed to: %s\n", linphone_call_state_to_string(cstate));
     
-    if (cstate == LinphoneCallIncoming) {
+    if (cstate == LinphoneCallStateIncomingReceived) {
         const LinphoneAddress *remote_addr = linphone_call_get_remote_address(call);
         if (remote_addr) {
             char *addr_str = linphone_address_as_string(remote_addr);
@@ -94,7 +94,7 @@ int main(int argc, char *argv[]) {
         return 1;
     }
     
-    linphone_config_set_string(config, "sip", "contact", "sip:pi@10.8.0.2");
+    linphone_config_set_string(config, "sip", "contact", "sip:pi@10.8.0.1");
     linphone_config_set_int(config, "sip", "keepalive_period", 30000);
     linphone_config_set_int(config, "sip", "inc_timeout", 600);
     
@@ -111,6 +111,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "Failed to create Linphone core\n");
         return 1;
     }
+    linphone_core_enable_ipv6(lc, FALSE);
 
     linphone_core_add_callbacks(lc, cbs);
 
