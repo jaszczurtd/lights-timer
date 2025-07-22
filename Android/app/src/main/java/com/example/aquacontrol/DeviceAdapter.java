@@ -1,7 +1,5 @@
 package com.example.aquacontrol;
 
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -14,21 +12,20 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.widget.SwitchCompat;
 import androidx.recyclerview.widget.RecyclerView;
 
-import org.json.JSONException;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
 
 public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceViewHolder> implements Constants {
 
-    private final ArrayList<NetworkAwareDiscovery.DeviceInfo> devices = new ArrayList<>();
+    private final ArrayList<DeviceInfo> devices = new ArrayList<>();
 
     public interface OnDeviceToggleListener {
-        void onToggle(NetworkAwareDiscovery.DeviceInfo device, int switchIndex, boolean isOn);
-        void onTimeSetButton(NetworkAwareDiscovery.DeviceInfo device);
+        void onToggle(DeviceInfo device, int switchIndex, boolean isOn);
+        void onTimeSetButton(DeviceInfo device);
     }
 
     private final OnDeviceToggleListener toggleListener;
@@ -37,12 +34,57 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         this.toggleListener = listener;
     }
 
-    public void addDevice(NetworkAwareDiscovery.DeviceInfo device) {
-        for (NetworkAwareDiscovery.DeviceInfo d : devices) {
-            if (d.mac.equals(device.mac)) return;
+    public void updateDevicesFrom(String list) {
+        try {
+            JSONObject root = new JSONObject(list);
+            JSONArray devs = root.getJSONArray("devices");
+
+            ArrayList<DeviceInfo> newDevices = new ArrayList<>();
+            for (int i = 0; i < devs.length(); i++) {
+                JSONObject device = devs.getJSONObject(i);
+
+                String mac = device.getString("mac");
+                String ip = device.getString("ip");
+                String hostName = device.getString("hostName");
+                int switches = device.getInt("switches");
+
+                newDevices.add(new DeviceInfo(mac, ip, hostName, switches));
+            }
+
+            // USUŃ nieistniejące już urządzenia
+            for (int i = devices.size() - 1; i >= 0; i--) {
+                DeviceInfo d = devices.get(i);
+                boolean found = false;
+                for (DeviceInfo newDevice : newDevices) {
+                    if (d.mac.equalsIgnoreCase(newDevice.mac)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    devices.remove(i);
+                    notifyItemRemoved(i);
+                }
+            }
+
+            // DODAJ nowe urządzenia
+            for (DeviceInfo newDevice : newDevices) {
+                boolean found = false;
+                for (DeviceInfo d : devices) {
+                    if (d.mac.equalsIgnoreCase(newDevice.mac)) {
+                        found = true;
+                        break;
+                    }
+                }
+                if (!found) {
+                    devices.add(newDevice);
+                    notifyItemInserted(devices.size() - 1);
+                }
+            }
+
+        } catch (Exception e) {
+            Log.e(TAG, "JSON parse error", e);
         }
-        devices.add(device);
-        notifyItemInserted(devices.size() - 1);
     }
 
     @NonNull
@@ -60,7 +102,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         return Character.toUpperCase(raw.charAt(0)) + raw.substring(1);
     }
 
-    void configureSwitches(DeviceViewHolder h, NetworkAwareDiscovery.DeviceInfo d) {
+    void configureSwitches(DeviceViewHolder h, DeviceInfo d) {
         View[] containers = { h.sw1Container, h.sw2Container, h.sw3Container, h.sw4Container };
         SwitchCompat[] switches = { h.isOn1, h.isOn2, h.isOn3, h.isOn4 };
 
@@ -98,9 +140,9 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         sw.setChecked(state);
     }
 
-    private static final Map<NetworkAwareDiscovery.DeviceInfo, DeviceViewHolder> activeHolders = new HashMap<>();
+    private static final Map<DeviceInfo, DeviceViewHolder> activeHolders = new HashMap<>();
 
-    public static DeviceViewHolder getDeviceViewBy(NetworkAwareDiscovery.DeviceInfo device) {
+    public static DeviceViewHolder getDeviceViewBy(DeviceInfo device) {
         return activeHolders.get(device);
     }
 
@@ -112,7 +154,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
     @Override
     public void onBindViewHolder(@NonNull DeviceViewHolder holder, int position) {
-        NetworkAwareDiscovery.DeviceInfo device = devices.get(position);
+        DeviceInfo device = devices.get(position);
         activeHolders.put(device, holder);
 
         holder.label.setText(formatLabel(device.hostName));
@@ -121,13 +163,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
         configureSwitches(holder, device);
 
-        StringBuilder query = new StringBuilder();
-        query.append("dateHourStart&dateHourEnd");
-
-        for (int i = 1; i <= device.switches; i++) {
-            query.append("&isOn").append(i);
-        }
-
+        //TODO: get topics?
 
         holder.time.setOnClickListener((buttonView) -> {
             toggleListener.onTimeSetButton(device);

@@ -1,12 +1,9 @@
 package com.example.aquacontrol;
 
-
-import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
-import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Bundle;
 import android.os.Handler;
@@ -20,12 +17,9 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -103,7 +97,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
 
         adapter = new DeviceAdapter(new DeviceAdapter.OnDeviceToggleListener() {
             @Override
-            public void onToggle(NetworkAwareDiscovery.DeviceInfo device, int switchIndex, boolean isOn) {
+            public void onToggle(DeviceInfo device, int switchIndex, boolean isOn) {
                 Log.d(TAG, "device:" + device + ": idx:" + switchIndex + "/" +
                         (isOn ? getString(R.string.on) : getString(R.string.off)));
                 DeviceAdapter.DeviceViewHolder holder = DeviceAdapter.getDeviceViewBy(device);
@@ -121,7 +115,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
                 }
             }
             @Override
-            public void onTimeSetButton(NetworkAwareDiscovery.DeviceInfo device) {
+            public void onTimeSetButton(DeviceInfo device) {
                 Log.d(TAG, "set time for:" + device.mac);
 
                 DeviceAdapter.DeviceViewHolder holder = DeviceAdapter.getDeviceViewBy(device);
@@ -183,49 +177,39 @@ public class MainActivity extends AppCompatActivity implements Constants {
         } else {
             askForCredentials();
         }
-
-
-        //TODO: start mqtt
-        //adapter.addDevice(device);
-        //runOnUiThread(() -> {
-        //    updateEmptyView();
-        //});
-
     }
 
     void askForCredentials() {
-        runOnUiThread(() -> {
-            AlertDialog.Builder builder = new AlertDialog.Builder(this);
-            builder.setTitle(getString(R.string.mqtt_login));
+        AlertDialog.Builder builder = new AlertDialog.Builder(this);
+        builder.setTitle(getString(R.string.mqtt_login));
 
-            LinearLayout layout = new LinearLayout(this);
-            layout.setOrientation(LinearLayout.VERTICAL);
+        LinearLayout layout = new LinearLayout(this);
+        layout.setOrientation(LinearLayout.VERTICAL);
 
-            final EditText inputUser = new EditText(this);
-            inputUser.setHint(getString(R.string.user));
-            layout.addView(inputUser);
+        final EditText inputUser = new EditText(this);
+        inputUser.setHint(getString(R.string.user));
+        layout.addView(inputUser);
 
-            final EditText inputPass = new EditText(this);
-            inputPass.setHint(getString(R.string.pass));
-            inputPass.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
-            layout.addView(inputPass);
+        final EditText inputPass = new EditText(this);
+        inputPass.setHint(getString(R.string.pass));
+        inputPass.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+        layout.addView(inputPass);
 
-            builder.setView(layout);
+        builder.setView(layout);
 
-            builder.setPositiveButton(getString(R.string.ok), (dialog, which) -> {
-                String user = inputUser.getText().toString();
-                String pass = inputPass.getText().toString();
-                prefs.edit()
-                        .putString(MQTT_USER, user)
-                        .putString(MQTT_PASS, pass)
-                        .apply();
+        builder.setPositiveButton(getString(R.string.ok), (dialog, which) -> {
+            String user = inputUser.getText().toString();
+            String pass = inputPass.getText().toString();
+            prefs.edit()
+                    .putString(MQTT_USER, user)
+                    .putString(MQTT_PASS, pass)
+                    .apply();
 
-                setupMQTT(user, pass);
-            });
-
-            builder.setCancelable(false);
-            builder.show();
+            setupMQTT(user, pass);
         });
+
+        builder.setCancelable(false);
+        builder.show();
     }
 
     @Override
@@ -242,35 +226,39 @@ public class MainActivity extends AppCompatActivity implements Constants {
             return;
         }
 
-        runOnUiThread(() -> {
-            mqttClient = new MQTTClient(
-                    this,
-                    MQTT_BROKER,
-                    user, pass,
-                    (topic, message) -> runOnUiThread(() -> {
+        mqttClient = new MQTTClient(
+            this,
+            MQTT_BROKER,
+            user, pass,
+            (topic, message) -> runOnUiThread(() -> {
+                Log.v(TAG, "update from broker:" + topic + "/" + message);
 
-                        Log.v(TAG, "update from broker:" + topic + "/" + message);
+                if(topic.equalsIgnoreCase(AQUA_DEVICES_UPDATE)) {
+                    adapter.updateDevicesFrom(new String(message.getPayload()));
+                    updateEmptyView();
+                }
 
-                    }),
-                    new MQTTClient.MQTTStatusListener() {
-                        @Override
-                        public void onConnected() {
+                //TODO: others?
 
-                        }
+            }),
+            new MQTTClient.MQTTStatusListener() {
+                @Override
+                public void onConnected() {
 
-                        @Override
-                        public void onDisconnected() {
-                            runOnUiThread(() -> {
-                                Toast.makeText(MainActivity.this, getString(R.string.mqttt_connection_end), Toast.LENGTH_SHORT).show();
-                            });
-                        }
+                }
 
-                        @Override
-                        public void onConnectionFailed(String reason) {
-                            Toast.makeText(MainActivity.this, reason, Toast.LENGTH_SHORT).show();
-                        }
+                @Override
+                public void onDisconnected() {
+                    runOnUiThread(() -> {
+                        Toast.makeText(MainActivity.this, getString(R.string.mqttt_connection_end), Toast.LENGTH_SHORT).show();
                     });
-        });
+                }
+
+                @Override
+                public void onConnectionFailed(String reason) {
+                    Toast.makeText(MainActivity.this, reason, Toast.LENGTH_SHORT).show();
+                }
+            });
     }
 
     void destroyMQTT() {
