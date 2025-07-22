@@ -1,0 +1,15 @@
+[Unit]
+Description=MQTT devices provider
+After=network-online.target wg-quick@wg0.service
+Requires=network-online.target wg-quick@wg0.service
+
+
+[Service]
+ExecStart=/home/pi/Documents/lights-timer/RaspberryPi/aqua_topic_provider
+WorkingDirectory=/home/pi/Documents/lights-timer/RaspberryPi/aqua_topic_provider/provider
+Restart=always
+RestartSec=5
+User=pi
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,4 @@
+sudo apt update
+sudo apt install libmosquitto-dev libmosquitto1 mosquitto-clients
+sudo apt-get install libcjson-dev
+

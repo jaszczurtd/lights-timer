@@ -1,5 +1,5 @@
 # Target exe file
-TARGET = detection.exe
+TARGET = provider
 
 # compilator
 CC = gcc
@@ -8,10 +8,10 @@ CC = gcc
 CFLAGS = -Wall -g
 
 # link library
-LIBS = -lcjson
+LIBS = -lcjson -lmosquitto
 
 # sources C
-SRC = detect.c
+SRC = provider.c
 
 # default rule
 all: $(TARGET)
@@ -19,8 +19,6 @@ all: $(TARGET)
 # How to create target exe file (TARGET) from source file
 $(TARGET): $(SRC)
 	$(CC) $(CFLAGS) $(SRC) -o $(TARGET) $(LIBS)
-	#make it executable
-	chmod +x $(TARGET)
 	
 # remove target exe file
 clean:
