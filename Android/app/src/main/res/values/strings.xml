@@ -5,6 +5,7 @@
     <string name="ok">"OK"</string>
     <string name="cancel">"Anuluj"</string>
     <string name="error">"Błąd"</string>
+    <string name="exit">"Wyjście"</string>
     <string name="time_range">"Zakres czasu"</string>
     <string name="time_range_error">"Czas zakończenia musi być późniejszy niż czas rozpoczęcia!"</string>
     <string name="no_devices_detected">"Brak wykrytych urządzeń."</string>
@@ -12,4 +13,9 @@
     <string name="error_setting">Nie udało się ustawić stanu.</string>
     <string name="no_wifi_error">Aplikacja wymaga do działania włączonego WiFi.</string>
     <string name="open_settings">Otwórz ustawienia</string>
+    <string name="no_internet_error">Aplikacja wymaga do działania połączenia z internetem.</string>
+    <string name="mqtt_login">Podaj dane MQTT"</string>
+    <string name="user">"Użytkownik"</string>
+    <string name="pass">"Hasło"</string>
+    <string name="mqttt_connection_end">Rozłączono z MQTT</string>
 </resources>

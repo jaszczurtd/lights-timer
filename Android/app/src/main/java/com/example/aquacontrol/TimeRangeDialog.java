@@ -11,7 +11,7 @@ import androidx.appcompat.app.AppCompatActivity;
 import java.util.Calendar;
 import java.util.Locale;
 
-public class TimeRangeDialog extends AppCompatActivity {
+public class TimeRangeDialog extends AppCompatActivity implements Constants{
     public static int getHour(long totalMinutes) {
         return (int)totalMinutes / 60;
     }

@@ -22,8 +22,7 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.Objects;
 
-public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceViewHolder> {
-    private static final String TAG = "NetworkAwareDiscovery";
+public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceViewHolder> implements Constants {
 
     private final ArrayList<NetworkAwareDiscovery.DeviceInfo> devices = new ArrayList<>();
 
@@ -129,52 +128,6 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
             query.append("&isOn").append(i);
         }
 
-        String fullUrl = HttpRequestHelper.METHOD + device.ip + "/?" + query;
-        Log.i(TAG, "full url:" + fullUrl);
-
-        HttpRequestHelper.get(fullUrl, new HttpRequestHelper.Callback() {
-            @Override
-            public void onResponse(int status, String response) {
-                Log.d(TAG, "status:" + status + " response json:" + response);
-
-                Handler mainHandler = new Handler(Looper.getMainLooper());
-
-                try {
-                    JSONObject obj = new JSONObject(response);
-                    holder.start = Long.parseLong(obj.getString(HttpRequestHelper.PARAM_DATE_HOUR_START));
-                    holder.end = Long.parseLong(obj.getString(HttpRequestHelper.PARAM_DATE_HOUR_END));
-
-                    SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
-                    String paramPrefix = HttpRequestHelper.PARAM_IS_ON;
-
-                    StringBuilder b = new StringBuilder();
-                    for (int i = 0; i < device.switches; i++) {
-                        holder.isOnFlags[i] = obj.optBoolean(paramPrefix + (i + 1), false);
-                        b.append("isOn").append(i).append(":").append(holder.isOnFlags[i]).append(" ");
-                    }
-
-                    mainHandler.post(() -> {
-                        holder.startTimeText.setText(TimeRangeDialog.formatTime(holder.start));
-                        holder.endTimeText.setText(TimeRangeDialog.formatTime(holder.end));
-
-                        for (int i = 0; i < device.switches; i++) {
-                            setSwitch(switches[i], holder.isOnFlags[i]);
-                        }
-                    });
-
-                    Log.i(TAG, "parsed values: start:" + holder.start +
-                            " end:" + holder.end + " " + b);
-
-                } catch (JSONException e) {
-                    Log.e(TAG, Objects.requireNonNull(e.getMessage()));
-                }
-            }
-
-            @Override
-            public void onError(Exception e) {
-                Log.e(TAG, "Error", e);
-            }
-        });
 
         holder.time.setOnClickListener((buttonView) -> {
             toggleListener.onTimeSetButton(device);

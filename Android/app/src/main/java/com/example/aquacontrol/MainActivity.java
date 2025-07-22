@@ -1,80 +1,62 @@
 package com.example.aquacontrol;
 
 
+import android.Manifest;
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
-import android.content.Context;
-import android.content.Intent;
+import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
-import android.net.ConnectivityManager;
-import android.net.Network;
-import android.net.NetworkCapabilities;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.provider.Settings;
+import android.text.InputType;
 import android.util.Log;
 import android.view.View;
+import android.widget.EditText;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.SwitchCompat;
+import androidx.core.app.ActivityCompat;
+import androidx.core.content.ContextCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-
-import org.json.JSONObject;
 
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Objects;
 
-public class MainActivity extends AppCompatActivity {
-
+public class MainActivity extends AppCompatActivity implements Constants {
     FrameLayout loader;
     TextView emptyView;
 
-    private static final String TAG = "NetworkAwareDiscovery";
     private DeviceAdapter adapter;
-    private NetworkAwareDiscovery discovery;
     private final Handler loaderHandler = new Handler(Looper.getMainLooper());
     private Runnable showLoaderRunnable;
     private boolean loaderPending = false;
     private AlertDialog alert;
+    MQTTClient mqttClient;
+    NetworkMonitor networkMonitor;
+    SharedPreferences prefs;
 
-    public static boolean isConnectedViaWifi(Context context) {
-        ConnectivityManager cm = (ConnectivityManager) context.getSystemService(Context.CONNECTIVITY_SERVICE);
-        if (cm == null) return false;
-
-        Network activeNetwork = cm.getActiveNetwork();
-        if (activeNetwork == null) return false;
-
-        NetworkCapabilities nc = cm.getNetworkCapabilities(activeNetwork);
-        return nc != null && nc.hasTransport(NetworkCapabilities.TRANSPORT_WIFI);
+    private void handleNoNetwork(Runnable onExitConfirmed) {
+        alert = new AlertDialog.Builder(this)
+                .setTitle(getString(R.string.error))
+                .setMessage(getString(R.string.no_internet_error))
+                .setPositiveButton(getString(R.string.exit), (dialog, which) -> {
+                    alert.dismiss();
+                    new Handler(Looper.getMainLooper()).postDelayed(onExitConfirmed, 100);
+                })
+                .show();
     }
 
-    private void checkWifiConnection() {
-        if (isConnectedViaWifi(getApplicationContext())) {
-            Log.d(TAG, "Wi-Fi connectivity");
-        } else {
-            Log.d(TAG, "No Wi-Fi");
-            if(alert == null) {
-                alert = new AlertDialog.Builder(this)
-                        .setTitle(getString(R.string.error))
-                        .setMessage(getString(R.string.no_wifi_error))
-                        .setPositiveButton(getString(R.string.open_settings), (dialog, which) -> {
-                            startActivity(new Intent(Settings.ACTION_WIFI_SETTINGS));
-                            alert = null;
-                        })
-                        .setNegativeButton(getString(R.string.cancel), (dialog, which) -> alert = null)
-                        .show();
-            }
-        }
-    }
     private void updateEmptyView() {
         new Handler(Looper.getMainLooper()).postDelayed(() -> {
             boolean isEmpty = adapter.getItemCount() == 0;
@@ -133,44 +115,9 @@ public class MainActivity extends AppCompatActivity {
 
                     holder.isOnFlags[switchIndex] = isOn;
                     DeviceAdapter.setSwitch(switches[switchIndex], holder.isOnFlags[switchIndex]);
-                    params.put(HttpRequestHelper.PARAM_IS_ON + (switchIndex + 1), String.valueOf(holder.isOnFlags[switchIndex]));
 
-                    String fullUrl = HttpRequestHelper.METHOD + device.ip;
+                    //TODO:
 
-                    HttpRequestHelper.post(fullUrl, params, new HttpRequestHelper.Callback() {
-                        @Override
-                        public void onResponse(int status, String response) {
-                            new Handler(Looper.getMainLooper()).post(MainActivity.this::hideLoader);
-                            Log.i(TAG, "status:" + status + " post response:" + response);
-
-                            try {
-                                JSONObject obj = new JSONObject(response);
-                                boolean isOn = obj.getBoolean(HttpRequestHelper.PARAM_IS_ON + (switchIndex + 1));
-                                if(holder.isOnFlags[switchIndex] == isOn) {
-                                    Log.i(TAG, "Action went successfully");
-                                } else {
-                                    new Handler(Looper.getMainLooper()).post(() -> {
-                                        Toast.makeText(ContextProvider.getContext(),
-                                                getText(R.string.error_setting), Toast.LENGTH_LONG).show();
-                                    });
-                                }
-
-                            } catch (Exception e) {
-                                Log.e(TAG, Objects.requireNonNull(e.getMessage()));
-                            }
-
-                        }
-
-                        @Override
-                        public void onError(Exception e) {
-                            new Handler(Looper.getMainLooper()).post(() -> {
-                                hideLoader();
-                                Toast.makeText(ContextProvider.getContext(),
-                                        getText(R.string.error_connecting), Toast.LENGTH_LONG).show();
-                            });
-                            Log.e(TAG, Objects.requireNonNull(e.getMessage()));
-                        }
-                    });
                 }
             }
             @Override
@@ -192,53 +139,15 @@ public class MainActivity extends AppCompatActivity {
                         long now = TimeRangeDialog.getTimeNowInMinutes();
                         SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
 
-                        Map<String, String> params = new HashMap<>();
-                        params.put(HttpRequestHelper.PARAM_DATE_HOUR_START, String.valueOf(startMinutes));
-                        params.put(HttpRequestHelper.PARAM_DATE_HOUR_END, String.valueOf(endMinutes));
+                        String start = String.valueOf(startMinutes);
+                        String end = String.valueOf(endMinutes);
 
                         int a = 0;
                         holder.isOnFlags[a] = TimeRangeDialog.isTimeInRange(now, startMinutes, endMinutes);
                         DeviceAdapter.setSwitch(switches[a], holder.isOnFlags[a]);
-                        params.put(HttpRequestHelper.PARAM_IS_ON + (a + 1), String.valueOf(holder.isOnFlags[a]));
 
-                        String fullUrl = HttpRequestHelper.METHOD + device.ip;
+                        //TODO:
 
-                        HttpRequestHelper.post(fullUrl, params, new HttpRequestHelper.Callback() {
-                            @Override
-                            public void onResponse(int status, String response) {
-                                new Handler(Looper.getMainLooper()).post(MainActivity.this::hideLoader);
-                                Log.i(TAG, "status:" + status + " post response:" + response);
-
-                                try {
-                                    JSONObject obj = new JSONObject(response);
-                                    boolean isOn = obj.getBoolean(HttpRequestHelper.PARAM_IS_ON + (a + 1));
-                                    long start = obj.getLong(HttpRequestHelper.PARAM_DATE_HOUR_START);
-                                    long end = obj.getLong(HttpRequestHelper.PARAM_DATE_HOUR_END);
-
-                                    if(holder.isOnFlags[a] == isOn && start == startMinutes && end == endMinutes) {
-                                        Log.i(TAG, "Action went successfully");
-                                    } else {
-                                        new Handler(Looper.getMainLooper()).post(() -> {
-                                            Toast.makeText(ContextProvider.getContext(),
-                                                    getText(R.string.error_setting), Toast.LENGTH_LONG).show();
-                                        });
-                                    }
-
-                                } catch (Exception e) {
-                                    Log.e(TAG, Objects.requireNonNull(e.getMessage()));
-                                }
-                            }
-
-                            @Override
-                            public void onError(Exception e) {
-                                new Handler(Looper.getMainLooper()).post(() -> {
-                                    hideLoader();
-                                    Toast.makeText(ContextProvider.getContext(),
-                                            getText(R.string.error_connecting), Toast.LENGTH_LONG).show();
-                                });
-                                Log.e(TAG, Objects.requireNonNull(e.getMessage()));
-                            }
-                        });
                     });
                 } else {
                     Log.e(TAG, "cannot get holder object from the list");
@@ -247,45 +156,130 @@ public class MainActivity extends AppCompatActivity {
         });
 
         deviceList.setAdapter(adapter);
-
         updateEmptyView();
-        checkWifiConnection();
 
-        discovery = new NetworkAwareDiscovery(this, (device) -> {
-            Log.d(TAG, "Found Pico W: " + device);
-            runOnUiThread(() -> {
-                adapter.addDevice(device);
-                updateEmptyView();
-            });
+        networkMonitor = new NetworkMonitor(this, new NetworkMonitor.NetworkStatusListener() {
+            @Override
+            public void onConnected() {
+                Log.v(TAG, "Internet is connected");
+            }
+
+            @Override
+            public void onDisconnected() {
+                Log.v(TAG, "Internet has been disconnected");
+            }
         });
 
-        discovery.start();
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        new Handler(Looper.getMainLooper()).postDelayed(this::checkWifiConnection, 3000);
-        discovery.start();
-        runOnUiThread(this::updateEmptyView);
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        if(alert != null) {
-            alert.dismiss();
-            alert = null;
+        networkMonitor.startMonitoring();
+        if (!networkMonitor.isConnected()) {
+            handleNoNetwork(() -> android.os.Process.killProcess(android.os.Process.myPid()));
         }
-        discovery.stop();
-        adapter.clearDevices();
+
+        prefs = getSharedPreferences(MQTT_CREDENTIALS, MODE_PRIVATE);
+        String user = prefs.getString(MQTT_USER, null);
+        String pass = prefs.getString(MQTT_PASS, null);
+        if (user != null && pass != null) {
+            setupMQTT(user, pass);
+        } else {
+            askForCredentials();
+        }
+
+
+        //TODO: start mqtt
+        //adapter.addDevice(device);
+        //runOnUiThread(() -> {
+        //    updateEmptyView();
+        //});
+
+    }
+
+    void askForCredentials() {
+        runOnUiThread(() -> {
+            AlertDialog.Builder builder = new AlertDialog.Builder(this);
+            builder.setTitle(getString(R.string.mqtt_login));
+
+            LinearLayout layout = new LinearLayout(this);
+            layout.setOrientation(LinearLayout.VERTICAL);
+
+            final EditText inputUser = new EditText(this);
+            inputUser.setHint(getString(R.string.user));
+            layout.addView(inputUser);
+
+            final EditText inputPass = new EditText(this);
+            inputPass.setHint(getString(R.string.pass));
+            inputPass.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
+            layout.addView(inputPass);
+
+            builder.setView(layout);
+
+            builder.setPositiveButton(getString(R.string.ok), (dialog, which) -> {
+                String user = inputUser.getText().toString();
+                String pass = inputPass.getText().toString();
+                prefs.edit()
+                        .putString(MQTT_USER, user)
+                        .putString(MQTT_PASS, pass)
+                        .apply();
+
+                setupMQTT(user, pass);
+            });
+
+            builder.setCancelable(false);
+            builder.show();
+        });
     }
 
     @Override
     protected void onDestroy() {
-        discovery.stop();
         adapter.clearDevices();
+        destroyMQTT();
 
         super.onDestroy();
     }
+
+    void setupMQTT(String user, String pass) {
+        if((mqttClient != null && mqttClient.isConnected())) {
+            Log.v(TAG, "MQTT client already connected and active");
+            return;
+        }
+
+        runOnUiThread(() -> {
+            mqttClient = new MQTTClient(
+                    this,
+                    MQTT_BROKER,
+                    user, pass,
+                    (topic, message) -> runOnUiThread(() -> {
+
+                        Log.v(TAG, "update from broker:" + topic + "/" + message);
+
+                    }),
+                    new MQTTClient.MQTTStatusListener() {
+                        @Override
+                        public void onConnected() {
+
+                        }
+
+                        @Override
+                        public void onDisconnected() {
+                            runOnUiThread(() -> {
+                                Toast.makeText(MainActivity.this, getString(R.string.mqttt_connection_end), Toast.LENGTH_SHORT).show();
+                            });
+                        }
+
+                        @Override
+                        public void onConnectionFailed(String reason) {
+                            Toast.makeText(MainActivity.this, reason, Toast.LENGTH_SHORT).show();
+                        }
+                    });
+        });
+    }
+
+    void destroyMQTT() {
+        Log.v(TAG, "destroy MQTT client");
+
+        if(mqttClient != null) {
+            mqttClient.stop();
+            mqttClient = null;
+        }
+    }
+
 }
