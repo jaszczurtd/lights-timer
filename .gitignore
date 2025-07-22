@@ -5,4 +5,5 @@ RaspberryPi/sip/build/*
 materials/~*
 # ustawienia lokalne Android Studio
 Android/.idea/*
+RaspberryPi/aqua_topic_provider/provider
 
