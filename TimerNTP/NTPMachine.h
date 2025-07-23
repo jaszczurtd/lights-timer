@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "Config.h"
+
 #include <WiFi.h>
 #include <time.h>
 #include <Credentials.h>
@@ -11,7 +13,7 @@
 #include <WiFiServer.h>
 #include <string.h>
 
-#include "MyWebServer.h"
+#include "MQTTClient.h"
 #include "MyHardware.h"
 
 #define WIFI_CONNECTED     (WiFi.status() == WL_CONNECTED)
@@ -28,12 +30,9 @@ enum {
   STATE_CONNECTED
 };
 
-#define ntpServer1 "pool.ntp.org"
-#define ntpServer2 "europe.pool.ntp.org"
-
 #define MAX_TIME (24 * 60)
 
-class MyWebServer;
+class MQTTClient;
 class MyHardware;
 class Logic;
 
@@ -50,7 +49,7 @@ private:
   Logic& logic;
 
   MyHardware& hardware();
-  MyWebServer& web();
+  MQTTClient& mqtt();
 
   int currentState;
   unsigned long connectionStartTime;

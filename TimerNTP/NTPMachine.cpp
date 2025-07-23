@@ -4,7 +4,7 @@
 #include "MyWebServer.h"
 
 MyHardware& NTPMachine::hardware() { return logic.hardwareObj(); }
-MyWebServer& NTPMachine::web() { return logic.webObj(); }
+MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
 
 void NTPMachine::start() {
   currentState = STATE_NOT_CONNECTED;
@@ -61,8 +61,8 @@ void NTPMachine::stateMachine(void) {
           hardware().extractTime(s, e);
           hardware().applyRelays();
 
-          web().setTimeRangeForHTTPResponses(s, e);
-          web().start();
+          mqtt().start();
+          mqtt().setTimeRangeForResponses(s, e);
 
           currentState = STATE_NTP_SYNCHRO;
         }
@@ -125,7 +125,7 @@ void NTPMachine::stateMachine(void) {
           now_time = timeinfo.tm_hour * 60 + timeinfo.tm_min;
           hardware().checkConditionsForStartEnAction(now_time);
         }
-        web().handleHTTPClient();
+        mqtt().handleMQTTClient();
         hardware().hardwareLoop();
 
       } else {

@@ -9,29 +9,29 @@
 #include <tools.h>
 
 #include "NTPMachine.h"
-#include "MyWebServer.h"
+#include "MQTTClient.h"
 #include "MyHardware.h"
 #include "DiscoverMe.h"
 
 class NTPMachine;
-class MyWebServer;
+class MQTTClient;
 class MyHardware;
 class DiscoverMe;
 
 class Logic {
 public:
-  Logic() : ntp(*this), web(*this), hardware(*this), discover(*this) { }
+  Logic() : ntp(*this), mqtt(*this), hardware(*this), discover(*this) { }
   void logicSetup(void);
   void logicLoop(void);
 
   MyHardware& hardwareObj() { return hardware; }
   NTPMachine& ntpObj()   { return ntp; }
   DiscoverMe& discoverObj() { return discover; }
-  MyWebServer& webObj()   { return web; }
+  MQTTClient& mqttObj()   { return mqtt; }
 
 private:
   NTPMachine ntp;
-  MyWebServer web;
+  MQTTClient mqtt;
   MyHardware hardware;
   DiscoverMe discover;
 

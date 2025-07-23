@@ -30,7 +30,7 @@ void DiscoverMe::handleDiscoveryRequests() {
       return;
     }
     multicastInitialized = true;
-    deb("Multicast on port %d has been initialized", UDP_PORT);
+    deb("\nStart!\nMulticast on port %d has been initialized", UDP_PORT);
   }
 
   int packetSize = udp.parsePacket();

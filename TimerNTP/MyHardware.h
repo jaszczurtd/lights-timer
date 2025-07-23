@@ -1,6 +1,8 @@
 #ifndef HARDWARE_C
 #define HARDWARE_C
 
+#include "Config.h"
+
 #include <EEPROM.h>
 #include <Credentials.h>
 #include <Wire.h>
@@ -30,7 +32,7 @@
 #define LINE_HEIGHT 10
 
 class NTPMachine;
-class MyWebServer;
+class MQTTClient;
 class Logic;
 
 class MyHardware {
@@ -63,7 +65,7 @@ private:
   Adafruit_SSD1306 display;
 
   NTPMachine& ntp();
-  MyWebServer& web();
+  MQTTClient& mqtt();
 
   void updateDisplay(void);
   void clearLine(int line);

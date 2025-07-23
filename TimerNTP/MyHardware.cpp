@@ -1,11 +1,11 @@
 
 #include "MyHardware.h"
 #include "NTPMachine.h"
-#include "MyWebServer.h"
+#include "MQTTClient.h"
 #include "Logic.h"
 
 NTPMachine& MyHardware::ntp() { return logic.ntpObj(); }
-MyWebServer& MyHardware::web() { return logic.webObj(); }
+MQTTClient& MyHardware::mqtt() { return logic.mqttObj(); }
 
 MyHardware::MyHardware(Logic& l) : logic(l), display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1)  { }
 
@@ -172,7 +172,7 @@ void MyHardware::checkConditionsForStartEnAction(long timeNow) {
     lastLights = flagLights;
     //modules start action!
     setLightsTo(flagLights);
-    web().updateRelaysStatesForClient();
+    mqtt().updateRelaysStatesForClient();
   }
 }
 
@@ -311,6 +311,6 @@ void MyHardware::drawCenteredText(const char* text) {
 void MyHardware::handleButtonRelease(int buttonIndex) {
   deb("button action for: %d", buttonIndex);
   setRelayTo(buttonIndex, !switches[buttonIndex]);
-  web().updateRelaysStatesForClient();
+  mqtt().updateRelaysStatesForClient();
   saveSwitches();
 }

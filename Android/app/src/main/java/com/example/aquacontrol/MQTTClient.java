@@ -40,7 +40,7 @@ public class MQTTClient implements Constants {
             options.setUserName(username);
             options.setPassword(password.toCharArray());
             options.setAutomaticReconnect(true);
-            options.setCleanSession(true);
+            options.setCleanSession(false);
 
             client.setCallback(new MqttCallbackExtended() {
                 @Override
@@ -74,6 +74,7 @@ public class MQTTClient implements Constants {
             try {
                 client.connect(options);
             } catch (MqttException e) {
+                e.printStackTrace();
                 String reason = e.getReasonCode() + " - " + e.getMessage();
                 Log.e(TAG, "Error MQTT connection: " + reason);
                 if (connectionCallback != null) {
@@ -93,6 +94,7 @@ public class MQTTClient implements Constants {
             client.unsubscribe(topic);
             client.subscribe(topic, MQTTlistener);
         } catch (MqttException e) {
+            e.printStackTrace();
             String reason = e.getReasonCode() + " - " + e.getMessage();
             Log.e(TAG, "Error MQTT subscription: " + reason);
         }

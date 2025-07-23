@@ -243,17 +243,9 @@ public class MainActivity extends AppCompatActivity implements Constants {
             }),
             new MQTTClient.MQTTStatusListener() {
                 @Override
-                public void onConnected() {
-
-                }
-
+                public void onConnected() {}
                 @Override
-                public void onDisconnected() {
-                    runOnUiThread(() -> {
-                        Toast.makeText(MainActivity.this, getString(R.string.mqttt_connection_end), Toast.LENGTH_SHORT).show();
-                    });
-                }
-
+                public void onDisconnected() {}
                 @Override
                 public void onConnectionFailed(String reason) {
                     Toast.makeText(MainActivity.this, reason, Toast.LENGTH_SHORT).show();
