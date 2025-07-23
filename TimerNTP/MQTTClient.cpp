@@ -48,11 +48,6 @@ void MQTTClient::stop() {
   publishPending = clientInitialized = false;
 }
 
-void MQTTClient::updateRelaysStatesForClient() {
-  deb("MQTT: updateRelaysStatesForClient");
-
-}
-
 void MQTTClient::publish() {
   if(WIFI_CONNECTED && mqttClient.connected()) {
     bool ok = true;
@@ -63,6 +58,7 @@ void MQTTClient::publish() {
       hardware().loadStartEnd(&s, &e);
       bool *switches = hardware().getSwitchesStates();
 
+      ok &= (cJSON_AddStringToObject(root, "status", "ok") != nullptr);
       ok &= (cJSON_AddNumberToObject(root, "dateHourStart", s) != nullptr);
       ok &= (cJSON_AddNumberToObject(root, "dateHourEnd", e) != nullptr);
       ok &= (cJSON_AddBoolToObject(root, "isOn1", switches[0]) != nullptr);
@@ -86,7 +82,7 @@ void MQTTClient::publish() {
       ok = false;
     }
     if(!ok) {
-      response = "{\"error\":\"JSON build failed\"}";
+      response = "{\"status\":\"JSON build failed\"}";
     }
 
     String topic = String(MQTT_TOPIC_STATUS) + String(hardware().getMyHostname());

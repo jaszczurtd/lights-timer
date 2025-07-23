@@ -27,6 +27,7 @@ import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 
+@SuppressWarnings("CallToPrintStackTrace")
 public class MainActivity extends AppCompatActivity implements Constants {
     FrameLayout loader;
     TextView emptyView;
@@ -100,7 +101,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
             public void onToggle(DeviceInfo device, int switchIndex, boolean isOn) {
                 Log.d(TAG, "device:" + device + ": idx:" + switchIndex + "/" +
                         (isOn ? getString(R.string.on) : getString(R.string.off)));
-                DeviceAdapter.DeviceViewHolder holder = DeviceAdapter.getDeviceViewBy(device);
+                DeviceAdapter.DeviceViewHolder holder = adapter.getDeviceViewBy(device);
                 if(holder != null) {
                     showLoaderDelayed(1500);
                     SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
@@ -118,7 +119,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
             public void onTimeSetButton(DeviceInfo device) {
                 Log.d(TAG, "set time for:" + device.mac);
 
-                DeviceAdapter.DeviceViewHolder holder = DeviceAdapter.getDeviceViewBy(device);
+                DeviceAdapter.DeviceViewHolder holder = adapter.getDeviceViewBy(device);
                 if(holder != null) {
                     TimeRangeDialog.show(MainActivity.this, holder.start, holder.end, (startMinutes, endMinutes) -> {
 
@@ -146,6 +147,12 @@ public class MainActivity extends AppCompatActivity implements Constants {
                 } else {
                     Log.e(TAG, "cannot get holder object from the list");
                 }
+            }
+
+            @Override
+            public void onDeviceJustAppearOnList(DeviceInfo device) {
+                String topic = AQUA_DEVICE_STATUS + device.hostName;
+                mqttClient.subscribeTo(topic);
             }
         });
 
@@ -214,8 +221,17 @@ public class MainActivity extends AppCompatActivity implements Constants {
 
     @Override
     protected void onDestroy() {
-        adapter.clearDevices();
+        try {
+            adapter.clearDevices();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
         destroyMQTT();
+        try {
+            networkMonitor.stopMonitoring();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
 
         super.onDestroy();
     }
@@ -237,9 +253,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
                     adapter.updateDevicesFrom(new String(message.getPayload()));
                     updateEmptyView();
                 }
-
-                //TODO: others?
-
+                adapter.consumeBrokerUpdate(topic, new String(message.getPayload()));
             }),
             new MQTTClient.MQTTStatusListener() {
                 @Override

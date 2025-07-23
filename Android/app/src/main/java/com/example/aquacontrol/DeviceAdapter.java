@@ -26,6 +26,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
     public interface OnDeviceToggleListener {
         void onToggle(DeviceInfo device, int switchIndex, boolean isOn);
         void onTimeSetButton(DeviceInfo device);
+        void onDeviceJustAppearOnList(DeviceInfo device);
     }
 
     private final OnDeviceToggleListener toggleListener;
@@ -140,9 +141,13 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         sw.setChecked(state);
     }
 
-    private static final Map<DeviceInfo, DeviceViewHolder> activeHolders = new HashMap<>();
+    void consumeBrokerUpdate(String topic, String update) {
 
-    public static DeviceViewHolder getDeviceViewBy(DeviceInfo device) {
+    }
+
+    private final Map<DeviceInfo, DeviceViewHolder> activeHolders = new HashMap<>();
+
+    public DeviceViewHolder getDeviceViewBy(DeviceInfo device) {
         return activeHolders.get(device);
     }
 
@@ -159,15 +164,15 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
         holder.label.setText(formatLabel(device.hostName));
 
-        Log.i(TAG, "switches:" + device.switches);
-
         configureSwitches(holder, device);
 
-        //TODO: get topics?
+        if(toggleListener != null) {
+            toggleListener.onDeviceJustAppearOnList(device);
 
-        holder.time.setOnClickListener((buttonView) -> {
-            toggleListener.onTimeSetButton(device);
-        });
+            holder.time.setOnClickListener((buttonView) -> {
+                toggleListener.onTimeSetButton(device);
+            });
+        }
     }
 
     @Override

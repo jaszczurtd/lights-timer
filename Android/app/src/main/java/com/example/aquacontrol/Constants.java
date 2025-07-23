@@ -7,5 +7,5 @@ public interface Constants {
     String MQTT_USER = "aqua_mqtt_user";
     String MQTT_PASS = "aqua_mqtt_pass";
     String AQUA_DEVICES_UPDATE = "discovered/devices";
-
+    String AQUA_DEVICE_STATUS = "status-";
 }

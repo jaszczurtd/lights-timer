@@ -172,7 +172,7 @@ void MyHardware::checkConditionsForStartEnAction(long timeNow) {
     lastLights = flagLights;
     //modules start action!
     setLightsTo(flagLights);
-    mqtt().updateRelaysStatesForClient();
+    mqtt().publish();
   }
 }
 
@@ -311,6 +311,6 @@ void MyHardware::drawCenteredText(const char* text) {
 void MyHardware::handleButtonRelease(int buttonIndex) {
   deb("button action for: %d", buttonIndex);
   setRelayTo(buttonIndex, !switches[buttonIndex]);
-  mqtt().updateRelaysStatesForClient();
+  mqtt().publish();
   saveSwitches();
 }

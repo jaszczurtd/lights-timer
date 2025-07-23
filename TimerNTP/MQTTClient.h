@@ -23,7 +23,6 @@ public:
   explicit MQTTClient(Logic& l);
   void start();
   void stop(); 
-  void updateRelaysStatesForClient();
   void handleMQTTClient();
   void publish();
 
