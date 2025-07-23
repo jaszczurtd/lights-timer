@@ -13,8 +13,25 @@ MQTTClient::MQTTClient(Logic& l) : logic(l), mqttClient(currentClient), currentC
 
 
 void callback(char* topic, byte* payload, unsigned int length) {
+  String msg;
+  for (unsigned int i = 0; i < length; i++) msg += (char)payload[i];
 
+    /*
+    cJSON* root = cJSON_Parse(json);
+    if (!root) return;
 
+    cJSON* temp = cJSON_GetObjectItem(root, "temp");
+    cJSON* status = cJSON_GetObjectItem(root, "status");
+
+    if (cJSON_IsNumber(temp)) {
+        deb("Temp: %f\n", temp->valuedouble);
+    }
+    if (cJSON_IsString(status)) {
+        deb("Status: %s\n", status->valuestring);
+    }
+
+    cJSON_Delete(root);
+*/
 }
 
 void MQTTClient::start() {
@@ -22,8 +39,13 @@ void MQTTClient::start() {
 
   mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
   mqttClient.setCallback(callback);
+  publishPending = true;
   reconnect();
   clientInitialized = true;
+}
+
+void MQTTClient::stop() {
+  publishPending = clientInitialized = false;
 }
 
 void MQTTClient::updateRelaysStatesForClient() {
@@ -31,10 +53,53 @@ void MQTTClient::updateRelaysStatesForClient() {
 
 }
 
-void MQTTClient::setTimeRangeForResponses(long s, long e) {
-  deb("MQTT: setTimeRangeForResponses: %d %d", s, e);
+void MQTTClient::publish() {
+  if(WIFI_CONNECTED && mqttClient.connected()) {
+    bool ok = true;
+    String response;
+    cJSON* root = cJSON_CreateObject();
+    if(root) {
+      long s = 0, e = 0;
+      hardware().loadStartEnd(&s, &e);
+      bool *switches = hardware().getSwitchesStates();
 
+      ok &= (cJSON_AddNumberToObject(root, "dateHourStart", s) != nullptr);
+      ok &= (cJSON_AddNumberToObject(root, "dateHourEnd", e) != nullptr);
+      ok &= (cJSON_AddBoolToObject(root, "isOn1", switches[0]) != nullptr);
+      ok &= (cJSON_AddBoolToObject(root, "isOn2", switches[1]) != nullptr);
+      ok &= (cJSON_AddBoolToObject(root, "isOn3", switches[2]) != nullptr);
+      ok &= (cJSON_AddBoolToObject(root, "isOn4", switches[3]) != nullptr);
+      ok &= (cJSON_AddStringToObject(root, "localTime", 
+              strlen(ntp().getTimeFormatted()) ? ntp().getTimeFormatted() : "not available yet.") != nullptr);
 
+      if (ok) {
+        char* json = cJSON_PrintUnformatted(root);
+        if (json) {
+          response = String(json);
+          free(json);
+        }
+      } else {
+        ok = false;
+      }
+      cJSON_Delete(root);
+    } else {
+      ok = false;
+    }
+    if(!ok) {
+      response = "{\"error\":\"JSON build failed\"}";
+    }
+
+    String topic = String(MQTT_TOPIC_STATUS) + String(hardware().getMyHostname());
+    if(topic) {
+      deb("MQTT: topic:%s publish: %s", topic.c_str(), response.c_str());
+
+      mqttClient.publish(topic.c_str(), response.c_str(), true);
+    } else {
+      publishPending = true;
+    }
+  } else {
+    publishPending = true;
+  }
 }
 
 bool MQTTClient::reconnect() {
@@ -44,10 +109,7 @@ bool MQTTClient::reconnect() {
     if (mqttClient.connect(hardware().getMyHostname(), MQTT_USER, MQTT_PASSWORD)) {
       watchdog_update();
 
-      //pub relays & topic
       deb("MQTT: connected!");
-
-
       return true;
     } 
     
@@ -70,7 +132,13 @@ void MQTTClient::handleMQTTClient() {
       }
     } else {
       mqttClient.loop();
+
+      if(publishPending) {
+        publish();
+        publishPending = false;
+      }
     }
+
   } else {
       mqttClient.loop();
   }

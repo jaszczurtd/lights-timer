@@ -1,0 +1,7 @@
+user:piuser
+broker ip: 192.168.2.100
+
+test with broker:
+mosquitto_sub -h localhost -u piuser -P Password -t status-pico-08dde4 -v
+
+

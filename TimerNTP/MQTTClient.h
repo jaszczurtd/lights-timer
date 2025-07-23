@@ -22,9 +22,10 @@ public:
 
   explicit MQTTClient(Logic& l);
   void start();
+  void stop(); 
   void updateRelaysStatesForClient();
-  void setTimeRangeForResponses(long s, long e);
   void handleMQTTClient();
+  void publish();
 
 private:
   Logic& logic;
@@ -36,6 +37,7 @@ private:
 
   unsigned long lastReconnectAttempt = 0;
   bool clientInitialized = false;
+  bool publishPending = false;
 
   bool reconnect();
 

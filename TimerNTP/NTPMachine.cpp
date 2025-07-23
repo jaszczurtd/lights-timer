@@ -28,6 +28,8 @@ void NTPMachine::stateMachine(void) {
 
       hardware().restartWiFi();
       hardware().drawCenteredText("CONNECTING...");
+      mqtt().stop();
+      
       connectionStartTime = millis();
 
       currentState = STATE_CONNECTING;
@@ -62,7 +64,6 @@ void NTPMachine::stateMachine(void) {
           hardware().applyRelays();
 
           mqtt().start();
-          mqtt().setTimeRangeForResponses(s, e);
 
           currentState = STATE_NTP_SYNCHRO;
         }
