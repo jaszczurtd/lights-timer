@@ -128,26 +128,25 @@ public class MainActivity extends AppCompatActivity implements Constants {
                         try {
                             json.put(dateHourStart, startMinutes);
                             json.put(dateHourEnd, endMinutes);
+
+                            String topic = AQUA_DEVICE_TIME_SET + device.hostName;
+                            mqttClient.publish(topic, json.toString(),true, () -> {
+                                device.start = startMinutes;
+                                device.end = endMinutes;
+
+                                long now = TimeRangeDialog.getTimeNowInMinutes();
+                                device.isOnFlags[0] = TimeRangeDialog.isTimeInRange(now, startMinutes, endMinutes);
+
+                                int pos = adapter.indexOf(device);
+                                if (pos >= 0) {
+                                    adapter.notifyItemChanged(pos);
+                                }
+
+                                loader.setVisibility(View.GONE);
+                            });
                         } catch (Exception e) {
-                            Log.e(TAG, "cannot create JSON");
+                            Log.e(TAG, "problem during time update process:" + e);
                         }
-
-                        String topic = AQUA_DEVICE_TIME_SET + device.hostName;
-                        mqttClient.publish(topic, json.toString(),true, () -> {
-                            device.start = startMinutes;
-                            device.end = endMinutes;
-
-                            long now = TimeRangeDialog.getTimeNowInMinutes();
-                            device.isOnFlags[0] = TimeRangeDialog.isTimeInRange(now, startMinutes, endMinutes);
-
-                            int pos = adapter.indexOf(device);
-                            if (pos >= 0) {
-                                adapter.notifyItemChanged(pos);
-                            }
-
-                            loader.setVisibility(View.GONE);
-                        });
-
                     });
                 } else {
                     Log.e(TAG, "cannot get holder object from the list");
