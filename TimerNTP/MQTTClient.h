@@ -25,6 +25,7 @@ public:
   void stop(); 
   void handleMQTTClient();
   void publish();
+  void handleMessage(char* topic, uint8_t* payload, unsigned int length);
 
 private:
   Logic& logic;
@@ -38,8 +39,12 @@ private:
   bool clientInitialized = false;
   bool publishPending = false;
 
-  bool reconnect();
+  long lastDateHourStart;
+  long lastDateHourEnd;
 
+  bool lastStates[MAX_AMOUNT_OF_RELAYS]; 
+
+  bool reconnect();
 };
 
 #endif

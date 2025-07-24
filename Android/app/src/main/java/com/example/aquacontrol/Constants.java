@@ -10,6 +10,7 @@ public interface Constants {
     String MQTT_PASS = "aqua_mqtt_pass";
     String AQUA_DEVICES_UPDATE = "discovered/devices";
     String AQUA_DEVICE_STATUS = "status-";
+    String AQUA_DEVICE_TIME_SET = "time-";
 
     String dateHourStart = "dateHourStart";
     String dateHourEnd = "dateHourEnd";

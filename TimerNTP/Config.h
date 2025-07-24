@@ -13,6 +13,7 @@
 #define MQTT_RECONNECT_TIME 5000
 #define MQTT_TOPIC_STATUS "status-"
 #define MQTT_TOPIC_UPDATE "update-"
+#define MQTT_TOPIC_TIME_SET "time-"
 
 #define ntpServer1 "pool.ntp.org"
 #define ntpServer2 "europe.pool.ntp.org"

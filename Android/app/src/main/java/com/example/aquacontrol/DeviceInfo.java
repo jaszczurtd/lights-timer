@@ -10,6 +10,9 @@ public class DeviceInfo implements Constants {
     String hostName;
     int switches;
 
+    boolean[] isOnFlags = new boolean[MAX_AMOUNT_OF_RELAYS];
+    long start, end;
+
     DeviceInfo(String mac, String ip, String hostName, int switches) {
         this.mac = mac;
         this.ip = ip;

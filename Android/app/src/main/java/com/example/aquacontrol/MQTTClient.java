@@ -24,6 +24,12 @@ public class MQTTClient implements Constants {
         void onConnectionFailed(String reason);
     }
 
+    public interface MQTTMessageDelivered {
+        void onMessageDelivered();
+    }
+
+    private MQTTMessageDelivered dc;
+
     public MQTTClient(Context context, String broker, String username, String password,
                       IMqttMessageListener listener, MQTTStatusListener connectionListener) {
 
@@ -48,7 +54,6 @@ public class MQTTClient implements Constants {
                     Log.v(TAG, "MQTT connected: " + serverURI + (reconnect ? " (again)" : ""));
                     if(connectionCallback != null) {
                         connectionCallback.onConnected();
-                        subscribeTo(AQUA_DEVICES_UPDATE);
                     }
                 }
 
@@ -68,6 +73,10 @@ public class MQTTClient implements Constants {
                 @Override
                 public void deliveryComplete(IMqttDeliveryToken token) {
                     Log.v(TAG, "MQTT message has been delivered");
+                    if(dc != null) {
+                        dc.onMessageDelivered();
+                        dc = null;
+                    }
                 }
             });
 
@@ -112,11 +121,12 @@ public class MQTTClient implements Constants {
         client = null;
     }
 
-    public void publish(String topic, String payload) {
+    public void publish(String topic, String payload, boolean retained, MQTTMessageDelivered deliveryCallback) {
         try {
+            dc = deliveryCallback;
             MqttMessage message = new MqttMessage(payload.getBytes());
             message.setQos(2);
-            message.setRetained(true);
+            message.setRetained(retained);
             client.publish(topic, message);
         } catch (MqttException e) {
             e.printStackTrace();

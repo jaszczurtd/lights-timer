@@ -23,6 +23,8 @@ import androidx.appcompat.widget.SwitchCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
+import org.json.JSONObject;
+
 import java.util.HashMap;
 import java.util.Map;
 
@@ -106,8 +108,8 @@ public class MainActivity extends AppCompatActivity implements Constants {
 
                     Map<String, String> params = new HashMap<>();
 
-                    holder.isOnFlags[switchIndex] = isOn;
-                    DeviceAdapter.setSwitch(switches[switchIndex], holder.isOnFlags[switchIndex]);
+                    device.isOnFlags[switchIndex] = isOn;
+                    DeviceAdapter.setSwitch(switches[switchIndex], device.isOnFlags[switchIndex]);
 
                     //TODO: update device with toggle value
 
@@ -115,20 +117,36 @@ public class MainActivity extends AppCompatActivity implements Constants {
             }
             @Override
             public void onTimeSetButton(DeviceInfo device) {
-                Log.v(TAG, "set time for:" + device.hostName);
+                Log.v(TAG, "onTimeSetButton: set time for:" + device.hostName);
 
                 DeviceAdapter.DeviceViewHolder holder = adapter.getDeviceViewBy(device);
                 if(holder != null) {
-                    TimeRangeDialog.show(MainActivity.this, holder.start, holder.end, (startMinutes, endMinutes) -> {
-
+                    TimeRangeDialog.show(MainActivity.this, device.start, device.end, (startMinutes, endMinutes) -> {
                         loader.setVisibility(View.VISIBLE);
 
-                        String start = String.valueOf(startMinutes);
-                        String end = String.valueOf(endMinutes);
-                        long now = TimeRangeDialog.getTimeNowInMinutes();
+                        JSONObject json = new JSONObject();
+                        try {
+                            json.put(dateHourStart, startMinutes);
+                            json.put(dateHourEnd, endMinutes);
+                        } catch (Exception e) {
+                            Log.e(TAG, "cannot create JSON");
+                        }
 
+                        String topic = AQUA_DEVICE_TIME_SET + device.hostName;
+                        mqttClient.publish(topic, json.toString(),true, () -> {
+                            device.start = startMinutes;
+                            device.end = endMinutes;
 
-                        //TODO: update device with new time
+                            long now = TimeRangeDialog.getTimeNowInMinutes();
+                            device.isOnFlags[0] = TimeRangeDialog.isTimeInRange(now, startMinutes, endMinutes);
+
+                            int pos = adapter.indexOf(device);
+                            if (pos >= 0) {
+                                adapter.notifyItemChanged(pos);
+                            }
+
+                            loader.setVisibility(View.GONE);
+                        });
 
                     });
                 } else {
@@ -170,6 +188,24 @@ public class MainActivity extends AppCompatActivity implements Constants {
             setupMQTT(user, pass);
         } else {
             askForCredentials();
+        }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        try {
+            adapter.clearDevices();
+        } catch (Exception e) {
+            Log.e(TAG, "problem with pause:" + e);
+        }
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+        if(mqttClient.isConnected()) {
+            mqttClient.subscribeTo(AQUA_DEVICES_UPDATE);
         }
     }
 
@@ -244,7 +280,9 @@ public class MainActivity extends AppCompatActivity implements Constants {
             }),
             new MQTTClient.MQTTStatusListener() {
                 @Override
-                public void onConnected() {}
+                public void onConnected() {
+                    mqttClient.subscribeTo(AQUA_DEVICES_UPDATE);
+                }
                 @Override
                 public void onDisconnected() {}
                 @Override

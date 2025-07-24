@@ -115,7 +115,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
             if (d.switches > index) {
                 containers[index].setVisibility(View.VISIBLE);
 
-                boolean isChecked = h.isOnFlags[index];
+                boolean isChecked = d.isOnFlags[index];
 
                 setSwitch(switches[index], isChecked);
 
@@ -124,8 +124,8 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
                             ContextProvider.getContext().getString(R.string.on) :
                             ContextProvider.getContext().getString(R.string.off));
 
-                    if(checked != h.isOnFlags[index]) {
-                        h.isOnFlags[index] = checked;
+                    if(checked != d.isOnFlags[index]) {
+                        d.isOnFlags[index] = checked;
                         toggleListener.onToggle(d, index, checked);
                     }
                 });
@@ -173,30 +173,26 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
                 return;
             }
 
-            holder.start = root.getLong(dateHourStart);
-            holder.end = root.getLong(dateHourEnd);
+            device.start = root.getLong(dateHourStart);
+            device.end = root.getLong(dateHourEnd);
             for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
-                holder.isOnFlags[a] = root.getBoolean(isOn +  (a + 1));
+                device.isOnFlags[a] = root.getBoolean(isOn +  (a + 1));
             }
 
-            refreshHolder(holder);
+            String range = String.format(Locale.ENGLISH, "%s - %s",
+                    TimeRangeDialog.formatTime(device.start), TimeRangeDialog.formatTime(device.end));
+            Log.v(TAG, "refreshHolder: time set for: " + holder.label.getText() + " is: " + range);
+
+            holder.startTimeText.setText(TimeRangeDialog.formatTime(device.start));
+            holder.endTimeText.setText(TimeRangeDialog.formatTime(device.end));
+            SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
+
+            for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
+                DeviceAdapter.setSwitch(switches[a], device.isOnFlags[a]);
+            }
 
         } catch (Exception e) {
             Log.e(TAG, "topic broker response parse error:" + e);
-        }
-    }
-
-    public void refreshHolder(DeviceViewHolder holder) {
-        String range = String.format(Locale.ENGLISH, "%s - %s",
-                TimeRangeDialog.formatTime(holder.start), TimeRangeDialog.formatTime(holder.end));
-        Log.v(TAG, "time set for: " + holder.label.getText() + " is: " + range);
-
-        holder.startTimeText.setText(TimeRangeDialog.formatTime(holder.start));
-        holder.endTimeText.setText(TimeRangeDialog.formatTime(holder.end));
-        SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
-
-        for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
-            DeviceAdapter.setSwitch(switches[a], holder.isOnFlags[a]);
         }
     }
 
@@ -239,9 +235,6 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         TextView label, startTimeText, endTimeText;
 
         SwitchCompat isOn1, isOn2, isOn3, isOn4;
-        public boolean[] isOnFlags = new boolean[4];
-        long start, end;
-
         LinearLayout sw1Container, sw2Container, sw3Container, sw4Container;
         ImageButton time;
 
@@ -266,11 +259,16 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
     }
 
+    public int indexOf(DeviceInfo d) {
+        return devices.indexOf(d);
+    }
+
     public void clearDevices() {
         int size = devices.size();
         if (size > 0) {
             devices.clear();
             notifyItemRangeRemoved(0, size);
+            activeHolders.clear();
         }
     }
 

@@ -10,36 +10,51 @@ MyHardware& MQTTClient::hardware() { return logic.hardwareObj(); }
 
 MQTTClient::MQTTClient(Logic& l) : logic(l), mqttClient(currentClient), currentClient() { }
 
-
+static MQTTClient* g_mqtt = nullptr;
 
 void callback(char* topic, byte* payload, unsigned int length) {
+  if (!g_mqtt) return;
+  g_mqtt->handleMessage(topic, payload, length);
+}
+
+void MQTTClient::handleMessage(char* topic, uint8_t* payload, unsigned int length) {
+
   String msg;
   for (unsigned int i = 0; i < length; i++) msg += (char)payload[i];
 
-    /*
-    cJSON* root = cJSON_Parse(json);
-    if (!root) return;
+  cJSON* root = cJSON_Parse(msg.c_str());
+  if(!root) {
+    deb("MQTT: problem with json parsing");
+    return;
+  }
+  String myHostName = String(hardware().getMyHostname());
 
-    cJSON* temp = cJSON_GetObjectItem(root, "temp");
-    cJSON* status = cJSON_GetObjectItem(root, "status");
+  deb("MQTT: topic:%s update: %s", topic, msg.c_str());
+  if( (String(MQTT_TOPIC_TIME_SET) + myHostName).equalsIgnoreCase(String(topic)) ){
+    deb("MQTT: time update requested from broker!");
 
-    if (cJSON_IsNumber(temp)) {
-        deb("Temp: %f\n", temp->valuedouble);
-    }
-    if (cJSON_IsString(status)) {
-        deb("Status: %s\n", status->valuestring);
-    }
+    cJSON* start = cJSON_GetObjectItem(root, "dateHourStart");
+    int dateHourStart = start->valueint;
+    deb("start: %d", dateHourStart);
 
-    cJSON_Delete(root);
-*/
+    cJSON* end = cJSON_GetObjectItem(root, "dateHourEnd");
+    int dateHourEnd = end->valueint;
+    deb("end: %d", dateHourEnd);
+
+    hardware().setTimeRange(dateHourStart, dateHourEnd);
+    publishPending = true;
+
+  }
+
+  cJSON_Delete(root);
 }
 
 void MQTTClient::start() {
   deb("MQTT: connect attempt! %s", MQTT_BROKER);
 
   mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
+  g_mqtt = this;
   mqttClient.setCallback(callback);
-  publishPending = true;
   reconnect();
   clientInitialized = true;
 }
@@ -50,13 +65,33 @@ void MQTTClient::stop() {
 
 void MQTTClient::publish() {
   if(WIFI_CONNECTED && mqttClient.connected()) {
+
+    long s = 0, e = 0;
+    hardware().loadStartEnd(&s, &e);
+    bool *switches = hardware().getSwitchesStates();
+
+    bool send = false;
+    if(lastDateHourStart != s) {
+      lastDateHourStart = s; send = true;
+    }
+    if(lastDateHourEnd != e) {
+      lastDateHourEnd = e; send = true;
+    }
+    for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
+      if(switches[a] != lastStates[a]) {
+        lastStates[a] = switches[a]; send = true;
+      }
+    }
+
+    if(!send) {
+      deb("MQTT: skipping send the same data again");
+      return;
+    }
+
     bool ok = true;
     String response;
     cJSON* root = cJSON_CreateObject();
     if(root) {
-      long s = 0, e = 0;
-      hardware().loadStartEnd(&s, &e);
-      bool *switches = hardware().getSwitchesStates();
 
       ok &= (cJSON_AddStringToObject(root, "status", "ok") != nullptr);
       ok &= (cJSON_AddNumberToObject(root, "dateHourStart", s) != nullptr);
@@ -104,6 +139,9 @@ bool MQTTClient::reconnect() {
     watchdog_update();
     if (mqttClient.connect(hardware().getMyHostname(), MQTT_USER, MQTT_PASSWORD)) {
       watchdog_update();
+
+      String timeUpdateTopic = String(MQTT_TOPIC_TIME_SET) + String(hardware().getMyHostname());
+      mqttClient.subscribe(timeUpdateTopic.c_str());
 
       deb("MQTT: connected!");
       return true;
