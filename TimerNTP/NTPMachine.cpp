@@ -108,9 +108,6 @@ void NTPMachine::stateMachine(void) {
         if(millis() - last_print_cycle > 500) {
           last_print_cycle = millis();
 
-          time_t now;
-          struct tm timeinfo;
-
           static unsigned long lastSync = 0;
       
           if (millis() - lastSync > HOURS_SYNC_INTERVAL * 3600 * 1000) {
@@ -118,13 +115,7 @@ void NTPMachine::stateMachine(void) {
             lastSync = millis();
           }
 
-          time(&now);
-          localtime_r(&now, &timeinfo);
-          
-          strftime(buffer, sizeof(buffer), "%d/%m/%Y %H:%M:%S", &timeinfo);
-
-          now_time = timeinfo.tm_hour * 60 + timeinfo.tm_min;
-          hardware().checkConditionsForStartEnAction(now_time);
+          evaluateTimeCondition();
         }
         mqtt().handleMQTTClient();
         hardware().hardwareLoop();
@@ -154,7 +145,19 @@ void NTPMachine::stateMachine(void) {
           hardware().getWifiStrength());
     }
   }
+}
 
+void NTPMachine::evaluateTimeCondition() {
+  time_t now;
+  struct tm timeinfo;
+
+  time(&now);
+  localtime_r(&now, &timeinfo);
+  
+  strftime(buffer, sizeof(buffer), "%d/%m/%Y %H:%M:%S", &timeinfo);
+
+  now_time = timeinfo.tm_hour * 60 + timeinfo.tm_min;
+  hardware().checkConditionsForStartEnAction(now_time);
 }
 
 long NTPMachine::getTimeNow(void) {

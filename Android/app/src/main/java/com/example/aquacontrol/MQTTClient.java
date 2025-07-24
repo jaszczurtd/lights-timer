@@ -59,7 +59,7 @@ public class MQTTClient implements Constants {
 
                 @Override
                 public void connectionLost(Throwable cause) {
-                    Log.v(TAG, "MQTT connection lost: " + cause.getMessage());
+                    Log.v(TAG, "MQTT connection lost: " + cause);
                     if(connectionCallback != null) {
                         connectionCallback.onDisconnected();
                     }

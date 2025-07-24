@@ -19,16 +19,11 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.SwitchCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.json.JSONObject;
 
-import java.util.HashMap;
-import java.util.Map;
-
-@SuppressWarnings("CallToPrintStackTrace")
 public class MainActivity extends AppCompatActivity implements Constants {
     private FrameLayout loader;
     private TextView emptyView;
@@ -98,21 +93,29 @@ public class MainActivity extends AppCompatActivity implements Constants {
 
         adapter = new DeviceAdapter(new DeviceAdapter.OnDeviceToggleListener() {
             @Override
-            public void onToggle(DeviceInfo device, int switchIndex, boolean isOn) {
+            public void onToggle(DeviceInfo device, int switchIndex, boolean enabled) {
                 Log.d(TAG, "device:" + device + ": idx:" + switchIndex + "/" +
-                        (isOn ? getString(R.string.on) : getString(R.string.off)));
+                        (enabled ? getString(R.string.on) : getString(R.string.off)));
                 DeviceAdapter.DeviceViewHolder holder = adapter.getDeviceViewBy(device);
                 if(holder != null) {
-                    showLoaderDelayed(1500);
-                    SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
+                    showLoaderDelayed(LOADER_DELAY);
 
-                    Map<String, String> params = new HashMap<>();
+                    device.isOnFlags[switchIndex] = enabled;
+                    String what = isOn + (switchIndex + 1);
 
-                    device.isOnFlags[switchIndex] = isOn;
-                    DeviceAdapter.setSwitch(switches[switchIndex], device.isOnFlags[switchIndex]);
+                    JSONObject json = new JSONObject();
+                    try {
+                        json.put(what, enabled);
 
-                    //TODO: update device with toggle value
-
+                        String topic = AQUA_DEVICE_SWITCH_SET + device.hostName;
+                        mqttClient.publish(topic, json.toString(),false, () -> {
+                            runOnUiThread(() -> {
+                                hideLoader();
+                            });
+                        });
+                    } catch (Exception e) {
+                        Log.e(TAG, "problem during time update process:" + e);
+                    }
                 }
             }
             @Override
@@ -122,7 +125,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
                 DeviceAdapter.DeviceViewHolder holder = adapter.getDeviceViewBy(device);
                 if(holder != null) {
                     TimeRangeDialog.show(MainActivity.this, device.start, device.end, (startMinutes, endMinutes) -> {
-                        loader.setVisibility(View.VISIBLE);
+                        showLoaderDelayed(LOADER_DELAY);
 
                         JSONObject json = new JSONObject();
                         try {
@@ -130,19 +133,21 @@ public class MainActivity extends AppCompatActivity implements Constants {
                             json.put(dateHourEnd, endMinutes);
 
                             String topic = AQUA_DEVICE_TIME_SET + device.hostName;
-                            mqttClient.publish(topic, json.toString(),true, () -> {
-                                device.start = startMinutes;
-                                device.end = endMinutes;
+                            mqttClient.publish(topic, json.toString(),false, () -> {
+                                runOnUiThread(() -> {
+                                    device.start = startMinutes;
+                                    device.end = endMinutes;
 
-                                long now = TimeRangeDialog.getTimeNowInMinutes();
-                                device.isOnFlags[0] = TimeRangeDialog.isTimeInRange(now, startMinutes, endMinutes);
+                                    long now = TimeRangeDialog.getTimeNowInMinutes();
+                                    device.isOnFlags[0] = TimeRangeDialog.isTimeInRange(now, startMinutes, endMinutes);
 
-                                int pos = adapter.indexOf(device);
-                                if (pos >= 0) {
-                                    adapter.notifyItemChanged(pos);
-                                }
+                                    int pos = adapter.indexOf(device);
+                                    if (pos >= 0) {
+                                        adapter.notifyItemChanged(pos);
+                                    }
 
-                                loader.setVisibility(View.GONE);
+                                    hideLoader();
+                                });
                             });
                         } catch (Exception e) {
                             Log.e(TAG, "problem during time update process:" + e);
@@ -177,7 +182,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
 
         networkMonitor.startMonitoring();
         if (!networkMonitor.isConnected()) {
-            handleNoNetwork(() -> android.os.Process.killProcess(android.os.Process.myPid()));
+            handleNoNetwork(this::finish);
         }
 
         prefs = getSharedPreferences(MQTT_CREDENTIALS, MODE_PRIVATE);
@@ -187,24 +192,6 @@ public class MainActivity extends AppCompatActivity implements Constants {
             setupMQTT(user, pass);
         } else {
             askForCredentials();
-        }
-    }
-
-    @Override
-    protected void onPause() {
-        super.onPause();
-        try {
-            adapter.clearDevices();
-        } catch (Exception e) {
-            Log.e(TAG, "problem with pause:" + e);
-        }
-    }
-
-    @Override
-    protected void onResume() {
-        super.onResume();
-        if(mqttClient.isConnected()) {
-            mqttClient.subscribeTo(AQUA_DEVICES_UPDATE);
         }
     }
 
@@ -246,13 +233,13 @@ public class MainActivity extends AppCompatActivity implements Constants {
         try {
             adapter.clearDevices();
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "clear devices list problem:" + e);
         }
         destroyMQTT();
         try {
             networkMonitor.stopMonitoring();
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "stop monitoring internet problem:" + e);
         }
 
         super.onDestroy();
@@ -269,6 +256,9 @@ public class MainActivity extends AppCompatActivity implements Constants {
             MQTT_BROKER,
             user, pass,
             (topic, message) -> runOnUiThread(() -> {
+                if(message.getPayload().length == 0) {
+                    return;
+                }
                 Log.v(TAG, "update from broker:" + topic + "/" + message);
 
                 if(topic.equalsIgnoreCase(AQUA_DEVICES_UPDATE)) {

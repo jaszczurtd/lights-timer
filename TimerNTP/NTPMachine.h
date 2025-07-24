@@ -44,6 +44,7 @@ public:
   void stateMachine(void);
   const char *getTimeFormatted(void);
   long getTimeNow(void);
+  void evaluateTimeCondition();
 
 private:
   Logic& logic;

@@ -40,6 +40,11 @@ void MyHardware::restartWiFi(void) {
   WiFi.setHostname(getMyHostname());
   WiFi.mode(WIFI_STA);
   WiFi.begin(ssid, password);
+
+  snprintf(mac_str, sizeof(mac_str), "%s", WiFi.macAddress().c_str());
+  snprintf(hostname_str, sizeof(hostname_str), "%s", getFriendlyHostname(mac_str));  
+
+  deb("mac: %s hostname:%s", mac_str, hostname_str);
 }
 
 int MyHardware::getWifiStrength(void) {
@@ -61,13 +66,11 @@ const char *MyHardware::getMyIP(void) {
 }
 
 const char *MyHardware::getMyMAC(void) {
-  snprintf(mac_str, sizeof(mac_str), "%s", WiFi.macAddress().c_str());
-  return (const char *)mac_str;
+  return mac_str;
 }
 
 const char *MyHardware::getMyHostname(void) {
-  snprintf(hostname_str, sizeof(hostname_str), "%s", getFriendlyHostname(getMyMAC()));
-  return (const char *)hostname_str;
+  return hostname_str;
 }
 
 const char*MyHardware::getAmountOfSwitches(void) {

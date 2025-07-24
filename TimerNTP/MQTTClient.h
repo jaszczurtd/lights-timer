@@ -3,6 +3,8 @@
 
 #pragma once
 
+#include "Config.h"
+
 #include <WiFi.h>
 #include <time.h>
 #include <tools.h>
@@ -41,6 +43,10 @@ private:
 
   long lastDateHourStart;
   long lastDateHourEnd;
+
+  char msg[512];
+  char topic[128];
+  char response[512];
 
   bool lastStates[MAX_AMOUNT_OF_RELAYS]; 
 

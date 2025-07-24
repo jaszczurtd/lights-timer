@@ -175,20 +175,20 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
             device.start = root.getLong(dateHourStart);
             device.end = root.getLong(dateHourEnd);
-            for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
-                device.isOnFlags[a] = root.getBoolean(isOn +  (a + 1));
-            }
 
             String range = String.format(Locale.ENGLISH, "%s - %s",
                     TimeRangeDialog.formatTime(device.start), TimeRangeDialog.formatTime(device.end));
-            Log.v(TAG, "refreshHolder: time set for: " + holder.label.getText() + " is: " + range);
+            Log.v(TAG, "refreshHolder: time set for: " + device.hostName + " is: " + range);
 
             holder.startTimeText.setText(TimeRangeDialog.formatTime(device.start));
             holder.endTimeText.setText(TimeRangeDialog.formatTime(device.end));
             SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
 
             for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
-                DeviceAdapter.setSwitch(switches[a], device.isOnFlags[a]);
+                device.isOnFlags[a] = root.getBoolean(isOn +  (a + 1));
+                if(switches[a].isChecked() != device.isOnFlags[a]) {
+                    DeviceAdapter.setSwitch(switches[a], device.isOnFlags[a]);
+                }
             }
 
         } catch (Exception e) {
