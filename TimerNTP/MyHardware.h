@@ -11,8 +11,6 @@
 
 #pragma once
 
-#define MAX_AMOUNT_OF_RELAYS 4
-
 #define PIN_SDA 20
 #define PIN_SCL 21
 #define I2C_ADDR 0x3C

@@ -24,22 +24,20 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import java.util.HashMap;
-import java.util.Locale;
 import java.util.Map;
 
 @SuppressWarnings("CallToPrintStackTrace")
 public class MainActivity extends AppCompatActivity implements Constants {
-    FrameLayout loader;
-    TextView emptyView;
-
+    private FrameLayout loader;
+    private TextView emptyView;
     private DeviceAdapter adapter;
     private final Handler loaderHandler = new Handler(Looper.getMainLooper());
     private Runnable showLoaderRunnable;
     private boolean loaderPending = false;
     private AlertDialog alert;
-    MQTTClient mqttClient;
-    NetworkMonitor networkMonitor;
-    SharedPreferences prefs;
+    private MQTTClient mqttClient;
+    private NetworkMonitor networkMonitor;
+    private SharedPreferences prefs;
 
     private void handleNoNetwork(Runnable onExitConfirmed) {
         alert = new AlertDialog.Builder(this)
@@ -111,37 +109,26 @@ public class MainActivity extends AppCompatActivity implements Constants {
                     holder.isOnFlags[switchIndex] = isOn;
                     DeviceAdapter.setSwitch(switches[switchIndex], holder.isOnFlags[switchIndex]);
 
-                    //TODO:
+                    //TODO: update device with toggle value
 
                 }
             }
             @Override
             public void onTimeSetButton(DeviceInfo device) {
-                Log.d(TAG, "set time for:" + device.mac);
+                Log.v(TAG, "set time for:" + device.hostName);
 
                 DeviceAdapter.DeviceViewHolder holder = adapter.getDeviceViewBy(device);
                 if(holder != null) {
                     TimeRangeDialog.show(MainActivity.this, holder.start, holder.end, (startMinutes, endMinutes) -> {
 
-                        String range = String.format(Locale.ENGLISH, "%s - %s",
-                                TimeRangeDialog.formatTime(startMinutes), TimeRangeDialog.formatTime(endMinutes));
-                        Log.d(TAG, "time set result: " + range);
-
                         loader.setVisibility(View.VISIBLE);
-
-                        holder.startTimeText.setText(TimeRangeDialog.formatTime(startMinutes));
-                        holder.endTimeText.setText(TimeRangeDialog.formatTime(endMinutes));
-                        long now = TimeRangeDialog.getTimeNowInMinutes();
-                        SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
 
                         String start = String.valueOf(startMinutes);
                         String end = String.valueOf(endMinutes);
+                        long now = TimeRangeDialog.getTimeNowInMinutes();
 
-                        int a = 0;
-                        holder.isOnFlags[a] = TimeRangeDialog.isTimeInRange(now, startMinutes, endMinutes);
-                        DeviceAdapter.setSwitch(switches[a], holder.isOnFlags[a]);
 
-                        //TODO:
+                        //TODO: update device with new time
 
                     });
                 } else {
@@ -250,7 +237,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
                 Log.v(TAG, "update from broker:" + topic + "/" + message);
 
                 if(topic.equalsIgnoreCase(AQUA_DEVICES_UPDATE)) {
-                    adapter.updateDevicesFrom(new String(message.getPayload()));
+                    adapter.createListOfDevicesFromJSONString(new String(message.getPayload()));
                     updateEmptyView();
                 }
                 adapter.consumeBrokerUpdate(topic, new String(message.getPayload()));
@@ -270,9 +257,13 @@ public class MainActivity extends AppCompatActivity implements Constants {
     void destroyMQTT() {
         Log.v(TAG, "destroy MQTT client");
 
-        if(mqttClient != null) {
-            mqttClient.stop();
-            mqttClient = null;
+        try {
+            if(mqttClient != null) {
+                mqttClient.stop();
+                mqttClient = null;
+            }
+        } catch (Exception e) {
+            Log.e(TAG, "problem while destroying MQTT:" + e);
         }
     }
 

@@ -17,7 +17,9 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceViewHolder> implements Constants {
 
@@ -35,7 +37,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         this.toggleListener = listener;
     }
 
-    public void updateDevicesFrom(String list) {
+    public void createListOfDevicesFromJSONString(String list) {
         try {
             JSONObject root = new JSONObject(list);
             JSONArray devs = root.getJSONArray("devices");
@@ -52,7 +54,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
                 newDevices.add(new DeviceInfo(mac, ip, hostName, switches));
             }
 
-            // USUŃ nieistniejące już urządzenia
+            //remove non-active devices
             for (int i = devices.size() - 1; i >= 0; i--) {
                 DeviceInfo d = devices.get(i);
                 boolean found = false;
@@ -68,7 +70,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
                 }
             }
 
-            // DODAJ nowe urządzenia
+            //add new devices
             for (DeviceInfo newDevice : newDevices) {
                 boolean found = false;
                 for (DeviceInfo d : devices) {
@@ -107,7 +109,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         View[] containers = { h.sw1Container, h.sw2Container, h.sw3Container, h.sw4Container };
         SwitchCompat[] switches = { h.isOn1, h.isOn2, h.isOn3, h.isOn4 };
 
-        for (int i = 0; i < 4; i++) {
+        for (int i = 0; i < MAX_AMOUNT_OF_RELAYS; i++) {
             final int index = i;
 
             if (d.switches > index) {
@@ -142,7 +144,60 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
     }
 
     void consumeBrokerUpdate(String topic, String update) {
+        if(topic == null || update == null){
+            Log.e(TAG, "Invalid data provided:" + topic + "/" + update);
+            return;
+        }
+        if(!topic.startsWith(AQUA_DEVICE_STATUS)) { //update not for adapter
+            return;
+        }
+        DeviceViewHolder holder = null;
+        DeviceInfo device = null;
+        for(DeviceInfo d : devices) {  //find device hostname embed in topic
+            if(Objects.equals(d.hostName, topic.substring(AQUA_DEVICE_STATUS.length()))) {
+                holder = getDeviceViewBy(d);
+                device = d;
+                break;
+            }
+        }
+        if(holder == null) {
+            Log.v(TAG, "holder for topic " + topic + " not found.");
+            return;
+        }
 
+        try {
+            JSONObject root = new JSONObject(update);
+            String status = root.getString("status");
+            if(!status.equals("ok")) {
+                Log.e(TAG, "error response from device " + device.hostName + ": " + status);
+                return;
+            }
+
+            holder.start = root.getLong(dateHourStart);
+            holder.end = root.getLong(dateHourEnd);
+            for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
+                holder.isOnFlags[a] = root.getBoolean(isOn +  (a + 1));
+            }
+
+            refreshHolder(holder);
+
+        } catch (Exception e) {
+            Log.e(TAG, "topic broker response parse error:" + e);
+        }
+    }
+
+    public void refreshHolder(DeviceViewHolder holder) {
+        String range = String.format(Locale.ENGLISH, "%s - %s",
+                TimeRangeDialog.formatTime(holder.start), TimeRangeDialog.formatTime(holder.end));
+        Log.v(TAG, "time set for: " + holder.label.getText() + " is: " + range);
+
+        holder.startTimeText.setText(TimeRangeDialog.formatTime(holder.start));
+        holder.endTimeText.setText(TimeRangeDialog.formatTime(holder.end));
+        SwitchCompat[] switches = { holder.isOn1, holder.isOn2, holder.isOn3, holder.isOn4 };
+
+        for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
+            DeviceAdapter.setSwitch(switches[a], holder.isOnFlags[a]);
+        }
     }
 
     private final Map<DeviceInfo, DeviceViewHolder> activeHolders = new HashMap<>();
