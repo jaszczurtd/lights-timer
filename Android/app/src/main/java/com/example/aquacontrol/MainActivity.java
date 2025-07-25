@@ -160,8 +160,10 @@ public class MainActivity extends AppCompatActivity implements Constants {
 
             @Override
             public void onDeviceJustAppearOnList(DeviceInfo device) {
-                String topic = AQUA_DEVICE_STATUS + device.hostName;
-                mqttClient.subscribeTo(topic);
+                if(device != null) {
+                    String topic = AQUA_DEVICE_STATUS + device.hostName;
+                    mqttClient.subscribeTo(topic);
+                }
             }
         });
 

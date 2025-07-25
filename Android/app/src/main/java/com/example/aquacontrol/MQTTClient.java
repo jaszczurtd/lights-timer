@@ -11,7 +11,6 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
-@SuppressWarnings("CallToPrintStackTrace")
 public class MQTTClient implements Constants {
     private MqttClient client;
 
@@ -83,8 +82,7 @@ public class MQTTClient implements Constants {
             try {
                 client.connect(options);
             } catch (MqttException e) {
-                e.printStackTrace();
-                String reason = e.getReasonCode() + " - " + e.getMessage();
+                String reason = e.getReasonCode() + " - " + e;
                 Log.e(TAG, "Error MQTT connection: " + reason);
                 if (connectionCallback != null) {
                     connectionCallback.onConnectionFailed(reason);
@@ -92,7 +90,7 @@ public class MQTTClient implements Constants {
             }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error MQTT client create: " + e);
         }
     }
 
@@ -100,11 +98,12 @@ public class MQTTClient implements Constants {
         Log.v(TAG, "subscribe to: " + topic);
 
         try {
-            client.unsubscribe(topic);
-            client.subscribe(topic, MQTTlistener);
+            if(topic != null && MQTTlistener != null) {
+                client.unsubscribe(topic);
+                client.subscribe(topic, MQTTlistener);
+            }
         } catch (MqttException e) {
-            e.printStackTrace();
-            String reason = e.getReasonCode() + " - " + e.getMessage();
+            String reason = e.getReasonCode() + " - " + e;
             Log.e(TAG, "Error MQTT subscription: " + reason);
         }
     }
@@ -115,7 +114,7 @@ public class MQTTClient implements Constants {
                 client.disconnect();
                 client.close();
             } catch (MqttException e) {
-                e.printStackTrace();
+                Log.e(TAG, "Error MQTT client stop: " + e);
             }
         }
         client = null;
@@ -129,7 +128,7 @@ public class MQTTClient implements Constants {
             message.setRetained(retained);
             client.publish(topic, message);
         } catch (MqttException e) {
-            e.printStackTrace();
+            Log.e(TAG, "Error MQTT publish: " + e);
         }
     }
 

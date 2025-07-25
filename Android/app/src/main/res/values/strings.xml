@@ -18,4 +18,13 @@
     <string name="user">"Użytkownik"</string>
     <string name="pass">"Hasło"</string>
     <string name="mqttt_connection_end">Rozłączono z MQTT</string>
+    <string name="set_time">Ustaw czas</string>
+    <string name="device_name">Nazwa urządzenia</string>
+    <string name="label_start">Start:</string>
+    <string name="label_end">Koniec:</string>
+    <string name="lamp_1">Lampa 1</string>
+    <string name="lamp_2">Lampa 2</string>
+    <string name="lamp_3">Lampa 3</string>
+    <string name="lamp_4">Lampa 4</string>
+    <string name="switch_off">OFF</string>
 </resources>
