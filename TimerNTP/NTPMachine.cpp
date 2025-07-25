@@ -1,7 +1,7 @@
 #include "NTPMachine.h"
 #include "Logic.h"
 #include "MyHardware.h"
-#include "MyWebServer.h"
+#include "MQTTClient.h"
 
 MyHardware& NTPMachine::hardware() { return logic.hardwareObj(); }
 MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
