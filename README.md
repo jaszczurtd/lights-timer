@@ -34,10 +34,12 @@ This project implements a complete IoT system for controlling relay modules usin
   - `setup()` / `loop()`
   - WiFi management (Earlephilhower core)
   - Some timing functions
-- MQTT client implemented manually.
+  - driver OLED (Adafruit_SSD1306)
+  - MQTT (PubSubClient)
+  
 - JSON parsing done using `cJSON` (included).
 - Features:
-  - WiFi connection with timeout
+  - WiFi connection with timeout (todo?)
   - MQTT subscribe/publish
   - NTP time sync
   - EEPROM persistence
