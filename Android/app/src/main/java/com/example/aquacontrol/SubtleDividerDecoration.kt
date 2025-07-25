@@ -25,14 +25,13 @@ class SubtleDividerDecoration(context: Context, heightDp: Int, color: Int) : Ite
     }
 
     override fun onDrawOver(canvas: Canvas, parent: RecyclerView, state: RecyclerView.State) {
-        val childCount = parent.size
-        val itemCount =
-            Objects.requireNonNull<RecyclerView.Adapter<*>?>(parent.getAdapter()).getItemCount()
+        val adapter = parent.adapter ?: return
+        val itemCount = adapter.itemCount
+        val childCount = parent.childCount
 
-        for (i in 0..<childCount) {
+        for (i in 0 until childCount) {
             val child = parent.getChildAt(i)
             val position = parent.getChildAdapterPosition(child)
-
             if (position == RecyclerView.NO_POSITION || position == itemCount - 1) {
                 continue
             }

@@ -160,7 +160,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
 
             @Override
             public void onDeviceJustAppearOnList(DeviceInfo device) {
-                if(device != null) {
+                if(device != null && mqttClient != null) {
                     String topic = AQUA_DEVICE_STATUS + device.hostName;
                     mqttClient.subscribeTo(topic);
                 }
@@ -181,20 +181,35 @@ public class MainActivity extends AppCompatActivity implements Constants {
                 Log.v(TAG, "Internet has been disconnected");
             }
         });
-
         networkMonitor.startMonitoring();
         if (!networkMonitor.isConnected()) {
             handleNoNetwork(this::finish);
         }
 
-        prefs = getSharedPreferences(MQTT_CREDENTIALS, MODE_PRIVATE);
-        String user = prefs.getString(MQTT_USER, null);
-        String pass = prefs.getString(MQTT_PASS, null);
-        if (user != null && pass != null) {
-            setupMQTT(user, pass);
+        initMQTTClient();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        if(mqttClient == null) {
+            initMQTTClient();
         } else {
-            askForCredentials();
+            mqttClient.connect();
         }
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+
+        if(mqttClient != null) {
+            mqttClient.unsubscribeFrom(AQUA_DEVICES_UPDATE);
+            mqttClient.disconnect();
+        }
+
+        adapter.clearDevices();
     }
 
     void askForCredentials() {
@@ -247,6 +262,17 @@ public class MainActivity extends AppCompatActivity implements Constants {
         super.onDestroy();
     }
 
+    void initMQTTClient() {
+        prefs = getSharedPreferences(MQTT_CREDENTIALS, MODE_PRIVATE);
+        String user = prefs.getString(MQTT_USER, null);
+        String pass = prefs.getString(MQTT_PASS, null);
+        if (user != null && pass != null) {
+            setupMQTT(user, pass);
+        } else {
+            askForCredentials();
+        }
+    }
+
     void setupMQTT(String user, String pass) {
         if((mqttClient != null && mqttClient.isConnected())) {
             Log.v(TAG, "MQTT client already connected and active");
@@ -272,7 +298,11 @@ public class MainActivity extends AppCompatActivity implements Constants {
             new MQTTClient.MQTTStatusListener() {
                 @Override
                 public void onConnected() {
-                    mqttClient.subscribeTo(AQUA_DEVICES_UPDATE);
+                    if(mqttClient != null) {
+                        mqttClient.subscribeTo(AQUA_DEVICES_UPDATE);
+                    } else {
+                        initMQTTClient();
+                    }
                 }
                 @Override
                 public void onDisconnected() {}
