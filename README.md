@@ -34,10 +34,12 @@ This project implements a complete IoT system for controlling relay modules usin
   - `setup()` / `loop()`
   - WiFi management (Earlephilhower core)
   - Some timing functions
-- MQTT client implemented manually.
+  - driver OLED (Adafruit_SSD1306)
+  - MQTT (PubSubClient)
+  
 - JSON parsing done using `cJSON` (included).
 - Features:
-  - WiFi connection with timeout
+  - WiFi connection with timeout (todo?)
   - MQTT subscribe/publish
   - NTP time sync
   - EEPROM persistence
@@ -117,12 +119,12 @@ Additionally, the Raspberry Pi application must be executed at least once from t
 
 ### 3. Pico W Firmware
 
-- Flash via Arduino IDE using the [Earlephilhower RP2040 core](https://github.com/earlephilhower/arduino-pico)
-- Set WiFi and MQTT credentials in `Credentials.h`.
+- Flash via Arduino IDE (2.3.xx) using the [Earlephilhower RP2040 core](https://github.com/earlephilhower/arduino-pico)
+- Set WiFi and MQTT credentials in `Credentials.h`. For some additional files, please take a look below.
 
 ### 4. Android App
 
-- Open in Android Studio.
+- Open in Android Studio (and gradle sync).
 - Supports Android 6.0+.
 - MQTT credentials are requested on first launch.
 
@@ -144,9 +146,11 @@ MIT License – see `LICENSE` file.
 
 ---
 
-## 🧩 Required Local Configuration## 🧩 Required Local Configuration (Included as Submodule - --recurse-submodules)
+## 🧩 Required Local Configuration for Pico W / Arduino compilation
 
-Certain configuration files are essential for compilation and deployment. You must create them manually or add them as a local library in your project. These define credentials and device-specific mappings.
+Project requires some tools - included as submodule (git clone with --recurse-submodules)
+Also, certain configuration files are essential for Pico W firmware compilation and deployment. 
+You must create them manually or add them as a local library in your project. These define credentials and device-specific mappings.
 
 ### 🗂 Suggested structure:
 
