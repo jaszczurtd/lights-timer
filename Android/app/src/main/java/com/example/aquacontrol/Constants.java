@@ -5,7 +5,7 @@ public interface Constants {
 
     int LOADER_DELAY = 1500;
     int MAX_AMOUNT_OF_RELAYS = 4;
-    String MQTT_BROKER = "tcp://10.8.0.1:1883";
+    String MQTT_BROKER = "ssl://195.140.221.87:8883";
     String MQTT_CREDENTIALS = "aqua_mqtt_prefs";
     String MQTT_USER = "aqua_mqtt_user";
     String MQTT_PASS = "aqua_mqtt_pass";

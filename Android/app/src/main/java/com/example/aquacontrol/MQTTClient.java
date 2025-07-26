@@ -13,6 +13,15 @@ import org.eclipse.paho.client.mqttv3.MqttConnectOptions;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.eclipse.paho.client.mqttv3.MqttMessage;
 
+import java.io.InputStream;
+import java.security.KeyStore;
+import java.security.cert.Certificate;
+import java.security.cert.CertificateFactory;
+
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLSocketFactory;
+import javax.net.ssl.TrustManagerFactory;
+
 public class MQTTClient implements Constants {
     private MqttClient client;
 
@@ -33,6 +42,29 @@ public class MQTTClient implements Constants {
     private final String username;
     private final String password;
 
+    //this method requires x509 certificate (ca.crt) in res/raw
+    private SSLSocketFactory getSocketFactory(Context context) throws Exception {
+        CertificateFactory cf = CertificateFactory.getInstance("X.509");
+        InputStream caInput = context.getResources().openRawResource(R.raw.ca);
+        Certificate ca;
+        try {
+            ca = cf.generateCertificate(caInput);
+        } finally {
+            caInput.close();
+        }
+
+        KeyStore keyStore = KeyStore.getInstance(KeyStore.getDefaultType());
+        keyStore.load(null, null);
+        keyStore.setCertificateEntry("ca", ca);
+
+        TrustManagerFactory tmf = TrustManagerFactory.getInstance(TrustManagerFactory.getDefaultAlgorithm());
+        tmf.init(keyStore);
+
+        SSLContext contextTLS = SSLContext.getInstance("TLS");
+        contextTLS.init(null, tmf.getTrustManagers(), null);
+
+        return contextTLS.getSocketFactory();
+    }
     public MQTTClient(Context context, String broker, String username, String password,
                       IMqttMessageListener listener, MQTTStatusListener connectionListener) {
 
@@ -136,6 +168,12 @@ public class MQTTClient implements Constants {
             options.setPassword(password.toCharArray());
             options.setAutomaticReconnect(true);
             options.setCleanSession(false);
+
+            try {
+                options.setSocketFactory(getSocketFactory(ContextProvider.getContext()));
+            } catch (Exception e) {
+                Log.e(TAG, "SSL problem: " + e);
+            }
 
             client.connect(options);
         } catch (MqttException e) {
