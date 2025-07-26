@@ -1,3 +1,4 @@
+#include "ca_cert.h"
 #include "MQTTClient.h"
 
 #include "Logic.h"
@@ -44,7 +45,7 @@ void MQTTClient::handleMessage(char* topicArrived, uint8_t* payload, unsigned in
     if(start && cJSON_IsNumber(start) && end && cJSON_IsNumber(end)) {
       int dHourStart = start->valueint;
       int dHourEnd = end->valueint;
-      deb("start: %d end: %d", dHourStart, dHourEnd);
+      deb("Scheduler start: %d end: %d", dHourStart, dHourEnd);
 
       hardware().setTimeRange(dHourStart, dHourEnd);
       ntp().evaluateTimeCondition();
@@ -76,9 +77,17 @@ void MQTTClient::handleMessage(char* topicArrived, uint8_t* payload, unsigned in
 }
 
 void MQTTClient::start() {
-  deb("MQTT: connect attempt! %s", MQTT_BROKER);
+  deb("MQTT: connect attempt! %s", MQTT_BROKER_SECURE);
   
-  mqttClient.setServer(MQTT_BROKER, MQTT_PORT);
+  currentClient.setCACert(getCertificate());  //security – CA
+  currentClient.setX509Time(time(nullptr));   //NTP synhro is required
+
+  int ip1, ip2, ip3, ip4;
+  sscanf(MQTT_BROKER_SECURE, "%d.%d.%d.%d", &ip1, &ip2, &ip3, &ip4);
+  IPAddress brokerIP(ip1, ip2, ip3, ip4);
+
+  mqttClient.setServer(brokerIP, MQTT_BROKER_SECURE_PORT);
+
   g_mqtt = this;
   mqttClient.setCallback(callback);
   reconnect();
@@ -96,24 +105,6 @@ void MQTTClient::publish() {
     hardware().loadStartEnd(&s, &e);
     bool *switches = hardware().getSwitchesStates();
 
-    bool send = false;
-    if(lastDateHourStart != s) { 
-      lastDateHourStart = s; send = true; 
-    }
-    if(lastDateHourEnd != e) { 
-      lastDateHourEnd = e; send = true; 
-    }
-    for(int a = 0; a < getSwitchesNumber(hardware().getMyMAC()); a++) {
-      if(switches[a] != lastStates[a]) {
-        lastStates[a] = switches[a];
-        send = true;
-      }
-    }
-    if(!send) {
-      deb("MQTT: skipping send the same data again");
-      return;
-    }
-
     cJSON *root = cJSON_CreateObject();
     if(root) {
       memset(response, 0, sizeof(response));
@@ -127,6 +118,9 @@ void MQTTClient::publish() {
       ok &= cJSON_AddBoolToObject(root, "isOn4", switches[3]) != nullptr;
       const char *time = ntp().getTimeFormatted();
       ok &= cJSON_AddStringToObject(root, "localTime", strlen(time) ? time : "not available yet.") != nullptr;
+      ok &= cJSON_AddNumberToObject(root, "localMillis", millis()) != nullptr;
+      char strength[10]; snprintf(strength, sizeof(strength), "5/%d", hardware().getWifiStrength());
+      ok &= cJSON_AddStringToObject(root, "wifi", strength) != nullptr;
 
       if(ok) {
         char *json = cJSON_PrintUnformatted(root);
@@ -175,10 +169,16 @@ bool MQTTClient::reconnect() {
 
       publishPending = true;
 
-      deb("MQTT: (re)connected!");
+      deb("MQTT: (re)connected successfully!");
+
       return true;
     }
     deb("MQTT: connect failed! state=%d", mqttClient.state());
+
+    char errBuf[256];
+    int err = currentClient.getLastSSLError(errBuf, sizeof(errBuf));
+    deb("TLS error: %d (%s)\n", err, errBuf);  
+ 
 
   } else {
     deb("MQTT: wifi is not connected!");

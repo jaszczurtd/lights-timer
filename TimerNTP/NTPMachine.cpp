@@ -9,6 +9,12 @@ MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
 void NTPMachine::start() {
   currentState = STATE_NOT_CONNECTED;
   hardware().start();
+
+  long s = 0, e = 0;
+  hardware().loadStartEnd(&s, &e);
+  hardware().loadSwitches();
+  hardware().extractTime(s, e);
+  hardware().applyRelays();
 }
 
 int NTPMachine::getCurrentState(void) {
@@ -22,14 +28,15 @@ const char *NTPMachine::getTimeFormatted(void) {
 void NTPMachine::stateMachine(void) {
   switch(currentState) {
     case STATE_NOT_CONNECTED: {
-      deb("Not connected. Trying to reconnect...");
+      deb("Not connected to WiFi. Trying to reconnect...");
 
       memset(buffer, 0, sizeof(buffer));
 
+      mqtt().stop();
+
       hardware().restartWiFi();
       hardware().drawCenteredText("CONNECTING...");
-      mqtt().stop();
-      
+
       connectionStartTime = millis();
 
       currentState = STATE_CONNECTING;
@@ -39,7 +46,7 @@ void NTPMachine::stateMachine(void) {
     case STATE_CONNECTING: {
 
       if(millis() - connectionStartTime > WIFI_TIMEOUT_MS) {
-        deb("\n connection timeout!");
+        deb("\nWiFi connection timeout!");
         currentState = STATE_NOT_CONNECTED;
         hardware().drawCenteredText("NO CONNECTION");
         return;
@@ -49,21 +56,14 @@ void NTPMachine::stateMachine(void) {
       if(millis() - last_connecting_cycle > 200) {
         last_connecting_cycle = millis();
         if(WIFI_CONNECTED) {
-          deb("Connected. IP address: %s", hardware().getMyIP());
+          deb("Connected to WiFi. Local IP address: %s", hardware().getMyIP());
+          deb("DNS IP:%s", WiFi.dnsIP().toString().c_str());
 
           hardware().drawCenteredText("CONNECTED");
 
           setenv("TZ", "CET-1CEST,M3.5.0/2,M10.5.0/3", 1);
           tzset();
           configTime(0, 0, ntpServer1, ntpServer2);
-
-          long s = 0, e = 0;
-          hardware().loadStartEnd(&s, &e);
-          hardware().loadSwitches();
-          hardware().extractTime(s, e);
-          hardware().applyRelays();
-
-          mqtt().start();
 
           currentState = STATE_NTP_SYNCHRO;
         }
@@ -84,6 +84,10 @@ void NTPMachine::stateMachine(void) {
         if(time(nullptr) > 24 * 3600 * 2) {
           currentState = STATE_CONNECTED;
           ntpStartTime = 0;
+
+          localTimeHasBeenSet = true;
+          mqtt().start();
+          
           return;
         }
 
@@ -114,9 +118,8 @@ void NTPMachine::stateMachine(void) {
             configTime(0, 0, ntpServer1, ntpServer2);
             lastSync = millis();
           }
-
-          evaluateTimeCondition();
         }
+
         mqtt().handleMQTTClient();
         hardware().hardwareLoop();
 
@@ -130,9 +133,19 @@ void NTPMachine::stateMachine(void) {
 
   hardware().updateBuildInLed();
 
+  static unsigned long lastCall = 0;
   static unsigned long last_loop_cycle;
-  if(millis() - last_loop_cycle > PRINT_INTERVAL_MS) {
-    last_loop_cycle = millis();
+
+  unsigned long now = millis();
+  if (now - lastCall >= EVALUATE_TIME_FOR_RELAY_MS) {
+    lastCall = now;
+    if(localTimeHasBeenSet) {
+      evaluateTimeCondition();
+    }
+  }
+
+  if(now - last_loop_cycle > PRINT_INTERVAL_MS) {
+    last_loop_cycle = now;
 
     if (WIFI_CONNECTED && 
         currentState >= STATE_CONNECTED) {

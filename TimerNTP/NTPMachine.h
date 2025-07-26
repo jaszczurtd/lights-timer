@@ -17,10 +17,6 @@
 #include "MyHardware.h"
 
 #define WIFI_CONNECTED     (WiFi.status() == WL_CONNECTED)
-#define WIFI_TIMEOUT_MS    30000
-#define NTP_TIMEOUT_MS     30000
-#define PRINT_INTERVAL_MS  10000
-#define HOURS_SYNC_INTERVAL 12
 
 #define NTP_BUFFER 128
 enum {
@@ -56,6 +52,7 @@ private:
   unsigned long connectionStartTime;
   char buffer[NTP_BUFFER];
   long now_time;
+  bool localTimeHasBeenSet = false;
 };
 
 

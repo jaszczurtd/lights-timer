@@ -8,8 +8,7 @@
 #include <WiFi.h>
 #include <time.h>
 #include <tools.h>
-#include <WiFiClient.h>
-#include <WiFiServer.h>
+#include <WiFiClientSecure.h>
 #include <string.h>
 #include <PubSubClient.h>
 
@@ -31,7 +30,7 @@ public:
 
 private:
   Logic& logic;
-  WiFiClient currentClient;   
+  WiFiClientSecure currentClient;   
   PubSubClient mqttClient;
 
   NTPMachine& ntp();
@@ -41,14 +40,9 @@ private:
   bool clientInitialized = false;
   bool publishPending = false;
 
-  long lastDateHourStart;
-  long lastDateHourEnd;
-
   char msg[512];
   char topic[128];
   char response[512];
-
-  bool lastStates[MAX_AMOUNT_OF_RELAYS]; 
 
   bool reconnect();
 };
