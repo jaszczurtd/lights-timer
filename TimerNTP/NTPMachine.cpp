@@ -60,6 +60,7 @@ void NTPMachine::stateMachine(void) {
           deb("DNS IP:%s", WiFi.dnsIP().toString().c_str());
 
           hardware().drawCenteredText("CONNECTED");
+          hardware().configureOTAUpdates();
 
           setenv("TZ", "CET-1CEST,M3.5.0/2,M10.5.0/3", 1);
           tzset();
@@ -132,6 +133,7 @@ void NTPMachine::stateMachine(void) {
   }
 
   hardware().updateBuildInLed();
+  hardware().handleOTAUpdates();
 
   static unsigned long lastCall = 0;
   static unsigned long last_loop_cycle;

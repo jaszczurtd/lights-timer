@@ -9,6 +9,9 @@
 #include <Adafruit_GFX.h>
 #include <Adafruit_SSD1306.h>
 
+#include <ArduinoOTA.h>
+#include <LittleFS.h>
+
 #pragma once
 
 #define PIN_SDA 20
@@ -57,6 +60,8 @@ public:
   void loadSwitches(void);
   void saveSwitches(void);
   void applyRelays(void);
+  void configureOTAUpdates(void);
+  void handleOTAUpdates(void);
 
 private:
   Logic& logic;

@@ -1,3 +1,4 @@
+#include "Credentials.h"
 
 #include "MyHardware.h"
 #include "NTPMachine.h"
@@ -39,7 +40,7 @@ void MyHardware::restartWiFi(void) {
   WiFi.disconnect(true);     
   WiFi.setHostname(getMyHostname());
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 }
 
 int MyHardware::getWifiStrength(void) {
@@ -314,3 +315,19 @@ void MyHardware::handleButtonRelease(int buttonIndex) {
   mqtt().publish();
   saveSwitches();
 }
+
+void MyHardware::configureOTAUpdates(void) {
+  if (!LittleFS.begin()) {
+    deb("LittleFS mount failed. OTA will not work.");
+  }
+
+  ArduinoOTA.setPort(OTA_UPDATE_PORT);
+  ArduinoOTA.setHostname(remove_non_ascii(getMyHostname()));
+  ArduinoOTA.setPassword(OTA_UPDATE_PASSWORD);
+  ArduinoOTA.begin();
+}
+
+void MyHardware::handleOTAUpdates(void) {
+  ArduinoOTA.handle();
+}
+
