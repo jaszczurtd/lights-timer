@@ -317,8 +317,11 @@ void MyHardware::handleButtonRelease(int buttonIndex) {
 }
 
 void MyHardware::configureOTAUpdates(void) {
+  otaActive = true;
   if (!LittleFS.begin()) {
     deb("LittleFS mount failed. OTA will not work.");
+    otaActive = false;
+    return;
   }
 
   ArduinoOTA.setPort(OTA_UPDATE_PORT);
@@ -328,6 +331,8 @@ void MyHardware::configureOTAUpdates(void) {
 }
 
 void MyHardware::handleOTAUpdates(void) {
-  ArduinoOTA.handle();
+  if(otaActive) {
+    ArduinoOTA.handle();
+  }
 }
 

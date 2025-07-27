@@ -101,6 +101,7 @@ private:
   bool lastStates[MAX_AMOUNT_OF_RELAYS];
 
   bool lastLights = false;
+  bool otaActive = false;
 };
 
 
