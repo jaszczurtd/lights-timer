@@ -1,20 +1,18 @@
 
 # MQTT-Controlled Relay System
 
-This project implements a complete IoT system for controlling relay modules using an Android application via MQTT. The system consists of three main components:
+This project implements a simple(?) IoT system for controlling relay modules using an Android application via MQTT (TLS/x509). The system consists of three main components:
 
 1. **Android App** – graphical user interface for users to manage discovered devices and toggle relays.
 2. **Raspberry Pi Pico W** – execution unit that controls physical relays, handles WiFi, MQTT, time sync, and device discovery.
-3. **Raspberry Pi (Provider)** – discovery daemon that detects active Pico W units and updates the Android app via MQTT.
+3. **Raspberry Pi (Provider)** – MQTT mosquitto broker, and discovery daemon that detects active Pico W units and updates the Android app via MQTT.
 
 ---
 
 ## 🔐 Network & Security Model
 
-- The system is designed to work **within a WireGuard VPN network** (typically `10.8.0.x`).
-- The MQTT broker and Android device are connected via VPN.
-- **Pico W connects directly to the broker over LAN** (no WireGuard support in Arduino).
-- VPN ensures authentication and encryption of all traffic beyond the local network.
+- The system is designed to work **within a mosquitto over TLS/x509 certificates**.
+- Raspberry Pi/mosquitto requires external IP for communication (and opened port 8883).
 
 ---
 
@@ -30,22 +28,18 @@ This project implements a complete IoT system for controlling relay modules usin
 
 ## 🟡 Raspberry Pi Pico W
 
-- Written in **C++**, using **Arduino only for**:
-  - `setup()` / `loop()`
-  - WiFi management (Earlephilhower core)
-  - Some timing functions
-  - driver OLED (Adafruit_SSD1306)
-  - MQTT (PubSubClient)
-  
-- JSON parsing done using `cJSON` (included).
+  - Firmware is written in **C++**,
+  - JSON parsing is done using `cJSON` (included).
 - Features:
-  - WiFi connection with timeout (todo?)
-  - MQTT subscribe/publish
+  - WiFiClientSecure + x509 (Earlephilhower core)
   - NTP time sync
+  - state machine
+  - OLED display (Adafruit_SSD1306)
+  - MQTT subscribe/publish (PubSubClient)
   - EEPROM persistence
   - Hardware watchdog
-  - OLED display support
-  - Discovery responder (UDP)
+  - Discovery detect & responder (UDP)
+  - OTA updates (ArduinoOTA)
 
 ---
 
@@ -54,8 +48,8 @@ This project implements a complete IoT system for controlling relay modules usin
 - Written in **C** and runs as a `systemd` service.
 - Periodically:
   - Broadcasts UDP discovery
-  - Receives responses from Pico W
-  - Verifies availability via TCP
+  - Receives UDP responses from Pico W
+  - Verifies the availability of Pico W devices (TCP connection in order to keep only active devices on the list)
   - Publishes device list to `AQUA_DEVICES_UPDATE`
 
 ---
@@ -71,30 +65,197 @@ This project implements a complete IoT system for controlling relay modules usin
 
 ---
 
-## 📦 Included Library: cJSON
+## 🌐 Network Requirements
 
-This project includes [cJSON](https://github.com/DaveGamble/cJSON) for JSON parsing on embedded devices.
+For the system to operate correctly, the local network and Raspberry Pi must be properly configured:
 
-> cJSON aims to be the **simplest** and **smallest** possible JSON parser in C that’s also **fully functional**. It supports encoding, decoding, and manipulating JSON data using a lightweight DOM-style tree.
+### 1. Local Network Configuration
 
-License: MIT (see `cJSON/LICENSE`)
+- **WiFi local network must allow broadcast UDP traffic.**
 
----
+### 2. Required Open Ports on Raspberry Pi 5
+
+| Port  | Protocol | Purpose                        | Required |
+|-------|----------|--------------------------------|----------|
+| 8883  | TCP      | MQTT over TLS                  | ✅ yes   |
+| 1883  | TCP      | MQTT without TLS (optional)    | ⚠️ optional |
+| 8266  | TCP      | OTA firmware updates (optional)| ⚠️ optional |
+| 12345 | UDP      | Device discovery via broadcast | ✅ yes   |
+
+### 3. Example: Opening Required Ports with iptables
+
+```bash
+# MQTT over TLS
+sudo iptables -A INPUT -p tcp --dport 8883 -j ACCEPT
+
+# (Optional) Plain MQTT
+sudo iptables -A INPUT -p tcp --dport 1883 -j ACCEPT
+
+# (Optional) OTA firmware updates
+sudo iptables -A INPUT -p tcp --dport 8266 -j ACCEPT
+
+# UDP broadcast discovery
+sudo iptables -A INPUT -p udp --dport 12345 -j ACCEPT
+
+# Save firewall rules
+sudo netfilter-persistent save
+```
+> ⚠️ If you want to use a different port for discovery or OTA, adjust the rules accordingly.  
+> All MQTT clients (Pico W and Android app) must be able to reach the broker at TCP port 8883.
 
 ## ⚙️ Setup Instructions
 
-### 1. MQTT Broker on Raspberry Pi
+### 1. MQTT Broker on Raspberry Pi and required libraries to build the provider app
 
 ```bash
+sudo apt update
+sudo apt install libmosquitto-dev libmosquitto1 mosquitto-clients
+sudo apt-get install libcjson-dev
 sudo apt install mosquitto mosquitto-clients
 sudo systemctl enable mosquitto
 sudo systemctl start mosquitto
 ```
 
+## 🔐 Mosquitto MQTT Broker – TLS Setup
+
+To enable secure MQTT communication, you must configure Mosquitto to use TLS with your own x.509 certificate authority (CA). Here's a **generalized and anonymized** setup procedure:
+
+### 1. Open Firewall Port
+```bash
+sudo iptables -A INPUT -p tcp --dport 8883 -j ACCEPT
+sudo netfilter-persistent save
+```
+
+### 2. Create Directory Structure for certificates generation process
+```bash
+mkdir -p ~/mqtt-certs/{ca,server,config}
+cd ~/mqtt-certs
+```
+
+### 3. Generate Certificates using OpenSSL
+
+Edit your OpenSSL configuration file (`config/server-openssl.cnf`):
+```ini
+[req]
+default_bits       = 2048
+prompt             = no
+default_md         = sha256
+req_extensions     = req_ext
+distinguished_name = dn
+
+[dn]
+C = YOUR_COUNTRY
+ST = YOUR_STATE
+L = YOUR_CITY
+O = YOUR_ORG
+OU = YOUR_UNIT
+CN = your.mqtt.domain
+emailAddress = your@email.com
+
+[req_ext]
+subjectAltName = @alt_names
+
+[alt_names]
+IP.1 = your.internal.ip
+DNS.1 = your.mqtt.domain
+```
+⚠️ The CN field must contain the same domain (or IP address) where the MQTT broker is hosted!
+Otherwise, certificate verification will fail and Mosquitto will reject the connection.
+
+Then execute:
+```bash
+# Certificate Authority
+openssl genrsa -out ca/ca.key 4096
+openssl req -x509 -new -nodes -key ca/ca.key -sha256 -days 3650 -out ca/ca.crt -config config/server-openssl.cnf
+
+# Server Certificate
+openssl genrsa -out server/server.key 2048
+openssl req -new -key server/server.key -out server/server.csr -config config/server-openssl.cnf
+openssl x509 -req -in server/server.csr -CA ca/ca.crt -CAkey ca/ca.key -CAcreateserial \
+-out server/server.crt -days 3650 -sha256 \
+-extfile config/server-openssl.cnf -extensions req_ext
+```
+
+### 4. Install Certificates
+```bash
+sudo systemctl stop mosquitto
+sudo cp ca/ca.crt server/server.crt server/server.key /etc/mosquitto/certs/
+sudo chown -R mosquitto: /etc/mosquitto/certs
+sudo chmod 750 /etc/mosquitto/certs
+sudo chmod 640 /etc/mosquitto/certs/*.crt /etc/mosquitto/certs/*.key
+```
+
+### 5. Configure Mosquitto
+
+**/etc/mosquitto/mosquitto.conf**:
+```ini
+pid_file /run/mosquitto/mosquitto.pid
+
+persistence true
+persistence_location /var/lib/mosquitto/
+persistence_file mosquitto.db
+autosave_interval 300
+user mosquitto
+
+log_dest file /var/log/mosquitto/mosquitto.log
+
+include_dir /etc/mosquitto/conf.d
+
+log_type all
+connection_messages true
+```
+
+**/etc/mosquitto/conf.d/tls.conf**:
+```ini
+listener 8883
+cafile /etc/mosquitto/certs/ca.crt
+certfile /etc/mosquitto/certs/server.crt
+keyfile /etc/mosquitto/certs/server.key
+require_certificate false
+use_identity_as_username false
+allow_anonymous false
+```
+
+**/etc/mosquitto/conf.d/plain.conf**:
+```ini
+listener 1883
+allow_anonymous false
+password_file /etc/mosquitto/passwd
+```
+### 6. Set password for broker (additional layer of security)
+
+To generate a password for Mosquitto, use the following command:
+
+```bash
+mosquitto_passwd -c /etc/mosquitto/passwd your_username
+```
+
+This will create (or overwrite) the password file and prompt you to enter a password for `your_username`.
+Make sure the path matches the one used in your Mosquitto configuration (`password_file`).
+```
+```
+### 7. Restart and Test
+```bash
+sudo systemctl restart mosquitto
+sudo systemctl status mosquitto
+
+# Test TLS connection
+mosquitto_pub -h your.mqtt.domain -p 8883 --cafile /etc/mosquitto/certs/ca.crt -u youruser -P yourpass -t test -m "Hello over TLS"
+
+# In a separate console:
+mosquitto_sub -h your.mqtt.domain -p 8883 --cafile /etc/mosquitto/certs/ca.crt -u youruser -P yourpass -t test
+```
+
 ### 2. MQTT Provider Daemon
 
 ```bash
+
+cd lights-timer/RaspberryPi/aqua_topic_provider/
 make
+
+#edit service file - adjust the path to executable, etc
+sudo nano mqtt-devices-provider.service
+
 sudo cp mqtt-devices-provider.service /etc/systemd/system/
 sudo systemctl enable mqtt-devices-provider
 sudo systemctl start mqtt-devices-provider
@@ -109,18 +270,21 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
-ExecStart=/usr/local/bin/provider
-Restart=on-failure
+ExecStart=/home/pi/Documents/lights-timer/RaspberryPi/aqua_topic_provider
+WorkingDirectory=/home/pi/Documents/lights-timer/RaspberryPi/aqua_topic_provider/provider
+Restart=always
+RestartSec=5
+User=pi
 
 [Install]
 WantedBy=multi-user.target
 ```
-Additionally, the Raspberry Pi application must be executed at least once from the console to initialize and store the MQTT broker credentials.
+Additionally, the Raspberry Pi provider must be executed at least once from the console to initialize and store the MQTT broker credentials.
 
 ### 3. Pico W Firmware
 
 - Flash via Arduino IDE (2.3.xx) using the [Earlephilhower RP2040 core](https://github.com/earlephilhower/arduino-pico)
-- Set WiFi and MQTT credentials in `Credentials.h`. For some additional files, please take a look below.
+- Set WiFi and MQTT credentials in `Credentials.h`, and certificate in `ca_cert.c`. For detailed info, please take a look below.
 
 ### 4. Android App
 
@@ -128,152 +292,32 @@ Additionally, the Raspberry Pi application must be executed at least once from t
 - Supports Android 6.0+.
 - MQTT credentials are requested on first launch.
 
----
-
 ## 💡 Future Improvements
 
-- TLS encryption for MQTT.
-- OTA firmware update for Pico.
-- Enhanced Android-side persistence and control.
-- Multi-room/group support.
-
----
-
-## 📄 License
-
-MIT License – see `LICENSE` file.
-
-
----
+- temperature & hear and cooling system for aqua tanks?
 
 ## 🧩 Required Local Configuration for Pico W / Arduino compilation
 
-Project requires some tools - included as submodule (git clone with --recurse-submodules)
-Also, certain configuration files are essential for Pico W firmware compilation and deployment. 
-You must create them manually or add them as a local library in your project. These define credentials and device-specific mappings.
+Project requires Arduino tools library - included as submodule (git clone with --recurse-submodules)
+Available also [here](https://github.com/jaszczurtd/arduinoTools)
 
-### 🗂 Suggested structure:
+It is important to copy the contents of the `"libraries"` folder into the `"libraries"` directory managed by the Arduino environment.
+But before that, it is essential to properly configure and complete the content of the following files:
+`libraries/Credentials/ca_cert.c` and `libraries/Credentials/MacHostMapping.h/.cpp` — these must be adapted to:
 
-- `Credentials.h`
-- `Credentials.cpp`
-- `MacHostMapping.h`
-- `MacHostMapping.cpp`
+* the WiFi SSID and password,
+* the MQTT broker login/password/IP (or domain),
+* the x.509 certificate,
+* the MAC-to-hostname mapping and number of relays.
 
-### 🧾 Example: `Credentials.h`
+## 📦 Included Library: cJSON
 
-```cpp
-#ifndef CREDENTIALS_C
-#define CREDENTIALS_C
+This project includes [cJSON](https://github.com/DaveGamble/cJSON) for JSON parsing on embedded devices.
 
-#pragma once
+> cJSON aims to be the **simplest** and **smallest** possible JSON parser in C that’s also **fully functional**. It supports encoding, decoding, and manipulating JSON data using a lightweight DOM-style tree.
 
-#include <Arduino.h>
-#include <WiFi.h>
-#include "MacHostMapping.h"
+License: MIT (see `cJSON/LICENSE`)
 
-#define ssid "WIFI_SSID"
-#define password "WIFI_PASSWORD"
+## 📄 Project license
 
-#define MQTT_USER "BROKER_USER_TO_CONFIGURE"
-#define MQTT_PASSWORD "BROKER_PASSWORD_TO_CONFIGURE"
-#define MQTT_BROKER "192.168.2.100"
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-const char* getFriendlyHostname(const char* mac);
-int getSwitchesNumber(const char* mac);
-
-#ifdef __cplusplus
-}
-#endif
-
-#endif
-```
-
-### 🧾 Example: `Credentials.cpp`
-
-```cpp
-#include "Credentials.h"
-
-static void normalize_mac(const char* input, char* output, size_t output_len) {
-    size_t j = 0;
-    for (size_t i = 0; input[i] != '\0' && j < output_len - 1; i++) {
-        if (input[i] != ':') {
-            output[j++] = tolower((unsigned char)input[i]);
-        }
-    }
-    output[j] = '\0';
-}
-
-static char hostname[32];
-static char normalized[20];
-static char entry_normalized[20];
-
-const char* getFriendlyHostname(const char* mac) {
-    normalize_mac(mac, normalized, sizeof(normalized));
-    for (size_t i = 0; i < mac_table_size; i++) {
-        normalize_mac(mac_table[i].mac, entry_normalized, sizeof(entry_normalized));
-        if (strcmp(entry_normalized, normalized) == 0) {
-            return mac_table[i].hostname;
-        }
-    }
-    size_t len = strlen(normalized);
-    if (len >= 6) {
-        snprintf(hostname, sizeof(hostname), "pico-%s", &normalized[len - 6]);
-    } else {
-        snprintf(hostname, sizeof(hostname), "pico-%s", normalized);
-    }
-    return hostname;
-}
-
-int getSwitchesNumber(const char* mac) {
-    normalize_mac(mac, normalized, sizeof(normalized));
-    for (size_t i = 0; i < mac_table_size; i++) {
-        normalize_mac(mac_table[i].mac, entry_normalized, sizeof(entry_normalized));
-        if (strcmp(entry_normalized, normalized) == 0) {
-            return mac_table[i].switches;
-        }
-    }
-    return 0;
-}
-```
-
-### 🧾 Example: `MacHostMapping.h`
-
-```cpp
-#ifndef MACHOSTMAPPING_C
-#define MACHOSTMAPPING_C
-
-#pragma once
-
-typedef struct {
-    const char* mac;
-    const char* hostname;
-    int switches;
-} MacHostnamePair;
-
-extern const MacHostnamePair mac_table[];
-extern const size_t mac_table_size;
-
-#endif
-```
-
-### 🧾 Example: `MacHostMapping.cpp`
-
-```cpp
-#include "MacHostMapping.h"
-
-const MacHostnamePair mac_table[] = {
-    { "28:cd:c1:05:b8:76", "akwarium_duże_w_salonie", 1 },
-    { "28:cd:c1:05:b8:64", "akwarium_bojowniki_w_salonie", 2 },
-    { "28:cd:c1:05:b8:7a", "akwaria_krewetki_w_sypialni", 3 },
-    { "28:cd:c1:05:b8:74", "akwarium_krewetki_w_kuchni", 1 },
-    { "28:cd:c1:0e:4b:9d", "akwarium_babki_w_dziupli", 1 },
-};
-
-const size_t mac_table_size = sizeof(mac_table) / sizeof(mac_table[0]);
-```
-
-⚠️ **Important**: You must update these files to match your own network setup and hardware configuration.
+MIT License – see `LICENSE` file.
