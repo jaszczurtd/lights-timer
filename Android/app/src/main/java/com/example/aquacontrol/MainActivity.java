@@ -219,6 +219,10 @@ public class MainActivity extends AppCompatActivity implements Constants {
         LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
 
+        final EditText ipbroker = new EditText(this);
+        ipbroker.setHint(getString(R.string.ipbroker));
+        layout.addView(ipbroker);
+
         final EditText inputUser = new EditText(this);
         inputUser.setHint(getString(R.string.user));
         layout.addView(inputUser);
@@ -233,12 +237,14 @@ public class MainActivity extends AppCompatActivity implements Constants {
         builder.setPositiveButton(getString(R.string.ok), (dialog, which) -> {
             String user = inputUser.getText().toString();
             String pass = inputPass.getText().toString();
+            String broker = ipbroker.getText().toString();
             prefs.edit()
                     .putString(MQTT_USER, user)
                     .putString(MQTT_PASS, pass)
+                    .putString(MQTT_BROKER_IP, broker)
                     .apply();
 
-            setupMQTT(user, pass);
+            setupMQTT(user, pass, broker);
         });
 
         builder.setCancelable(false);
@@ -266,14 +272,15 @@ public class MainActivity extends AppCompatActivity implements Constants {
         prefs = getSharedPreferences(MQTT_CREDENTIALS, MODE_PRIVATE);
         String user = prefs.getString(MQTT_USER, null);
         String pass = prefs.getString(MQTT_PASS, null);
-        if (user != null && pass != null) {
-            setupMQTT(user, pass);
+        String ipbroker = prefs.getString(MQTT_BROKER_IP, null);
+        if (user != null && pass != null && ipbroker != null) {
+            setupMQTT(user, pass, ipbroker);
         } else {
             askForCredentials();
         }
     }
 
-    void setupMQTT(String user, String pass) {
+    void setupMQTT(String user, String pass, String ipbroker) {
         if((mqttClient != null && mqttClient.isConnected())) {
             Log.v(TAG, "MQTT client already connected and active");
             return;
@@ -281,7 +288,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
 
         mqttClient = new MQTTClient(
             this,
-            MQTT_BROKER,
+            ipbroker,
             user, pass,
             (topic, message) -> runOnUiThread(() -> {
                 if(message.getPayload().length == 0) {

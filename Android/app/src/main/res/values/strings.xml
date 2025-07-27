@@ -17,6 +17,7 @@
     <string name="mqtt_login">Podaj dane MQTT"</string>
     <string name="user">"Użytkownik"</string>
     <string name="pass">"Hasło"</string>
+    <string name="ipbroker">Adres IP brokera</string>
     <string name="mqttt_connection_end">Rozłączono z MQTT</string>
     <string name="set_time">Ustaw czas</string>
     <string name="device_name">Nazwa urządzenia</string>

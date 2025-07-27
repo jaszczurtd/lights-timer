@@ -77,7 +77,7 @@ public class MQTTClient implements Constants {
             String clientId = TAG + System.currentTimeMillis();
             Log.v(TAG, "clientID:" + clientId);
 
-            client = new MqttClient(broker, clientId, null);
+            client = new MqttClient("ssl://" + broker + ":8883", clientId, null);
             client.setCallback(new MqttCallbackExtended() {
                 @Override
                 public void connectComplete(boolean reconnect, String serverURI) {
