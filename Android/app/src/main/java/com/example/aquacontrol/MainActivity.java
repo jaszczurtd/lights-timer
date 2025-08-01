@@ -341,6 +341,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
     }
 
     void initMQTTClient() {
+        setMQTTStatus(CONN_NONE);
         prefs = getSharedPreferences(MQTT_CREDENTIALS, MODE_PRIVATE);
         String user = prefs.getString(MQTT_USER, null);
         String pass = prefs.getString(MQTT_PASS, null);
@@ -387,7 +388,9 @@ public class MainActivity extends AppCompatActivity implements Constants {
                 }
                 @Override
                 public void onProgress() {
-                    setMQTTStatus(CONN_PROGRESS);
+                    if(mqttClient != null && !mqttClient.isConnected()) {
+                        setMQTTStatus(CONN_PROGRESS);
+                    }
                 }
 
                 @Override
@@ -396,6 +399,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
                 }
                 @Override
                 public void onConnectionFailed(String reason) {
+                    setMQTTStatus(CONN_NONE);
                     Toast.makeText(MainActivity.this, reason, Toast.LENGTH_SHORT).show();
                 }
             });
