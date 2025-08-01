@@ -17,4 +17,8 @@ public interface Constants {
     String dateHourStart = "dateHourStart";
     String dateHourEnd = "dateHourEnd";
     String isOn = "isOn";
+
+    enum Connection {
+        CONN_NONE, CONN_PROGRESS, CONN_OK
+    }
 }

@@ -3,6 +3,8 @@ package com.example.aquacontrol;
 import static org.eclipse.paho.client.mqttv3.MqttException.REASON_CODE_CLIENT_CONNECTED;
 
 import android.content.Context;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 
 import org.eclipse.paho.client.mqttv3.IMqttDeliveryToken;
@@ -30,6 +32,7 @@ public class MQTTClient implements Constants {
 
     public interface MQTTStatusListener {
         void onConnected();
+        void onProgress();
         void onDisconnected();
         void onConnectionFailed(String reason);
     }
@@ -89,6 +92,7 @@ public class MQTTClient implements Constants {
 
                 @Override
                 public void connectionLost(Throwable cause) {
+                    startConnectionWatcher();
                     Log.v(TAG, "MQTT connection lost: " + cause);
                     if(connectionCallback != null) {
                         connectionCallback.onDisconnected();
@@ -102,7 +106,13 @@ public class MQTTClient implements Constants {
 
                 @Override
                 public void deliveryComplete(IMqttDeliveryToken token) {
-                    Log.v(TAG, "MQTT message has been delivered");
+                    String message = "none/error";
+                    try {
+                        message = token.getResponse().toString();
+                    } catch (Exception e) {
+                        Log.e(TAG, "error getting message from token:" + e.getMessage());
+                    }
+                    Log.v(TAG, "MQTT message has been delivered: " + message);
                     if(dc != null) {
                         dc.onMessageDelivered();
                         dc = null;
@@ -216,5 +226,16 @@ public class MQTTClient implements Constants {
 
     public boolean isConnected() {
         return client != null && client.isConnected();
+    }
+
+    private void startConnectionWatcher() {
+        new Handler(Looper.getMainLooper()).postDelayed(() -> {
+            if (!isConnected()) {
+                if(connectionCallback != null) {
+                    connectionCallback.onProgress();
+                }
+                startConnectionWatcher();
+            }
+        }, 1000);
     }
 }

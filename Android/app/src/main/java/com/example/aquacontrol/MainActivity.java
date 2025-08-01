@@ -1,5 +1,7 @@
 package com.example.aquacontrol;
 
+import static com.example.aquacontrol.Constants.Connection.*;
+
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.SharedPreferences;
@@ -10,6 +12,9 @@ import android.os.Handler;
 import android.os.Looper;
 import android.text.InputType;
 import android.util.Log;
+import android.view.Gravity;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.EditText;
 import android.widget.FrameLayout;
@@ -19,10 +24,13 @@ import android.widget.Toast;
 
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.Toolbar;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
 import org.json.JSONObject;
+
+import java.util.Objects;
 
 public class MainActivity extends AppCompatActivity implements Constants {
     private FrameLayout loader;
@@ -35,6 +43,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
     private MQTTClient mqttClient;
     private NetworkMonitor networkMonitor;
     private SharedPreferences prefs;
+    private View mqttStatusDot;
 
     private void handleNoNetwork(Runnable onExitConfirmed) {
         alert = new AlertDialog.Builder(this)
@@ -42,7 +51,6 @@ public class MainActivity extends AppCompatActivity implements Constants {
                 .setMessage(getString(R.string.no_internet_error))
                 .setPositiveButton(getString(R.string.exit), (dialog, which) -> {
                     alert.dismiss();
-                    new Handler(Looper.getMainLooper()).postDelayed(onExitConfirmed, 100);
                 })
                 .show();
     }
@@ -74,6 +82,23 @@ public class MainActivity extends AppCompatActivity implements Constants {
         loader.setVisibility(View.GONE);
     }
 
+    public void setMQTTStatus(Connection status) {
+        runOnUiThread(() -> {
+            switch (status) {
+                case CONN_NONE:
+                    mqttStatusDot.setBackgroundResource(R.drawable.circle_red);
+                    break;
+                case CONN_PROGRESS:
+                    mqttStatusDot.setBackgroundResource(R.drawable.circle_yellow);
+                    break;
+                case CONN_OK:
+                default:
+                    mqttStatusDot.setBackgroundResource(R.drawable.circle_green);
+                    break;
+            }
+        });
+    }
+
     @SuppressLint("SourceLockedOrientationActivity")
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
@@ -84,6 +109,21 @@ public class MainActivity extends AppCompatActivity implements Constants {
 
         loader = findViewById(R.id.fullscreenLoader);
         emptyView = findViewById(R.id.emptyView);
+
+        Toolbar toolbar = findViewById(R.id.toolbar);
+        setSupportActionBar(toolbar);
+        Objects.requireNonNull(getSupportActionBar()).setDisplayShowTitleEnabled(false);
+
+        View customTitleView = getLayoutInflater().inflate(R.layout.toolbar_title, toolbar, false);
+        Toolbar.LayoutParams lp = new Toolbar.LayoutParams(
+                Toolbar.LayoutParams.WRAP_CONTENT,
+                Toolbar.LayoutParams.MATCH_PARENT,
+                Gravity.START | Gravity.CENTER_VERTICAL
+        );
+        toolbar.addView(customTitleView, lp);
+
+        mqttStatusDot = customTitleView.findViewById(R.id.statusDot);
+        setMQTTStatus(CONN_NONE);
 
         RecyclerView deviceList = findViewById(R.id.deviceList);
         deviceList.addItemDecoration(
@@ -178,6 +218,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
 
             @Override
             public void onDisconnected() {
+                setMQTTStatus(CONN_NONE);
                 Log.v(TAG, "Internet has been disconnected");
             }
         });
@@ -212,7 +253,13 @@ public class MainActivity extends AppCompatActivity implements Constants {
         adapter.clearDevices();
     }
 
-    void askForCredentials() {
+    void autoFillWidget(EditText t, String identifier) {
+        if(t != null && identifier != null) {
+            String s = prefs.getString(identifier, null);
+            t.setText(notEmpty(s) ? s : "");
+        }
+    }
+    void askForCredentials(boolean autofill) {
         AlertDialog.Builder builder = new AlertDialog.Builder(this);
         builder.setTitle(getString(R.string.mqtt_login));
 
@@ -231,6 +278,12 @@ public class MainActivity extends AppCompatActivity implements Constants {
         inputPass.setHint(getString(R.string.pass));
         inputPass.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_VARIATION_PASSWORD);
         layout.addView(inputPass);
+
+        if(autofill) {
+            autoFillWidget(inputUser, MQTT_USER);
+            autoFillWidget(inputPass, MQTT_PASS);
+            autoFillWidget(ipbroker, MQTT_BROKER_IP);
+        }
 
         builder.setView(layout);
 
@@ -268,15 +321,34 @@ public class MainActivity extends AppCompatActivity implements Constants {
         super.onDestroy();
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.main_menu, menu);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        if (item.getItemId() == R.id.action_settings) {
+            askForCredentials(true);
+            return true;
+        }
+        return super.onOptionsItemSelected(item);
+    }
+
+    boolean notEmpty(String s) {
+        return s != null && !s.isEmpty();
+    }
+
     void initMQTTClient() {
         prefs = getSharedPreferences(MQTT_CREDENTIALS, MODE_PRIVATE);
         String user = prefs.getString(MQTT_USER, null);
         String pass = prefs.getString(MQTT_PASS, null);
         String ipbroker = prefs.getString(MQTT_BROKER_IP, null);
-        if (user != null && pass != null && ipbroker != null) {
+        if (notEmpty(user) && notEmpty(pass) && notEmpty(ipbroker)) {
             setupMQTT(user, pass, ipbroker);
         } else {
-            askForCredentials();
+            askForCredentials(false);
         }
     }
 
@@ -305,6 +377,8 @@ public class MainActivity extends AppCompatActivity implements Constants {
             new MQTTClient.MQTTStatusListener() {
                 @Override
                 public void onConnected() {
+                    setMQTTStatus(CONN_OK);
+
                     if(mqttClient != null) {
                         mqttClient.subscribeTo(AQUA_DEVICES_UPDATE);
                     } else {
@@ -312,7 +386,14 @@ public class MainActivity extends AppCompatActivity implements Constants {
                     }
                 }
                 @Override
-                public void onDisconnected() {}
+                public void onProgress() {
+                    setMQTTStatus(CONN_PROGRESS);
+                }
+
+                @Override
+                public void onDisconnected() {
+                    setMQTTStatus(CONN_NONE);
+                }
                 @Override
                 public void onConnectionFailed(String reason) {
                     Toast.makeText(MainActivity.this, reason, Toast.LENGTH_SHORT).show();

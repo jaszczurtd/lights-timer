@@ -28,4 +28,5 @@
     <string name="lamp_3">Lampa 3</string>
     <string name="lamp_4">Lampa 4</string>
     <string name="switch_off">OFF</string>
+    <string name="settings">settings</string>
 </resources>
