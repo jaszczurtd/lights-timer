@@ -1,6 +1,8 @@
 {
     "files.associations": {
         "mosquitto.h": "c",
-        "cstdlib": "c"
+        "cstdlib": "c",
+        "cjson.h": "c",
+        "pthread.h": "c"
     }
 }

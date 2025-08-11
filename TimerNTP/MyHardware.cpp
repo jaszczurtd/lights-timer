@@ -131,7 +131,7 @@ void MyHardware::saveStartEnd(long start, long end) {
 }
 
 void MyHardware::saveSwitches(void) {
-  for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
+  for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
     EEPROM.write(9 + a, switches[a]);
     deb("saved %d switch as %s", a, switches[a] ? "on" : "off");
   }
@@ -158,7 +158,7 @@ void MyHardware::loadStartEnd(long *start, long *end) {
 }
 
 void MyHardware::loadSwitches(void) {
-  for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
+  for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
     switches[a] = EEPROM.read(9 + a);
     deb("loaded %d switch as %s", a, switches[a] ? "on" : "off");
   }
@@ -189,7 +189,7 @@ void MyHardware::setRelayTo(int index, bool state) {
 }
 
 void MyHardware::applyRelays(void) {
-  for(int a = 1; a < getSwitchesNumber(getMyMAC()); a++) {
+  for(int a = 1; a < MAX_AMOUNT_OF_RELAYS; a++) {
     digitalWrite(relaysPins[a], switches[a]);
   }
 }
