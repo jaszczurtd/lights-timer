@@ -38,9 +38,10 @@ void MyHardware::start() {
 
 void MyHardware::restartWiFi(void) {
   WiFi.disconnect(true);     
+  delay(50);
   WiFi.setHostname(getMyHostname());
   WiFi.mode(WIFI_STA);
-  WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+  WiFi.beginNoBlock(WIFI_SSID, WIFI_PASSWORD);
 }
 
 int MyHardware::getWifiStrength(void) {
@@ -220,14 +221,16 @@ void MyHardware::drawWifiSignal(uint8_t strength) {
   }
 }
 
-void MyHardware::hardwareLoop(void) {
+void MyHardware::updateDisplayInNormalOperationMode(void) {
   unsigned long now = millis();
 
   if (now - lastUpdateMillis >= updateInterval) {
     lastUpdateMillis = now;
     updateDisplay();
   }
+}
 
+void MyHardware::hardwareLoop(void) {
   for (int i = 0; i < getSwitchesNumber(getMyMAC()); i++) {
     bool currentState = digitalRead(buttonPins[i]);
 
@@ -292,10 +295,14 @@ void MyHardware::updateDisplay(void) {
   display.display();
 }
 
-void MyHardware::drawCenteredText(const char* text) {
+void MyHardware::clearDisplay(void) {
   display.clearDisplay();
   display.setTextSize(1);
   display.setTextColor(SSD1306_WHITE);
+}
+
+void MyHardware::drawCenteredText(const char* text) {
+  clearDisplay();
 
   int16_t x1, y1;
   uint16_t w, h;

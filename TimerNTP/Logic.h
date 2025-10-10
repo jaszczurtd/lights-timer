@@ -35,7 +35,7 @@ private:
   MyHardware hardware;
   DiscoverMe discover;
 
-  bool initialized;
+  bool initialized = false;
 };
 
 #endif

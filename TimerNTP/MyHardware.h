@@ -55,7 +55,9 @@ public:
   void setLightsTo(bool state);
   void setRelayTo(int index, bool state);
   bool *getSwitchesStates(void);
+  void updateDisplayInNormalOperationMode(void);
   void hardwareLoop(void);
+  void clearDisplay(void);
   void drawCenteredText(const char* text);
   void loadSwitches(void);
   void saveSwitches(void);

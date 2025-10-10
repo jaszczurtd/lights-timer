@@ -1,7 +1,7 @@
 #ifndef T_CONFIG
 #define T_CONFIG
 
-#define WATCHDOG_TIME 6000
+#define WATCHDOG_TIME 7000
 #define CORE_OPERATION_DELAY 1
 
 #define WIFI_TIMEOUT_MS    30000
@@ -25,5 +25,12 @@
 
 #define ntpServer1 "pool.ntp.org"
 #define ntpServer2 "europe.pool.ntp.org"
+
+#define MAX_TIMEOUT 3000
+#define MQTT_SOCKET_MAX_TIMEOUT 2
+#define MQTT_KEEP_ALIVE 15
+
+#define PING_ONE "8.8.8.8"
+#define MAX_FAILED_PINGS 7
 
 #endif

@@ -1,3 +1,4 @@
+#include "NTPMachine.h"
 #include "Logic.h"
 
 void Logic::logicSetup(void) {
@@ -14,6 +15,7 @@ void Logic::logicSetup(void) {
 }
 
 void Logic::logicLoop(void) {
+
   watchdog_update();
 
   if(!initialized) {
@@ -21,7 +23,10 @@ void Logic::logicLoop(void) {
   }
 
   ntp.stateMachine();
+  watchdog_update();
+
   discover.handleDiscoveryRequests();
+  watchdog_update();
   
   m_delay(CORE_OPERATION_DELAY);  
   tight_loop_contents();

@@ -41,6 +41,8 @@ public:
   const char *getTimeFormatted(void);
   long getTimeNow(void);
   void evaluateTimeCondition();
+  bool isBrokerAvailable(void);
+  unsigned long lastBrokerRespoinsePingTime(void);
 
 private:
   Logic& logic;
@@ -48,11 +50,19 @@ private:
   MyHardware& hardware();
   MQTTClient& mqtt();
 
+  void reconnect(void);
+
   int currentState;
   unsigned long connectionStartTime;
   char buffer[NTP_BUFFER];
   long now_time;
   bool localTimeHasBeenSet = false;
+
+  IPAddress ping1Target;
+  String srv1;
+  bool isBAvailable = false;
+  unsigned long dt1 = 0;
+  int failedPingsCNT = 0;
 };
 
 

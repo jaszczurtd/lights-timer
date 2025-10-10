@@ -1,3 +1,4 @@
+#include "PubSubClient.h"
 #include "ca_cert.h"
 #include "MQTTClient.h"
 
@@ -87,6 +88,8 @@ void MQTTClient::start() {
   IPAddress brokerIP(ip1, ip2, ip3, ip4);
 
   mqttClient.setServer(brokerIP, MQTT_BROKER_SECURE_PORT);
+  mqttClient.setSocketTimeout(MQTT_SOCKET_MAX_TIMEOUT);
+  mqttClient.setKeepAlive(MQTT_KEEPALIVE);
 
   g_mqtt = this;
   mqttClient.setCallback(callback);
@@ -146,7 +149,7 @@ void MQTTClient::publish() {
 bool MQTTClient::reconnect() {
   deb("MQTT: WiFi status: %d", WiFi.status());
 
-  if(WIFI_CONNECTED) {
+  if(WIFI_CONNECTED && WiFi.localIP() != INADDR_NONE) {
     const char *hostName = hardware().getMyHostname();
     watchdog_update();
 
@@ -188,22 +191,25 @@ bool MQTTClient::reconnect() {
 }
 
 void MQTTClient::handleMQTTClient() {
-  if(clientInitialized) {
-    if(!mqttClient.connected()) {
-      unsigned long now = millis();
-      if(now - lastReconnectAttempt > MQTT_RECONNECT_TIME) {
-        lastReconnectAttempt = now;
-        if(reconnect()) lastReconnectAttempt = 0;
+
+  if(ntp().isBrokerAvailable()) {
+    if(clientInitialized) {
+      if(!mqttClient.connected()) {
+        unsigned long now = millis();
+        if(now - lastReconnectAttempt > MQTT_RECONNECT_TIME) {
+          lastReconnectAttempt = now;
+          if(reconnect()) lastReconnectAttempt = 0;
+        }
+      } else {
+        mqttClient.loop();
+
+        if(publishPending) {
+          publish();
+          publishPending = false;
+        }
       }
     } else {
       mqttClient.loop();
-
-      if(publishPending) {
-        publish();
-        publishPending = false;
-      }
     }
-  } else {
-    mqttClient.loop();
   }
 }
