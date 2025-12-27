@@ -29,6 +29,17 @@ const char *NTPMachine::getTimeFormatted(void) {
   return (const char *)buffer;
 }
 
+IPAddress NTPMachine::convertIP(const char *ip) {
+  int a, b, c, d;
+  if (sscanf(ip, "%d.%d.%d.%d", &a, &b, &c, &d) != 4) {
+    return IPAddress(0, 0, 0, 0);
+  }
+  if ((unsigned)a > 255 || (unsigned)b > 255 || (unsigned)c > 255 || (unsigned)d > 255) {
+    return IPAddress(0, 0, 0, 0);
+  }
+  return IPAddress((uint8_t)a, (uint8_t)b, (uint8_t)c, (uint8_t)d);
+}
+
 void NTPMachine::reconnect(void) {
   failedPingsCNT = 0;
   currentState = STATE_NOT_CONNECTED;
@@ -36,6 +47,8 @@ void NTPMachine::reconnect(void) {
 }
 
 void NTPMachine::stateMachine(void) {
+  watchdog_update();
+
   switch(currentState) {
     case STATE_NOT_CONNECTED: {
       deb("Not connected to WiFi. Trying to reconnect...");
@@ -91,19 +104,29 @@ void NTPMachine::stateMachine(void) {
       }
 
       if (WIFI_CONNECTED) {
-
         hardware().drawCenteredText("NTP SYNCHRO");
 
         if(time(nullptr) > 24 * 3600 * 2) {
-          currentState = STATE_CONNECTED;
+          currentState = STATE_WIREGUARD_CONNECT;
           ntpStartTime = 0;
-
           localTimeHasBeenSet = true;
+
+          deb("Starting WireGuard...");
+
           watchdog_update();
-          mqtt().start();
-          hardware().clearDisplay();
-          watchdog_update();
-          
+          if (!wg.beginAdvanced(
+              convertIP(getWireguardLocalIP(hardware().getMyMAC())), 
+              getWireguardPrivateKey(hardware().getMyMAC()), 
+              WG_ENDPOINT,
+              WG_SERVER_PUBLIC_KEY,
+              WG_ENDPOINT_PORT,
+              convertIP(WG_ALLOWED_IP),
+              convertIP(WG_ALLOWED_MASK)
+            )) {
+            deb("WireGuard initialization failed.");
+            reconnect();
+            break;
+          }
           break;
         }
 
@@ -112,6 +135,43 @@ void NTPMachine::stateMachine(void) {
           ntpStartTime = 0;
           reconnect();
         }
+
+      } else {
+        reconnect();
+      }
+    }
+    break;
+
+    case STATE_WIREGUARD_CONNECT: {
+      if (WIFI_CONNECTED) {
+
+        static unsigned long last_handshake_cycle;
+        if(millis() - last_handshake_cycle > 500) {
+          last_handshake_cycle = millis();
+          if (!wg.peerUp()) {
+            // 9 = "discard" style port; no service required
+            wg.kickHandshake(convertIP(getWireguardLocalIP(hardware().getMyMAC())), 9); 
+            deb("WG not ready yet (no session key). Handshake kicked.");
+            break;
+          }
+
+          currentState = STATE_WIREGUARD_CONNECTED;
+        }
+      } else {
+        reconnect();
+      }
+    }
+    break;
+
+    case STATE_WIREGUARD_CONNECTED: {
+      if (WIFI_CONNECTED) {
+        currentState = STATE_CONNECTED;
+
+        mqtt().start();
+        hardware().clearDisplay();
+        watchdog_update();
+
+        break;
 
       } else {
         reconnect();
@@ -186,11 +246,13 @@ void NTPMachine::stateMachine(void) {
     if (WIFI_CONNECTED && 
         currentState >= STATE_CONNECTED) {
 
-      deb("%s, IP:%s, host:%s, mac:%s, wifi strength: %d/5", 
+      deb("%s, IP:%s, wg IP:%s, host:%s, mac:%s, heap:%ld bytes, wifi: %d/5", 
           getTimeFormatted(), 
-          hardware().getMyIP(), 
+          hardware().getMyIP(),
+          getWireguardLocalIP(hardware().getMyMAC()),
           getFriendlyHostname(hardware().getMyMAC()), 
           hardware().getMyMAC(), 
+          rp2040.getFreeHeap(),
           hardware().getWifiStrength());
     }
   }

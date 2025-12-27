@@ -80,14 +80,7 @@ void MQTTClient::handleMessage(char* topicArrived, uint8_t* payload, unsigned in
 void MQTTClient::start() {
   deb("MQTT: connect attempt! %s", MQTT_BROKER_SECURE);
   
-  currentClient.setCACert(getCertificate());  //security – CA
-  currentClient.setX509Time(time(nullptr));   //NTP synhro is required
-
-  int ip1, ip2, ip3, ip4;
-  sscanf(MQTT_BROKER_SECURE, "%d.%d.%d.%d", &ip1, &ip2, &ip3, &ip4);
-  IPAddress brokerIP(ip1, ip2, ip3, ip4);
-
-  mqttClient.setServer(brokerIP, MQTT_BROKER_SECURE_PORT);
+  mqttClient.setServer(ntp().convertIP(MQTT_BROKER_WIREGUARD), MQTT_BROKER_PORT);
   mqttClient.setSocketTimeout(MQTT_SOCKET_MAX_TIMEOUT);
   mqttClient.setKeepAlive(MQTT_KEEPALIVE);
 
@@ -177,11 +170,6 @@ bool MQTTClient::reconnect() {
       return true;
     }
     deb("MQTT: connect failed! state=%d", mqttClient.state());
-
-    char errBuf[256];
-    int err = currentClient.getLastSSLError(errBuf, sizeof(errBuf));
-    deb("TLS error: %d (%s)\n", err, errBuf);  
- 
 
   } else {
     deb("MQTT: wifi is not connected!");

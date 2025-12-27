@@ -30,7 +30,7 @@ public:
 
 private:
   Logic& logic;
-  WiFiClientSecure currentClient;   
+  WiFiClient currentClient;   
   PubSubClient mqttClient;
 
   NTPMachine& ntp();

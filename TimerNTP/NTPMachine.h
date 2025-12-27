@@ -12,6 +12,7 @@
 #include <WiFiClient.h>
 #include <WiFiServer.h>
 #include <string.h>
+#include "arduino-wireguard-pico-w.h"
 
 #include "MQTTClient.h"
 #include "MyHardware.h"
@@ -23,6 +24,8 @@ enum {
   STATE_NOT_CONNECTED = 0, 
   STATE_CONNECTING, 
   STATE_NTP_SYNCHRO, 
+  STATE_WIREGUARD_CONNECT,
+  STATE_WIREGUARD_CONNECTED,
   STATE_CONNECTED
 };
 
@@ -43,12 +46,15 @@ public:
   void evaluateTimeCondition();
   bool isBrokerAvailable(void);
   unsigned long lastBrokerRespoinsePingTime(void);
+  IPAddress convertIP(const char *ip);
 
 private:
   Logic& logic;
 
   MyHardware& hardware();
   MQTTClient& mqtt();
+
+  WireGuard wg;
 
   void reconnect(void);
 
