@@ -46,7 +46,6 @@ public:
   void evaluateTimeCondition();
   bool isBrokerAvailable(void);
   unsigned long lastBrokerRespoinsePingTime(void);
-  IPAddress convertIP(const char *ip);
 
 private:
   Logic& logic;

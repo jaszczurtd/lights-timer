@@ -80,7 +80,10 @@ void MQTTClient::handleMessage(char* topicArrived, uint8_t* payload, unsigned in
 void MQTTClient::start() {
   deb("MQTT: connect attempt! %s", MQTT_BROKER_SECURE);
   
-  mqttClient.setServer(ntp().convertIP(MQTT_BROKER_WIREGUARD), MQTT_BROKER_PORT);
+  IPAddress server;
+  server.fromString(MQTT_BROKER_WIREGUARD);
+
+  mqttClient.setServer(server, MQTT_BROKER_PORT);
   mqttClient.setSocketTimeout(MQTT_SOCKET_MAX_TIMEOUT);
   mqttClient.setKeepAlive(MQTT_KEEPALIVE);
 

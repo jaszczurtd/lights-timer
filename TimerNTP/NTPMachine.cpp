@@ -1,3 +1,4 @@
+#include "Credentials.h"
 #include "NTPMachine.h"
 #include "Logic.h"
 #include "MyHardware.h"
@@ -9,7 +10,7 @@ MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
 void NTPMachine::start() {
   currentState = STATE_NOT_CONNECTED;
 
-  ping1Target.fromString(PING_ONE);
+  ping1Target.fromString(MQTT_BROKER);
   srv1 = ping1Target.toString();
 
   hardware().start();
@@ -27,17 +28,6 @@ int NTPMachine::getCurrentState(void) {
 
 const char *NTPMachine::getTimeFormatted(void) {
   return (const char *)buffer;
-}
-
-IPAddress NTPMachine::convertIP(const char *ip) {
-  int a, b, c, d;
-  if (sscanf(ip, "%d.%d.%d.%d", &a, &b, &c, &d) != 4) {
-    return IPAddress(0, 0, 0, 0);
-  }
-  if ((unsigned)a > 255 || (unsigned)b > 255 || (unsigned)c > 255 || (unsigned)d > 255) {
-    return IPAddress(0, 0, 0, 0);
-  }
-  return IPAddress((uint8_t)a, (uint8_t)b, (uint8_t)c, (uint8_t)d);
 }
 
 void NTPMachine::reconnect(void) {
@@ -114,14 +104,21 @@ void NTPMachine::stateMachine(void) {
           deb("Starting WireGuard...");
 
           watchdog_update();
+
+          IPAddress localIP, allowedIP, allowedMask;
+
+          localIP.fromString(getWireguardLocalIP(hardware().getMyMAC()));
+          allowedIP.fromString(WG_ALLOWED_IP);
+          allowedMask.fromString(WG_ALLOWED_MASK);
+
           if (!wg.beginAdvanced(
-              convertIP(getWireguardLocalIP(hardware().getMyMAC())), 
+              localIP, 
               getWireguardPrivateKey(hardware().getMyMAC()), 
               WG_ENDPOINT,
               WG_SERVER_PUBLIC_KEY,
               WG_ENDPOINT_PORT,
-              convertIP(WG_ALLOWED_IP),
-              convertIP(WG_ALLOWED_MASK)
+              allowedIP,
+              allowedMask
             )) {
             deb("WireGuard initialization failed.");
             reconnect();
@@ -150,7 +147,10 @@ void NTPMachine::stateMachine(void) {
           last_handshake_cycle = millis();
           if (!wg.peerUp()) {
             // 9 = "discard" style port; no service required
-            wg.kickHandshake(convertIP(getWireguardLocalIP(hardware().getMyMAC())), 9); 
+            IPAddress kicker;
+
+            kicker.fromString(getWireguardLocalIP(hardware().getMyMAC()));
+            wg.kickHandshake(kicker, 9); 
             deb("WG not ready yet (no session key). Handshake kicked.");
             break;
           }
