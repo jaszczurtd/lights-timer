@@ -77,13 +77,17 @@ void MQTTClient::handleMessage(char* topicArrived, uint8_t* payload, unsigned in
   cJSON_Delete(root);
 }
 
-void MQTTClient::start() {
-  deb("MQTT: connect attempt! %s", MQTT_BROKER_SECURE);
+void MQTTClient::start(const char *brokerIP, const int port) {
+  if(brokerIP == NULL) {
+    derr("invalid broker IP address!");
+    return;
+  }
+  deb("MQTT: connect attempt! %s / %d", brokerIP, port);
   
   IPAddress server;
-  server.fromString(MQTT_BROKER_WIREGUARD);
+  server.fromString(brokerIP);
 
-  mqttClient.setServer(server, MQTT_BROKER_PORT);
+  mqttClient.setServer(server, port);
   mqttClient.setSocketTimeout(MQTT_SOCKET_MAX_TIMEOUT);
   mqttClient.setKeepAlive(MQTT_KEEPALIVE);
 

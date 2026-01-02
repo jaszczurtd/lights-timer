@@ -22,7 +22,7 @@ class MQTTClient {
 public:
 
   explicit MQTTClient(Logic& l);
-  void start();
+  void start(const char *brokerIP, const int port);
   void stop(); 
   void handleMQTTClient();
   void publish();

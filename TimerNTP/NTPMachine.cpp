@@ -166,7 +166,7 @@ void NTPMachine::stateMachine(void) {
       if (WIFI_CONNECTED) {
         currentState = STATE_CONNECTED;
 
-        mqtt().start();
+        mqtt().start(MQTT_BROKER_WIREGUARD, MQTT_BROKER_PORT);
         hardware().clearDisplay();
         watchdog_update();
 
