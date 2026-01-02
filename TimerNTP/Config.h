@@ -22,14 +22,11 @@
 #define MQTT_TOPIC_TIME_SET "time-"
 #define MQTT_TOPIC_SWITCH_SET "switch-"
 
-#define ntpServer1 "pool.ntp.org"
-#define ntpServer2 "europe.pool.ntp.org"
-
 #define MAX_TIMEOUT 3000
 #define MQTT_SOCKET_MAX_TIMEOUT 2
 #define MQTT_KEEP_ALIVE 15
 
-#define PING_ONE "8.8.8.8"
 #define MAX_FAILED_PINGS 7
+#define NEXT_PING_TIME 1500
 
 #endif

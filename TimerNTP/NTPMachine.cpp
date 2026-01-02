@@ -37,7 +37,6 @@ void NTPMachine::reconnect(void) {
 }
 
 void NTPMachine::stateMachine(void) {
-  watchdog_update();
 
   switch(currentState) {
     case STATE_NOT_CONNECTED: {
@@ -79,7 +78,7 @@ void NTPMachine::stateMachine(void) {
 
           setenv("TZ", "CET-1CEST,M3.5.0/2,M10.5.0/3", 1);
           tzset();
-          configTime(0, 0, ntpServer1, ntpServer2);
+          configTime(0, 0, ntpServer0, nullptr);
 
           currentState = STATE_NTP_SYNCHRO;
         }
@@ -182,9 +181,6 @@ void NTPMachine::stateMachine(void) {
     case STATE_CONNECTED: {
       if (WIFI_CONNECTED) {
 
-        unsigned long t_ping;
-        int res1 = -1;    
-
         static unsigned long last_print_cycle;
         if(millis() - last_print_cycle > 500) {
           last_print_cycle = millis();
@@ -192,25 +188,37 @@ void NTPMachine::stateMachine(void) {
           static unsigned long lastSync = 0;
       
           if (millis() - lastSync > HOURS_SYNC_INTERVAL * 3600 * 1000) {
-            configTime(0, 0, ntpServer1, ntpServer2);
+            configTime(0, 0, ntpServer0, nullptr);
             lastSync = millis();
           }
         }
 
-        t_ping = millis();
-        res1 = WiFi.ping(ping1Target); 
-        dt1 = millis() - t_ping;
-        watchdog_update();
+        static unsigned long lastPing = 0;
+        unsigned long t_ping;
+        int res1 = -1;    
 
-        isBAvailable = res1 >= 0;
-        if(isBAvailable) {
-          if(failedPingsCNT > 0) {
-            failedPingsCNT--;
+        if (millis() - lastPing >= NEXT_PING_TIME) {
+          lastPing = millis();
+  
+          t_ping = millis();
+          res1 = WiFi.ping(ping1Target); 
+          dt1 = millis() - t_ping;
+          watchdog_update();
+
+          isBAvailable = res1 >= 0;
+          if(isBAvailable) {
+            if(failedPingsCNT > 0) {
+              failedPingsCNT--;
+            }
+          } else {
+            if(++failedPingsCNT > MAX_FAILED_PINGS) {
+              reconnect();
+            }
           }
-        } else {
-          if(++failedPingsCNT > MAX_FAILED_PINGS) {
-            reconnect();
-          }
+
+          deb("ping test:%ldms isBrokerAvailable:%s failed pings:%d", 
+              lastBrokerRespoinsePingTime(), (isBrokerAvailable()) ? "true" : "false",
+              failedPingsCNT);
         }
 
         mqtt().handleMQTTClient();
@@ -269,8 +277,7 @@ void NTPMachine::evaluateTimeCondition() {
 
   now_time = timeinfo.tm_hour * 60 + timeinfo.tm_min;
 
-  deb("now_time:%ld buffer:%s ping test:%ldms isAvailable:%s failed pings:%d", now_time, buffer, 
-            lastBrokerRespoinsePingTime(), (isBrokerAvailable()) ? "true" : "false", failedPingsCNT);
+  deb("now_time:%ld buffer:%s ", now_time, buffer);
 
   hardware().checkConditionsForStartEnAction(now_time);
 }
