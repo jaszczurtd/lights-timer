@@ -34,6 +34,12 @@
 #define MQTT_TOPIC "discovered/devices"
 #define AUTH_PATH ".mqtt_provider_auth"
 
+#define MQTT_PORT 1883
+#define MQTT_KEEPALIVE 60
+#define MQTT_CLIENT_ID "aqua-provider"
+
+#define VERSION "1.0.1"
+
 // Struktura przechowująca informacje o urządzeniu
 typedef struct {
     char mac[18];
@@ -49,6 +55,8 @@ void handle_device_response(char *message);
 void send_json_mqtt(const char *json_str);
 int is_device_alive_tcp(const char *ip, int port);
 void notify_mqtt(void);
+bool mosquitto_init(void);
+void mosquitto_quit(void);
 
 #endif
 

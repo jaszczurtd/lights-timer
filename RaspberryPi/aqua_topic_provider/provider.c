@@ -5,9 +5,9 @@ int device_count;
 volatile bool keep_running = false;
 char username[MAX_INPUT_SIZE], password[MAX_INPUT_SIZE];
 char path[MAX_BUFFER_SIZE];
+struct mosquitto *mosq = NULL;
 
 void handle_sigint(int sig) {
-    printf("\nctrl-c detected\n");
     keep_running = 0;
 }
 
@@ -29,7 +29,7 @@ void get_password(char *buf, size_t buflen) {
 
 void delete_credentials(void) {
     snprintf(path, sizeof(path), "%s/%s", getenv("HOME"), AUTH_PATH);
-    if (!remove(path) == 0) {
+    if (!remove(path) != 0) {
         fprintf(stderr, "cannot remove %s\n", path);
     }    
 }
@@ -66,6 +66,43 @@ int read_or_prompt_credentials(char *username, char *password) {
     return 0;
 }
 
+static void on_disconnect(struct mosquitto *mosq, void *obj, int rc) {
+    (void)mosq;
+    (void)obj;
+    (void)rc;
+    // configure auto-reconnect delays if you want:
+    mosquitto_reconnect_delay_set(mosq, 1, 20, true);
+}
+
+bool mosquitto_init(void) {
+    mosquitto_lib_init();
+
+    mosq = mosquitto_new(MQTT_CLIENT_ID, true, NULL);
+    mosquitto_disconnect_callback_set(mosq, on_disconnect);
+    mosquitto_username_pw_set(mosq, username, password);
+
+    if (mosquitto_connect(mosq, MQTT_HOST, MQTT_PORT, MQTT_KEEPALIVE) != MOSQ_ERR_SUCCESS) {
+        mosquitto_quit();
+        return false;
+    }
+    if(mosquitto_loop_start(mosq) != MOSQ_ERR_SUCCESS) {
+        mosquitto_quit();
+        return false;
+    }
+
+    return true;
+}
+
+void mosquitto_quit(void) {
+    if(mosq != NULL) {
+        mosquitto_loop_stop(mosq, true);
+        mosquitto_disconnect(mosq);
+        mosquitto_destroy(mosq);
+        mosq = NULL;
+    }
+    mosquitto_lib_cleanup();
+}
+
 int main() {
     int sock;
     struct sockaddr_in server_addr;
@@ -89,7 +126,10 @@ int main() {
         exit(EXIT_FAILURE);
     }
 
-    mosquitto_lib_init();
+    if(!mosquitto_init()) {
+        fprintf(stderr, "MQTT connection failed\n");
+        exit(EXIT_FAILURE);
+    }
 
     // Tworzenie soketu UDP
     if ((sock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
@@ -135,6 +175,7 @@ int main() {
     signal(SIGINT, handle_sigint);
     signal(SIGPIPE, SIG_IGN);
 
+    printf("Aqua devices provider ver. %s\n", VERSION);
 	printf("Waiting for devices to show up on port %d...\n", DISCOVER_PORT);
 
     keep_running = true;
@@ -187,7 +228,7 @@ int main() {
         curr = next;
     }
 
-    mosquitto_lib_cleanup();
+    mosquitto_quit();
 
     return 0;
 }
@@ -212,7 +253,7 @@ void send_broadcast_message(int sock) {
     char recv_buffer[MAX_BUFFER_SIZE];
 	socklen_t addr_len = sizeof(server_addr);
 	while (keep_running) {
-        ssize_t bytes_received = recvfrom(sock, recv_buffer, MAX_BUFFER_SIZE, 0, (struct sockaddr *)&server_addr, &addr_len);
+        ssize_t bytes_received = recvfrom(sock, recv_buffer, MAX_BUFFER_SIZE - 1, 0, (struct sockaddr *)&server_addr, &addr_len);
         if (bytes_received < 0) {
             if (errno == EAGAIN || errno == EWOULDBLOCK) break; // Koniec timeoutu
             perror("Receive failed");
@@ -345,20 +386,10 @@ void notify_mqtt(void) {
     printf("Devices JSON:\n%s\n", json_str);
     printf("devices detected: %d\n", device_count);
 
-    struct mosquitto *mosq = mosquitto_new(NULL, true, NULL);
-    mosquitto_username_pw_set(mosq, username, password);
-
-    if (mosquitto_connect(mosq, MQTT_HOST, 1883, 60) != MOSQ_ERR_SUCCESS) {
-        fprintf(stderr, "MQTT connection failed\n");
-        mosquitto_destroy(mosq);
-        free(json_str);
-        cJSON_Delete(root);
-        return;
+    int rc = mosquitto_publish(mosq, NULL, MQTT_TOPIC, strlen(json_str), json_str, 1, true);
+    if (rc != MOSQ_ERR_SUCCESS) {
+        fprintf(stderr, "MQTT publish failed: %s\n", mosquitto_strerror(rc));
     }
-
-    mosquitto_publish(mosq, NULL, MQTT_TOPIC, strlen(json_str), json_str, 1, true);
-    mosquitto_disconnect(mosq);
-    mosquitto_destroy(mosq);
 
     free(json_str);
     cJSON_Delete(root);
