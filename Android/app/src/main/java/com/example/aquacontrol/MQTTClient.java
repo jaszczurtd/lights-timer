@@ -3,6 +3,7 @@ package com.example.aquacontrol;
 import static org.eclipse.paho.client.mqttv3.MqttException.REASON_CODE_CLIENT_CONNECTED;
 
 import android.content.Context;
+import android.os.Build;
 import android.os.Handler;
 import android.os.Looper;
 import android.util.Log;
@@ -68,6 +69,16 @@ public class MQTTClient implements Constants {
 
         return contextTLS.getSocketFactory();
     }
+
+    private String getClientID() {
+        String model = Build.MODEL;          // np. "SM-G991B"
+        String manufacturer = Build.MANUFACTURER; // np. "samsung"
+        String device = Build.DEVICE;        // np. "o1s"
+        String product = Build.PRODUCT;      // np. "o1sxeea"
+        String brand = Build.BRAND;          // np. "samsung"
+
+        return (model + "_" + manufacturer + "_" + device + "_" + product + "_" + brand + "_" + System.currentTimeMillis()).trim();
+    }
     public MQTTClient(Context context, String broker, String username, String password,
                       IMqttMessageListener listener, MQTTStatusListener connectionListener) {
 
@@ -77,7 +88,7 @@ public class MQTTClient implements Constants {
         this.password = password;
 
         try {
-            String clientId = TAG + System.currentTimeMillis();
+            String clientId = TAG + "_" + getClientID();
             Log.v(TAG, "clientID:" + clientId);
 
             client = new MqttClient("ssl://" + broker + ":8883", clientId, null);
@@ -172,6 +183,9 @@ public class MQTTClient implements Constants {
     }
 
     void connect() {
+        if(isConnected()) {
+            return;
+        }
         try {
             MqttConnectOptions options = new MqttConnectOptions();
             options.setUserName(username);
