@@ -40,8 +40,9 @@ void DiscoverMe::handleDiscoveryRequests() {
       return;
     }
 
-    udp.read(packetBuffer, sizeof(packetBuffer));
-    packetBuffer[packetSize] = '\0';
+    int n = udp.read(packetBuffer, packetSize);
+    if (n < 0) return;
+    packetBuffer[n] = '\0';
 
     deb("received discovery packet:%s", packetBuffer);
 
