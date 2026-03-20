@@ -1,8 +1,9 @@
+#include <hal/hal.h>
 #include "NTPMachine.h"
 #include "Logic.h"
 
 void Logic::logicSetup(void) {
-  watchdog_enable(WATCHDOG_TIME, false);
+  hal_watchdog_enable(WATCHDOG_TIME, false);
 
   debugInit();
  
@@ -16,19 +17,19 @@ void Logic::logicSetup(void) {
 
 void Logic::logicLoop(void) {
 
-  watchdog_update();
+  hal_watchdog_feed();
 
   if(!initialized) {
     return;
   }
 
   ntp.stateMachine();
-  watchdog_update();
+  hal_watchdog_feed();
 
   discover.handleDiscoveryRequests();
-  watchdog_update();
+  hal_watchdog_feed();
   
   m_delay(CORE_OPERATION_DELAY);  
-  tight_loop_contents();
+  hal_idle();
 }
 

@@ -12,7 +12,7 @@
 NTPMachine& MQTTClient::ntp() { return logic.ntpObj(); }
 MyHardware& MQTTClient::hardware() { return logic.hardwareObj(); }
 
-MQTTClient::MQTTClient(Logic& l) : logic(l), mqttClient(currentClient), currentClient() { }
+MQTTClient::MQTTClient(Logic& l) : logic(l), currentClient(), mqttClient(currentClient) { }
 
 static MQTTClient* g_mqtt = nullptr;
 
@@ -60,7 +60,7 @@ void MQTTClient::handleMessage(char* topicArrived, uint8_t* payload, unsigned in
 
     bool shouldSave = false;
     for(int a = 0; a < getSwitchesNumber(hardware().getMyMAC()); a++) {
-      char key[8];
+      char key[16];
       snprintf(key, sizeof(key), "isOn%d", a + 1);
       cJSON *value = cJSON_GetObjectItem(root, key);
       if(cJSON_IsBool(value)) {
@@ -121,7 +121,7 @@ void MQTTClient::publish() {
       ok &= cJSON_AddBoolToObject(root, "isOn4", switches[3]) != nullptr;
       const char *time = ntp().getTimeFormatted();
       ok &= cJSON_AddStringToObject(root, "localTime", strlen(time) ? time : "not available yet.") != nullptr;
-      ok &= cJSON_AddNumberToObject(root, "localMillis", millis()) != nullptr;
+      ok &= cJSON_AddNumberToObject(root, "localMillis", hal_millis()) != nullptr;
       char strength[10]; snprintf(strength, sizeof(strength), "5/%d", hardware().getWifiStrength());
       ok &= cJSON_AddStringToObject(root, "wifi", strength) != nullptr;
 
@@ -151,10 +151,10 @@ bool MQTTClient::reconnect() {
 
   if(WIFI_CONNECTED && WiFi.localIP() != INADDR_NONE) {
     const char *hostName = hardware().getMyHostname();
-    watchdog_update();
+    hal_watchdog_feed();
 
     if(mqttClient.connect(hostName, MQTT_USER, MQTT_PASSWORD)) {
-      watchdog_update();
+      hal_watchdog_feed();
 
       snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_STATUS, hostName);
       mqttClient.publish(topic, "", true);
@@ -190,7 +190,7 @@ void MQTTClient::handleMQTTClient() {
   if(ntp().isBrokerAvailable()) {
     if(clientInitialized) {
       if(!mqttClient.connected()) {
-        unsigned long now = millis();
+        unsigned long now = hal_millis();
         if(now - lastReconnectAttempt > MQTT_RECONNECT_TIME) {
           lastReconnectAttempt = now;
           if(reconnect()) lastReconnectAttempt = 0;

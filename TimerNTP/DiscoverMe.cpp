@@ -1,4 +1,5 @@
 
+#include <hal/hal.h>
 #include "DiscoverMe.h"
 #include "Logic.h"
 #include "NTPMachine.h"
@@ -9,7 +10,7 @@ MyHardware& DiscoverMe::hardware() { return logic.hardwareObj(); }
 void DiscoverMe::start(void) {
 
   const char* mac = hardware().getMyMAC();
-  unsigned long seed = time_us_64();
+  unsigned long seed = hal_micros64();
 
   for (size_t i = 0; i < strlen(mac); i++) {
     seed ^= mac[i] << (i % 4);
@@ -48,7 +49,7 @@ void DiscoverMe::handleDiscoveryRequests() {
 
     if (strcmp(packetBuffer, DISCOVER_PACKET) == 0) {
       unsigned long delayMs = random(5, 300);
-      scheduledResponseTime = millis() + delayMs;
+      scheduledResponseTime = hal_millis() + delayMs;
       remoteIp = udp.remoteIP();
       remotePort = udp.remotePort();
       pendingResponse = true;
@@ -56,7 +57,7 @@ void DiscoverMe::handleDiscoveryRequests() {
     }
   }
 
-  if (pendingResponse && millis() >= scheduledResponseTime) {
+  if (pendingResponse && hal_millis() >= scheduledResponseTime) {
     char response[128];
     snprintf(response, sizeof(response), "%s|%s|%s|%s|%s",
       RESPONSE_PACKET,

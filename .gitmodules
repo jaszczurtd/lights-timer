@@ -1,3 +1,0 @@
-[submodule "libraries/arduinoTools"]
-	path = libraries/arduinoTools
-	url = git@github.com:jaszczurtd/arduinoTools.git

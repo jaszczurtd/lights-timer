@@ -1,5 +1,6 @@
 #include "Credentials.h"
 
+#include <hal/hal.h>
 #include "MyHardware.h"
 #include "NTPMachine.h"
 #include "MQTTClient.h"
@@ -18,8 +19,8 @@ void MyHardware::start() {
   Wire.setSCL(PIN_SCL);
   Wire.begin();
 
-  pinMode(LED_BUILTIN, OUTPUT);
-  digitalWrite(LED_BUILTIN, false);
+  hal_gpio_set_mode(LED_BUILTIN, HAL_GPIO_OUTPUT);
+  hal_gpio_write(LED_BUILTIN, false);
 
   display.begin(SSD1306_SWITCHCAPVCC, I2C_ADDR); 
   display.clearDisplay();
@@ -29,16 +30,16 @@ void MyHardware::start() {
 
   for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
     //relays
-    pinMode(relaysPins[a], OUTPUT);
+    hal_gpio_set_mode(relaysPins[a], HAL_GPIO_OUTPUT);
     //buttons
-    pinMode(buttonPins[a], INPUT_PULLUP);
-    lastStates[a] = HIGH;
+    hal_gpio_set_mode(buttonPins[a], HAL_GPIO_INPUT_PULLUP);
+    lastStates[a] = true;
   }
 }
 
 void MyHardware::restartWiFi(void) {
-  WiFi.disconnect(true);     
-  delay(50);
+  WiFi.disconnect(true);
+  hal_delay_ms(50);
   WiFi.setHostname(getMyHostname());
   WiFi.mode(WIFI_STA);
   WiFi.beginNoBlock(WIFI_SSID, WIFI_PASSWORD);
@@ -82,8 +83,8 @@ void MyHardware::updateBuildInLed(void) {
   static int prevState = -1;
 
   if (ntp().getCurrentState() != prevState) {
-    last_blink = millis();
-    digitalWrite(LED_BUILTIN, LOW);
+    last_blink = hal_millis();
+    hal_gpio_write(LED_BUILTIN, false);
     prevState = ntp().getCurrentState();
   }
 
@@ -91,20 +92,20 @@ void MyHardware::updateBuildInLed(void) {
     case STATE_CONNECTING:
     case STATE_NTP_SYNCHRO: {
       unsigned long interval = (ntp().getCurrentState() == STATE_CONNECTING) ? 100 : 300;
-      if (millis() - last_blink > interval) {
-        digitalWrite(LED_BUILTIN, !digitalRead(LED_BUILTIN));
-        last_blink = millis();
+      if (hal_millis() - last_blink > interval) {
+        hal_gpio_write(LED_BUILTIN, !hal_gpio_read(LED_BUILTIN));
+        last_blink = hal_millis();
       }
     }
     break;
-      
+
     case STATE_CONNECTED: {
-      digitalWrite(LED_BUILTIN, HIGH);
+      hal_gpio_write(LED_BUILTIN, true);
     }
     break;
-      
+
     default: {
-      digitalWrite(LED_BUILTIN, LOW);
+      hal_gpio_write(LED_BUILTIN, false);
     }
     break;
   }
@@ -186,12 +187,12 @@ void MyHardware::setLightsTo(bool state) {
 void MyHardware::setRelayTo(int index, bool state) {
   switches[index] = state;
   deb("got order to set the relay %d to %s!", index, (state) ? "on" : "off");
-  digitalWrite(relaysPins[index], switches[index]);
+  hal_gpio_write(relaysPins[index], switches[index]);
 }
 
 void MyHardware::applyRelays(void) {
   for(int a = 1; a < MAX_AMOUNT_OF_RELAYS; a++) {
-    digitalWrite(relaysPins[a], switches[a]);
+    hal_gpio_write(relaysPins[a], switches[a]);
   }
 }
 
@@ -222,7 +223,7 @@ void MyHardware::drawWifiSignal(uint8_t strength) {
 }
 
 void MyHardware::updateDisplayInNormalOperationMode(void) {
-  unsigned long now = millis();
+  unsigned long now = hal_millis();
 
   if (now - lastUpdateMillis >= updateInterval) {
     lastUpdateMillis = now;
@@ -232,9 +233,9 @@ void MyHardware::updateDisplayInNormalOperationMode(void) {
 
 void MyHardware::hardwareLoop(void) {
   for (int i = 0; i < getSwitchesNumber(getMyMAC()); i++) {
-    bool currentState = digitalRead(buttonPins[i]);
+    bool currentState = hal_gpio_read(buttonPins[i]);
 
-    if (lastStates[i] == LOW && currentState == HIGH) {
+    if (lastStates[i] == false && currentState == true) {
       handleButtonRelease(i);
     }
 

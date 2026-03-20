@@ -1,4 +1,5 @@
 #include "Credentials.h"
+#include <hal/hal.h>
 #include "NTPMachine.h"
 #include "Logic.h"
 #include "MyHardware.h"
@@ -49,7 +50,7 @@ void NTPMachine::stateMachine(void) {
       hardware().restartWiFi();
       hardware().drawCenteredText("CONNECTING...");
 
-      connectionStartTime = millis();
+      connectionStartTime = hal_millis();
 
       currentState = STATE_CONNECTING;
     }
@@ -57,14 +58,14 @@ void NTPMachine::stateMachine(void) {
 
     case STATE_CONNECTING: {
 
-      if(millis() - connectionStartTime > WIFI_TIMEOUT_MS) {
+      if(hal_millis() - connectionStartTime > WIFI_TIMEOUT_MS) {
         deb("\nWiFi connection timeout!");
         reconnect();
       }      
 
       static unsigned long last_connecting_cycle;
-      if(millis() - last_connecting_cycle > 200) {
-        last_connecting_cycle = millis();
+      if(hal_millis() - last_connecting_cycle > 200) {
+        last_connecting_cycle = hal_millis();
         if(WIFI_CONNECTED) {
           WiFi.setTimeout(MAX_TIMEOUT);
 
@@ -72,7 +73,7 @@ void NTPMachine::stateMachine(void) {
           deb("ping target: %s", srv1.c_str());
           deb("DNS IP:%s", WiFi.dnsIP().toString().c_str());
 
-          watchdog_update();
+          hal_watchdog_feed();
           hardware().drawCenteredText("CONNECTED");
           hardware().configureOTAUpdates();
 
@@ -89,7 +90,7 @@ void NTPMachine::stateMachine(void) {
     case STATE_NTP_SYNCHRO: {
       static unsigned long ntpStartTime = 0;
       if (ntpStartTime == 0) {
-        ntpStartTime = millis();
+        ntpStartTime = hal_millis();
       }
 
       if (WIFI_CONNECTED) {
@@ -102,7 +103,7 @@ void NTPMachine::stateMachine(void) {
 
           deb("Starting WireGuard...");
 
-          watchdog_update();
+          hal_watchdog_feed();
 
           IPAddress localIP, allowedIP, allowedMask;
 
@@ -126,7 +127,7 @@ void NTPMachine::stateMachine(void) {
           break;
         }
 
-        if (millis() - ntpStartTime > NTP_TIMEOUT_MS) { 
+        if (hal_millis() - ntpStartTime > NTP_TIMEOUT_MS) { 
           deb("NTP synchro error!");
           ntpStartTime = 0;
           reconnect();
@@ -142,8 +143,8 @@ void NTPMachine::stateMachine(void) {
       if (WIFI_CONNECTED) {
 
         static unsigned long last_handshake_cycle;
-        if(millis() - last_handshake_cycle > 500) {
-          last_handshake_cycle = millis();
+        if(hal_millis() - last_handshake_cycle > 500) {
+          last_handshake_cycle = hal_millis();
           if (!wg.peerUp()) {
             // 9 = "discard" style port; no service required
             IPAddress kicker;
@@ -168,7 +169,7 @@ void NTPMachine::stateMachine(void) {
 
         mqtt().start(MQTT_BROKER_WIREGUARD, MQTT_BROKER_PORT);
         hardware().clearDisplay();
-        watchdog_update();
+        hal_watchdog_feed();
 
         break;
 
@@ -182,14 +183,14 @@ void NTPMachine::stateMachine(void) {
       if (WIFI_CONNECTED) {
 
         static unsigned long last_print_cycle;
-        if(millis() - last_print_cycle > 500) {
-          last_print_cycle = millis();
+        if(hal_millis() - last_print_cycle > 500) {
+          last_print_cycle = hal_millis();
 
           static unsigned long lastSync = 0;
       
-          if (millis() - lastSync > HOURS_SYNC_INTERVAL * 3600 * 1000) {
+          if (hal_millis() - lastSync > HOURS_SYNC_INTERVAL * 3600 * 1000) {
             configTime(0, 0, ntpServer0, nullptr);
-            lastSync = millis();
+            lastSync = hal_millis();
           }
         }
 
@@ -197,13 +198,13 @@ void NTPMachine::stateMachine(void) {
         unsigned long t_ping;
         int res1 = -1;    
 
-        if (millis() - lastPing >= NEXT_PING_TIME) {
-          lastPing = millis();
+        if (hal_millis() - lastPing >= NEXT_PING_TIME) {
+          lastPing = hal_millis();
   
-          t_ping = millis();
+          t_ping = hal_millis();
           res1 = WiFi.ping(ping1Target); 
-          dt1 = millis() - t_ping;
-          watchdog_update();
+          dt1 = hal_millis() - t_ping;
+          hal_watchdog_feed();
 
           isBAvailable = res1 >= 0;
           if(isBAvailable) {
@@ -240,7 +241,7 @@ void NTPMachine::stateMachine(void) {
   static unsigned long lastCall = 0;
   static unsigned long last_loop_cycle;
 
-  unsigned long now = millis();
+  unsigned long now = hal_millis();
   if (now - lastCall >= EVALUATE_TIME_FOR_RELAY_MS) {
     lastCall = now;
     if(localTimeHasBeenSet) {
@@ -260,7 +261,7 @@ void NTPMachine::stateMachine(void) {
           getWireguardLocalIP(hardware().getMyMAC()),
           getFriendlyHostname(hardware().getMyMAC()), 
           hardware().getMyMAC(), 
-          rp2040.getFreeHeap(),
+          hal_get_free_heap(),
           hardware().getWifiStrength());
     }
   }
