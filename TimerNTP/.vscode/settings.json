@@ -1,7 +1,7 @@
 {
     "arduino.cliPath": "arduino-cli",
-    "arduino.fqbn": "rp2040:rp2040:rpipicow",
-    "arduino.boardDescription": "Raspberry Pi Pico W",
+    "arduino.fqbn": "rp2040:rp2040:rpipico",
+    "arduino.boardDescription": "Raspberry Pi Pico",
     "arduino.uploadPort": "/dev/ttyACM0",
     "arduino.sketchbookPath": "/home/jaszczurtd/development/projects_git",
     "arduino.buildDir": "${workspaceFolder}/.build",

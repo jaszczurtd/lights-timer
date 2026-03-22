@@ -15,9 +15,7 @@ void MyHardware::start() {
 
   EEPROM.begin(512);
 
-  Wire.setSDA(PIN_SDA);
-  Wire.setSCL(PIN_SCL);
-  Wire.begin();
+  hal_i2c_init(PIN_SDA, PIN_SCL, 400000);
 
   hal_gpio_set_mode(LED_BUILTIN, HAL_GPIO_OUTPUT);
   hal_gpio_write(LED_BUILTIN, false);
@@ -333,7 +331,9 @@ void MyHardware::configureOTAUpdates(void) {
   }
 
   ArduinoOTA.setPort(OTA_UPDATE_PORT);
-  ArduinoOTA.setHostname(remove_non_ascii(getMyHostname()));
+  char hostname_ascii[64];
+  remove_non_ascii(getMyHostname(), hostname_ascii, sizeof(hostname_ascii));
+  ArduinoOTA.setHostname(hostname_ascii);
   ArduinoOTA.setPassword(OTA_UPDATE_PASSWORD);
   ArduinoOTA.begin();
 }
