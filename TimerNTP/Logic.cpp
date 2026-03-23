@@ -5,8 +5,6 @@
 void Logic::logicSetup(void) {
   hal_watchdog_enable(WATCHDOG_TIME, false);
 
-  debugInit();
- 
   ntp.start();
   discover.start();
 

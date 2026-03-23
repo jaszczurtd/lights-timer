@@ -68,12 +68,14 @@ The system consists of three main components:
   - NTP time sync (optional but recommended for schedules)
   - state machine
   - OLED display (`Adafruit_SSD1306`)
-  - EEPROM persistence
+  - EEPROM persistence via `hal_eeprom` (JaszczurHAL)
   - hardware watchdog
   - discovery responder (UDP)
   - OTA updates (`ArduinoOTA`) (optional)
 
 **WireGuard library (Pico W):** https://github.com/jaszczurtd/arduino-wireguard-pico-w
+
+**Hardware abstraction layer (Pico W):** [JaszczurHAL](https://github.com/jaszczurtd/JaszczurHAL) — API reference: [JaszczurHAL_API.md](https://github.com/jaszczurtd/JaszczurHAL/blob/main/JaszczurHAL_API.md)
 
 ---
 

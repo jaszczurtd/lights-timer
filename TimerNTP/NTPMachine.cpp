@@ -21,6 +21,9 @@ void NTPMachine::start() {
   hardware().loadSwitches();
   hardware().extractTime(s, e);
   hardware().applyRelays();
+
+  evaluateRelayTimer.begin(nullptr, EVALUATE_TIME_FOR_RELAY_MS);
+  loopLogTimer.begin(nullptr, PRINT_INTERVAL_MS);
 }
 
 int NTPMachine::getCurrentState(void) {
@@ -50,7 +53,8 @@ void NTPMachine::stateMachine(void) {
       hardware().restartWiFi();
       hardware().drawCenteredText("CONNECTING...");
 
-      connectionStartTime = hal_millis();
+      wifiTimeoutTimer.begin(nullptr, WIFI_TIMEOUT_MS);
+      connectingPollTimer.begin(nullptr, 200);
 
       currentState = STATE_CONNECTING;
     }
@@ -58,14 +62,15 @@ void NTPMachine::stateMachine(void) {
 
     case STATE_CONNECTING: {
 
-      if(hal_millis() - connectionStartTime > WIFI_TIMEOUT_MS) {
+      if (wifiTimeoutTimer.available()) {
         deb("\nWiFi connection timeout!");
+        wifiTimeoutTimer.abort();
         reconnect();
-      }      
+        break;
+      }
 
-      static unsigned long last_connecting_cycle;
-      if(hal_millis() - last_connecting_cycle > 200) {
-        last_connecting_cycle = hal_millis();
+      if (connectingPollTimer.available()) {
+        connectingPollTimer.restart();
         if(WIFI_CONNECTED) {
           WiFi.setTimeout(MAX_TIMEOUT);
 
@@ -81,6 +86,7 @@ void NTPMachine::stateMachine(void) {
           tzset();
           configTime(0, 0, ntpServer0, nullptr);
 
+          ntpTimeoutTimer.begin(nullptr, NTP_TIMEOUT_MS);
           currentState = STATE_NTP_SYNCHRO;
         }
       }
@@ -88,17 +94,12 @@ void NTPMachine::stateMachine(void) {
     break;
 
     case STATE_NTP_SYNCHRO: {
-      static unsigned long ntpStartTime = 0;
-      if (ntpStartTime == 0) {
-        ntpStartTime = hal_millis();
-      }
-
       if (WIFI_CONNECTED) {
         hardware().drawCenteredText("NTP SYNCHRO");
 
         if(time(nullptr) > 24 * 3600 * 2) {
+          ntpTimeoutTimer.abort();
           currentState = STATE_WIREGUARD_CONNECT;
-          ntpStartTime = 0;
           localTimeHasBeenSet = true;
 
           deb("Starting WireGuard...");
@@ -112,8 +113,8 @@ void NTPMachine::stateMachine(void) {
           allowedMask.fromString(WG_ALLOWED_MASK);
 
           if (!wg.beginAdvanced(
-              localIP, 
-              getWireguardPrivateKey(hardware().getMyMAC()), 
+              localIP,
+              getWireguardPrivateKey(hardware().getMyMAC()),
               WG_ENDPOINT,
               WG_SERVER_PUBLIC_KEY,
               WG_ENDPOINT_PORT,
@@ -124,12 +125,13 @@ void NTPMachine::stateMachine(void) {
             reconnect();
             break;
           }
+          wgHandshakeTimer.begin(nullptr, 500);
           break;
         }
 
-        if (hal_millis() - ntpStartTime > NTP_TIMEOUT_MS) { 
+        if (ntpTimeoutTimer.available()) {
           deb("NTP synchro error!");
-          ntpStartTime = 0;
+          ntpTimeoutTimer.abort();
           reconnect();
         }
 
@@ -142,19 +144,15 @@ void NTPMachine::stateMachine(void) {
     case STATE_WIREGUARD_CONNECT: {
       if (WIFI_CONNECTED) {
 
-        static unsigned long last_handshake_cycle;
-        if(hal_millis() - last_handshake_cycle > 500) {
-          last_handshake_cycle = hal_millis();
+        if (wgHandshakeTimer.available()) {
+          wgHandshakeTimer.restart();
           if (!wg.peerUp()) {
-            // 9 = "discard" style port; no service required
             IPAddress kicker;
-
             kicker.fromString(getWireguardLocalIP(hardware().getMyMAC()));
-            wg.kickHandshake(kicker, 9); 
+            wg.kickHandshake(kicker, 9);
             deb("WG not ready yet (no session key). Handshake kicked.");
             break;
           }
-
           currentState = STATE_WIREGUARD_CONNECTED;
         }
       } else {
@@ -171,6 +169,9 @@ void NTPMachine::stateMachine(void) {
         hardware().clearDisplay();
         hal_watchdog_feed();
 
+        ntpReSyncTimer.begin(nullptr, (unsigned long)HOURS_SYNC_INTERVAL * 3600 * 1000UL);
+        pingTimer.begin(nullptr, NEXT_PING_TIME);
+
         break;
 
       } else {
@@ -182,27 +183,16 @@ void NTPMachine::stateMachine(void) {
     case STATE_CONNECTED: {
       if (WIFI_CONNECTED) {
 
-        static unsigned long last_print_cycle;
-        if(hal_millis() - last_print_cycle > 500) {
-          last_print_cycle = hal_millis();
-
-          static unsigned long lastSync = 0;
-      
-          if (hal_millis() - lastSync > HOURS_SYNC_INTERVAL * 3600 * 1000) {
-            configTime(0, 0, ntpServer0, nullptr);
-            lastSync = hal_millis();
-          }
+        if (ntpReSyncTimer.available()) {
+          ntpReSyncTimer.restart();
+          configTime(0, 0, ntpServer0, nullptr);
         }
 
-        static unsigned long lastPing = 0;
-        unsigned long t_ping;
-        int res1 = -1;    
+        if (pingTimer.available()) {
+          pingTimer.restart();
 
-        if (hal_millis() - lastPing >= NEXT_PING_TIME) {
-          lastPing = hal_millis();
-  
-          t_ping = hal_millis();
-          res1 = WiFi.ping(ping1Target); 
+          unsigned long t_ping = hal_millis();
+          int res1 = WiFi.ping(ping1Target);
           dt1 = hal_millis() - t_ping;
           hal_watchdog_feed();
 
@@ -217,7 +207,7 @@ void NTPMachine::stateMachine(void) {
             }
           }
 
-          deb("ping test:%ldms isBrokerAvailable:%s failed pings:%d", 
+          deb("ping test:%ldms isBrokerAvailable:%s failed pings:%d",
               lastBrokerRespoinsePingTime(), (isBrokerAvailable()) ? "true" : "false",
               failedPingsCNT);
         }
@@ -238,29 +228,22 @@ void NTPMachine::stateMachine(void) {
     hardware().handleOTAUpdates();
   }
 
-  static unsigned long lastCall = 0;
-  static unsigned long last_loop_cycle;
-
-  unsigned long now = hal_millis();
-  if (now - lastCall >= EVALUATE_TIME_FOR_RELAY_MS) {
-    lastCall = now;
+  if (evaluateRelayTimer.available()) {
+    evaluateRelayTimer.restart();
     if(localTimeHasBeenSet) {
       evaluateTimeCondition();
     }
   }
 
-  if(now - last_loop_cycle > PRINT_INTERVAL_MS) {
-    last_loop_cycle = now;
-
-    if (WIFI_CONNECTED && 
-        currentState >= STATE_CONNECTED) {
-
-      deb("%s, IP:%s, wg IP:%s, host:%s, mac:%s, heap:%ld bytes, wifi: %d/5", 
-          getTimeFormatted(), 
+  if (loopLogTimer.available()) {
+    loopLogTimer.restart();
+    if (WIFI_CONNECTED && currentState >= STATE_CONNECTED) {
+      deb("%s, IP:%s, wg IP:%s, host:%s, mac:%s, heap:%ld bytes, wifi: %d/5",
+          getTimeFormatted(),
           hardware().getMyIP(),
           getWireguardLocalIP(hardware().getMyMAC()),
-          getFriendlyHostname(hardware().getMyMAC()), 
-          hardware().getMyMAC(), 
+          getFriendlyHostname(hardware().getMyMAC()),
+          hardware().getMyMAC(),
           hal_get_free_heap(),
           hardware().getWifiStrength());
     }

@@ -13,7 +13,7 @@ MyHardware::MyHardware(Logic& l) : logic(l), display(SCREEN_WIDTH, SCREEN_HEIGHT
 
 void MyHardware::start() {
 
-  EEPROM.begin(512);
+  hal_eeprom_init(HAL_EEPROM_RP2040, 512, 0);
 
   hal_i2c_init(PIN_SDA, PIN_SCL, 400000);
 
@@ -33,6 +33,9 @@ void MyHardware::start() {
     hal_gpio_set_mode(buttonPins[a], HAL_GPIO_INPUT_PULLUP);
     lastStates[a] = true;
   }
+
+  displayTimer.begin(nullptr, 500);
+  blinkTimer.begin(nullptr, 100);
 }
 
 void MyHardware::restartWiFi(void) {
@@ -77,11 +80,10 @@ const char*MyHardware::getAmountOfSwitches(void) {
 }
 
 void MyHardware::updateBuildInLed(void) {
-  static unsigned long last_blink;
   static int prevState = -1;
 
   if (ntp().getCurrentState() != prevState) {
-    last_blink = hal_millis();
+    blinkTimer.restart();
     hal_gpio_write(LED_BUILTIN, false);
     prevState = ntp().getCurrentState();
   }
@@ -90,9 +92,10 @@ void MyHardware::updateBuildInLed(void) {
     case STATE_CONNECTING:
     case STATE_NTP_SYNCHRO: {
       unsigned long interval = (ntp().getCurrentState() == STATE_CONNECTING) ? 100 : 300;
-      if (hal_millis() - last_blink > interval) {
+      blinkTimer.time(interval);
+      if (blinkTimer.available()) {
+        blinkTimer.restart();
         hal_gpio_write(LED_BUILTIN, !hal_gpio_read(LED_BUILTIN));
-        last_blink = hal_millis();
       }
     }
     break;
@@ -123,29 +126,22 @@ void MyHardware::setTimeRange(long start, long end) {
 }
 
 void MyHardware::saveStartEnd(long start, long end) {
-  for (int i = 0; i < 4; i++) {
-    EEPROM.write(i,       (start >> (8 * i)) & 0xFF);
-    EEPROM.write(i + 4,   (end >> (8 * i)) & 0xFF);
-  }
-  EEPROM.commit();
+  hal_eeprom_write_int(0, (int32_t)start);
+  hal_eeprom_write_int(4, (int32_t)end);
+  hal_eeprom_commit();
 }
 
 void MyHardware::saveSwitches(void) {
   for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
-    EEPROM.write(9 + a, switches[a]);
+    hal_eeprom_write_byte(9 + a, switches[a]);
     deb("saved %d switch as %s", a, switches[a] ? "on" : "off");
   }
-  EEPROM.commit();
+  hal_eeprom_commit();
 }
 
 void MyHardware::loadStartEnd(long *start, long *end) {
-
-  *start = *end = 0;
-
-  for (int i = 0; i < 4; i++) {
-    *start |= ((long)EEPROM.read(i))     << (8 * i);
-    *end |= ((long)EEPROM.read(i + 4)) << (8 * i);
-  }
+  *start = (long)hal_eeprom_read_int(0);
+  *end   = (long)hal_eeprom_read_int(4);
 
   if(*start > MAX_TIME || *start < 0) {
     *start = 0;
@@ -159,7 +155,7 @@ void MyHardware::loadStartEnd(long *start, long *end) {
 
 void MyHardware::loadSwitches(void) {
   for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
-    switches[a] = EEPROM.read(9 + a);
+    switches[a] = hal_eeprom_read_byte(9 + a);
     deb("loaded %d switch as %s", a, switches[a] ? "on" : "off");
   }
 }
@@ -221,10 +217,8 @@ void MyHardware::drawWifiSignal(uint8_t strength) {
 }
 
 void MyHardware::updateDisplayInNormalOperationMode(void) {
-  unsigned long now = hal_millis();
-
-  if (now - lastUpdateMillis >= updateInterval) {
-    lastUpdateMillis = now;
+  if (displayTimer.available()) {
+    displayTimer.restart();
     updateDisplay();
   }
 }

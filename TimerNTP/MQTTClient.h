@@ -8,6 +8,7 @@
 #include <WiFi.h>
 #include <time.h>
 #include <tools.h>
+#include <SmartTimers.h>
 #include <WiFiClientSecure.h>
 #include <string.h>
 #include <PubSubClient.h>
@@ -36,7 +37,7 @@ private:
   NTPMachine& ntp();
   MyHardware& hardware();
 
-  unsigned long lastReconnectAttempt = 0;
+  SmartTimers reconnectTimer;
   bool clientInitialized = false;
   bool publishPending = false;
 

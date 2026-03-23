@@ -13,6 +13,7 @@
 #include <WiFiServer.h>
 #include <string.h>
 #include "arduino-wireguard-pico-w.h"
+#include <SmartTimers.h>
 
 #include "MQTTClient.h"
 #include "MyHardware.h"
@@ -58,7 +59,6 @@ private:
   void reconnect(void);
 
   int currentState;
-  unsigned long connectionStartTime;
   char buffer[NTP_BUFFER];
   long now_time;
   bool localTimeHasBeenSet = false;
@@ -68,6 +68,15 @@ private:
   bool isBAvailable = false;
   unsigned long dt1 = 0;
   int failedPingsCNT = 0;
+
+  SmartTimers wifiTimeoutTimer;
+  SmartTimers connectingPollTimer;
+  SmartTimers ntpTimeoutTimer;
+  SmartTimers wgHandshakeTimer;
+  SmartTimers pingTimer;
+  SmartTimers ntpReSyncTimer;
+  SmartTimers evaluateRelayTimer;
+  SmartTimers loopLogTimer;
 };
 
 

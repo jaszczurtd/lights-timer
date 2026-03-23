@@ -93,6 +93,7 @@ void MQTTClient::start(const char *brokerIP, const int port) {
 
   g_mqtt = this;
   mqttClient.setCallback(callback);
+  reconnectTimer.begin(nullptr, MQTT_RECONNECT_TIME);
   reconnect();
   clientInitialized = true;
 }
@@ -190,10 +191,9 @@ void MQTTClient::handleMQTTClient() {
   if(ntp().isBrokerAvailable()) {
     if(clientInitialized) {
       if(!mqttClient.connected()) {
-        unsigned long now = hal_millis();
-        if(now - lastReconnectAttempt > MQTT_RECONNECT_TIME) {
-          lastReconnectAttempt = now;
-          if(reconnect()) lastReconnectAttempt = 0;
+        if (reconnectTimer.available()) {
+          reconnectTimer.restart();
+          reconnect();
         }
       } else {
         mqttClient.loop();

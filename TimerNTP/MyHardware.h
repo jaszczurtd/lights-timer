@@ -3,7 +3,6 @@
 
 #include "Config.h"
 
-#include <EEPROM.h>
 #include <Credentials.h>
 #include <Wire.h>
 #include <Adafruit_GFX.h>
@@ -11,6 +10,7 @@
 
 #include <ArduinoOTA.h>
 #include <LittleFS.h>
+#include <SmartTimers.h>
 
 #pragma once
 
@@ -95,8 +95,8 @@ private:
   char lastTime[21] = "";
   char lastSwitches[33] = "";
 
-  unsigned long lastUpdateMillis = 0;
-  const unsigned long updateInterval = 500; 
+  SmartTimers displayTimer;
+  SmartTimers blinkTimer;
 
   int relaysPins[MAX_AMOUNT_OF_RELAYS] = {PIN_RELAY_1, PIN_RELAY_2, PIN_RELAY_3, PIN_RELAY_4};
   int buttonPins[MAX_AMOUNT_OF_RELAYS] = {PIN_BUTTON_1, PIN_BUTTON_2, PIN_BUTTON_3, PIN_BUTTON_4};
