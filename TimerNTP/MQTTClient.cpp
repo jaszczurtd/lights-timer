@@ -104,7 +104,7 @@ void MQTTClient::stop() {
 }
 
 void MQTTClient::publish() {
-  if(WIFI_CONNECTED && mqttClient.connected()) {
+  if(hal_wifi_is_connected() && mqttClient.connected()) {
     long s = 0, e = 0;
     hardware().loadStartEnd(&s, &e);
     bool *switches = hardware().getSwitchesStates();
@@ -123,7 +123,7 @@ void MQTTClient::publish() {
       const char *time = ntp().getTimeFormatted();
       ok &= cJSON_AddStringToObject(root, "localTime", strlen(time) ? time : "not available yet.") != nullptr;
       ok &= cJSON_AddNumberToObject(root, "localMillis", hal_millis()) != nullptr;
-      char strength[10]; snprintf(strength, sizeof(strength), "5/%d", hardware().getWifiStrength());
+      char strength[10]; snprintf(strength, sizeof(strength), "5/%d", hal_wifi_get_strength());
       ok &= cJSON_AddStringToObject(root, "wifi", strength) != nullptr;
 
       if(ok) {
@@ -148,9 +148,9 @@ void MQTTClient::publish() {
 }
 
 bool MQTTClient::reconnect() {
-  deb("MQTT: WiFi status: %d", WiFi.status());
+  deb("MQTT: WiFi status: %d", hal_wifi_status());
 
-  if(WIFI_CONNECTED && WiFi.localIP() != INADDR_NONE) {
+  if(hal_wifi_is_connected() && hal_wifi_has_local_ip()) {
     const char *hostName = hardware().getMyHostname();
     hal_watchdog_feed();
 

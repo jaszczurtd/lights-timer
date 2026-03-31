@@ -6,24 +6,43 @@
 #include "MQTTClient.h"
 #include "Logic.h"
 
+#include <string.h>
+
+namespace {
+constexpr uint16_t KV_KEY_START_MIN = 1;
+constexpr uint16_t KV_KEY_END_MIN = 2;
+constexpr uint16_t KV_KEY_SWITCHES = 3;
+constexpr uint32_t OTA_INIT_RETRY_MS = 5000;
+}
+
 NTPMachine& MyHardware::ntp() { return logic.ntpObj(); }
 MQTTClient& MyHardware::mqtt() { return logic.mqttObj(); }
 
-MyHardware::MyHardware(Logic& l) : logic(l), display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, -1)  { }
+MyHardware::MyHardware(Logic& l) : logic(l) { }
 
 void MyHardware::start() {
 
   hal_eeprom_init(HAL_EEPROM_RP2040, 512, 0);
+  if (!hal_kv_init(0, 512)) {
+    derr("hal_kv_init failed");
+  }
 
   hal_i2c_init(PIN_SDA, PIN_SCL, 400000);
 
   hal_gpio_set_mode(LED_BUILTIN, HAL_GPIO_OUTPUT);
   hal_gpio_write(LED_BUILTIN, false);
 
-  display.begin(SSD1306_SWITCHCAPVCC, I2C_ADDR); 
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
+  bool displayReady = hal_display_init_ssd1306_i2c(
+      SCREEN_WIDTH,
+      SCREEN_HEIGHT,
+      I2C_ADDR,
+      -1,
+      HAL_DISPLAY_VCC_SWITCHCAP,
+      false);
+  if (!displayReady) {
+    derr("SSD1306 init failed at addr 0x%02X", I2C_ADDR);
+  }
+  clearDisplay();
   drawCenteredText("NO CONNECTION");
 
   for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
@@ -39,33 +58,24 @@ void MyHardware::start() {
 }
 
 void MyHardware::restartWiFi(void) {
-  WiFi.disconnect(true);
+  hal_wifi_disconnect(true);
   hal_delay_ms(50);
-  WiFi.setHostname(getMyHostname());
-  WiFi.mode(WIFI_STA);
-  WiFi.beginNoBlock(WIFI_SSID, WIFI_PASSWORD);
-}
-
-int MyHardware::getWifiStrength(void) {
-
-  int32_t rssi = WiFi.RSSI();
-
-  if (rssi >= 0) return 0; 
-  if (rssi >= -50) return 5;
-  if (rssi >= -60) return 4;
-  if (rssi >= -70) return 3;
-  if (rssi >= -80) return 2;
-  if (rssi >= -90) return 1;
-  return 0; 
+  hal_wifi_set_hostname(getMyHostname());
+  hal_wifi_set_mode(HAL_WIFI_MODE_STA);
+  hal_wifi_begin_station(WIFI_SSID, WIFI_PASSWORD, true);
 }
 
 const char *MyHardware::getMyIP(void) {
-  snprintf(ip_str, sizeof(ip_str), "%s", (WIFI_CONNECTED) ? WiFi.localIP().toString().c_str() : "0.0.0.0");
+  if (!hal_wifi_is_connected() || !hal_wifi_get_local_ip(ip_str, sizeof(ip_str))) {
+    snprintf(ip_str, sizeof(ip_str), "%s", "0.0.0.0");
+  }
   return (const char *)ip_str;
 }
 
 const char *MyHardware::getMyMAC(void) {
-  snprintf(mac_str, sizeof(mac_str), "%s", WiFi.macAddress().c_str());
+  if (!hal_wifi_get_mac(mac_str, sizeof(mac_str))) {
+    snprintf(mac_str, sizeof(mac_str), "%s", "00:00:00:00:00:00");
+  }
   return (const char *)mac_str;
 }
 
@@ -126,22 +136,39 @@ void MyHardware::setTimeRange(long start, long end) {
 }
 
 void MyHardware::saveStartEnd(long start, long end) {
-  hal_eeprom_write_int(0, (int32_t)start);
-  hal_eeprom_write_int(4, (int32_t)end);
-  hal_eeprom_commit();
+  if (!hal_kv_set_u32(KV_KEY_START_MIN, (uint32_t)start)) {
+    derr("KV save failed for start=%ld", start);
+  }
+  if (!hal_kv_set_u32(KV_KEY_END_MIN, (uint32_t)end)) {
+    derr("KV save failed for end=%ld", end);
+  }
 }
 
 void MyHardware::saveSwitches(void) {
+  uint8_t packed[MAX_AMOUNT_OF_RELAYS] = {0};
   for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
-    hal_eeprom_write_byte(9 + a, switches[a]);
+    packed[a] = switches[a] ? 1U : 0U;
     deb("saved %d switch as %s", a, switches[a] ? "on" : "off");
   }
-  hal_eeprom_commit();
+
+  if (!hal_kv_set_blob(KV_KEY_SWITCHES, packed, (uint16_t)MAX_AMOUNT_OF_RELAYS)) {
+    derr("KV save failed for switches");
+  }
 }
 
 void MyHardware::loadStartEnd(long *start, long *end) {
-  *start = (long)hal_eeprom_read_int(0);
-  *end   = (long)hal_eeprom_read_int(4);
+  uint32_t start_u32 = 0;
+  uint32_t end_u32 = 0;
+
+  if (!hal_kv_get_u32(KV_KEY_START_MIN, &start_u32)) {
+    start_u32 = 0;
+  }
+  if (!hal_kv_get_u32(KV_KEY_END_MIN, &end_u32)) {
+    end_u32 = 0;
+  }
+
+  *start = (long)start_u32;
+  *end = (long)end_u32;
 
   if(*start > MAX_TIME || *start < 0) {
     *start = 0;
@@ -154,8 +181,20 @@ void MyHardware::loadStartEnd(long *start, long *end) {
 }
 
 void MyHardware::loadSwitches(void) {
+  memset(switches, 0, sizeof(switches));
+
+  uint8_t packed[MAX_AMOUNT_OF_RELAYS] = {0};
+  uint16_t loaded_len = 0;
+  if (hal_kv_get_blob(KV_KEY_SWITCHES, packed, (uint16_t)MAX_AMOUNT_OF_RELAYS, &loaded_len)) {
+    if (loaded_len > MAX_AMOUNT_OF_RELAYS) {
+      loaded_len = MAX_AMOUNT_OF_RELAYS;
+    }
+    for (uint16_t a = 0; a < loaded_len; a++) {
+      switches[a] = (packed[a] != 0);
+    }
+  }
+
   for(int a = 0; a < MAX_AMOUNT_OF_RELAYS; a++) {
-    switches[a] = hal_eeprom_read_byte(9 + a);
     deb("loaded %d switch as %s", a, switches[a] ? "on" : "off");
   }
 }
@@ -209,9 +248,9 @@ void MyHardware::drawWifiSignal(uint8_t strength) {
     int y = baseY - heights[i] + 1;
 
     if (i < strength) {
-      display.fillRect(x, y, barWidth, heights[i], SSD1306_WHITE);
+      hal_display_fill_rect(x, y, barWidth, heights[i], HAL_COLOR_WHITE);
     } else {
-      display.drawRect(x, y, barWidth, heights[i], SSD1306_WHITE);
+      hal_display_draw_rect(x, y, barWidth, heights[i], HAL_COLOR_WHITE);
     }
   }
 }
@@ -233,10 +272,6 @@ void MyHardware::hardwareLoop(void) {
 
     lastStates[i] = currentState;
   }
-}
-
-void MyHardware::clearLine(int line) {
-  display.fillRect(0, line * LINE_HEIGHT, SCREEN_WIDTH, LINE_HEIGHT, SSD1306_BLACK);
 }
 
 const char* MyHardware::getSwitchStatus(void) {
@@ -264,49 +299,32 @@ void MyHardware::updateDisplay(void) {
   const char* switches = getSwitchStatus();
 
   if (strcmp(times, lastTimes) != 0) {
-    clearLine(0);
-    display.setCursor(0, 0);
-    display.print(times);
+    hal_display_print_line(0, LINE_HEIGHT, times, true, HAL_COLOR_WHITE, HAL_COLOR_BLACK);
     strncpy(lastTimes, times, sizeof(lastTimes));
   }
 
   if (strcmp(timeStr, lastTime) != 0) {
-    clearLine(1);
-    display.setCursor(0, LINE_HEIGHT);
-    display.print(timeStr);
+    hal_display_print_line(1, LINE_HEIGHT, timeStr, true, HAL_COLOR_WHITE, HAL_COLOR_BLACK);
     strncpy(lastTime, timeStr, sizeof(lastTime));
   }
 
   if (strcmp(switches, lastSwitches) != 0) {
-    clearLine(2);
-    display.setCursor(0, 2 * LINE_HEIGHT);
-    display.print(switches);
+    hal_display_print_line(2, LINE_HEIGHT, switches, true, HAL_COLOR_WHITE, HAL_COLOR_BLACK);
     strncpy(lastSwitches, switches, sizeof(lastSwitches));
   }
 
-  drawWifiSignal(getWifiStrength());
-  display.display();
+  drawWifiSignal(hal_wifi_get_strength());
+  hal_display_flush();
 }
 
 void MyHardware::clearDisplay(void) {
-  display.clearDisplay();
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE);
+  hal_display_fill_screen(HAL_COLOR_BLACK);
+  hal_display_set_text_size(1);
+  hal_display_set_text_color(HAL_COLOR_WHITE);
 }
 
 void MyHardware::drawCenteredText(const char* text) {
-  clearDisplay();
-
-  int16_t x1, y1;
-  uint16_t w, h;
-  display.getTextBounds(text, 0, 0, &x1, &y1, &w, &h);
-
-  int16_t x = (SCREEN_WIDTH - w) / 2;
-  int16_t y = (SCREEN_HEIGHT - h) / 2;
-
-  display.setCursor(x, y);
-  display.print(text);
-  display.display();
+  hal_display_draw_text_centered(text, HAL_COLOR_WHITE, HAL_COLOR_BLACK, true, true);
 }
 
 void MyHardware::handleButtonRelease(int buttonIndex) {
@@ -317,12 +335,45 @@ void MyHardware::handleButtonRelease(int buttonIndex) {
 }
 
 void MyHardware::configureOTAUpdates(void) {
-  otaActive = true;
-  if (!LittleFS.begin()) {
-    deb("LittleFS mount failed. OTA will not work.");
-    otaActive = false;
+  if (otaActive) {
     return;
   }
+
+  const uint32_t now = hal_millis();
+  if ((int32_t)(now - otaRetryAtMs) < 0) {
+    return;
+  }
+
+  if (!LittleFS.begin()) {
+    deb("LittleFS mount failed. OTA retry in %lu ms", (unsigned long)OTA_INIT_RETRY_MS);
+    otaActive = false;
+    otaRetryAtMs = now + OTA_INIT_RETRY_MS;
+    return;
+  }
+
+  ArduinoOTA.onStart([]() {
+    const char *type = (ArduinoOTA.getCommand() == U_FS) ? "filesystem" : "sketch";
+    deb("OTA start: %s", type);
+  });
+  ArduinoOTA.onEnd([]() {
+    deb("OTA end: success");
+  });
+  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
+    if (total == 0) {
+      return;
+    }
+    deb("OTA progress: %u%%", (progress * 100U) / total);
+  });
+  ArduinoOTA.onError([](ota_error_t error) {
+    switch (error) {
+      case OTA_AUTH_ERROR:    derr("OTA error: auth"); break;
+      case OTA_BEGIN_ERROR:   derr("OTA error: begin"); break;
+      case OTA_CONNECT_ERROR: derr("OTA error: connect"); break;
+      case OTA_RECEIVE_ERROR: derr("OTA error: receive"); break;
+      case OTA_END_ERROR:     derr("OTA error: end"); break;
+      default:                derr("OTA error: unknown=%u", (unsigned)error); break;
+    }
+  });
 
   ArduinoOTA.setPort(OTA_UPDATE_PORT);
   char hostname_ascii[64];
@@ -330,11 +381,22 @@ void MyHardware::configureOTAUpdates(void) {
   ArduinoOTA.setHostname(hostname_ascii);
   ArduinoOTA.setPassword(OTA_UPDATE_PASSWORD);
   ArduinoOTA.begin();
+
+  otaActive = true;
+  otaRetryAtMs = 0;
+  deb("OTA ready: host=%s port=%d", hostname_ascii, OTA_UPDATE_PORT);
 }
 
 void MyHardware::handleOTAUpdates(void) {
-  if(otaActive) {
-    ArduinoOTA.handle();
+  if (!hal_wifi_is_connected()) {
+    return;
   }
+
+  if (!otaActive) {
+    configureOTAUpdates();
+    return;
+  }
+
+  ArduinoOTA.handle();
 }
 

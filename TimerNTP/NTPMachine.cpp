@@ -71,20 +71,24 @@ void NTPMachine::stateMachine(void) {
 
       if (connectingPollTimer.available()) {
         connectingPollTimer.restart();
-        if(WIFI_CONNECTED) {
-          WiFi.setTimeout(MAX_TIMEOUT);
+        if(hal_wifi_is_connected()) {
+          hal_wifi_set_timeout_ms(MAX_TIMEOUT);
+
+          char dns_ip[32] = {0};
+          if (!hal_wifi_get_dns_ip(dns_ip, sizeof(dns_ip))) {
+            snprintf(dns_ip, sizeof(dns_ip), "%s", "0.0.0.0");
+          }
 
           deb("Connected to WiFi. Local IP address: %s", hardware().getMyIP());
           deb("ping target: %s", srv1.c_str());
-          deb("DNS IP:%s", WiFi.dnsIP().toString().c_str());
+          deb("DNS IP:%s", dns_ip);
 
           hal_watchdog_feed();
           hardware().drawCenteredText("CONNECTED");
           hardware().configureOTAUpdates();
 
-          setenv("TZ", "CET-1CEST,M3.5.0/2,M10.5.0/3", 1);
-          tzset();
-          configTime(0, 0, ntpServer0, nullptr);
+          hal_time_set_timezone("CET-1CEST,M3.5.0/2,M10.5.0/3");
+          hal_time_sync_ntp(ntpServer0, nullptr);
 
           ntpTimeoutTimer.begin(nullptr, NTP_TIMEOUT_MS);
           currentState = STATE_NTP_SYNCHRO;
@@ -94,10 +98,10 @@ void NTPMachine::stateMachine(void) {
     break;
 
     case STATE_NTP_SYNCHRO: {
-      if (WIFI_CONNECTED) {
+      if (hal_wifi_is_connected()) {
         hardware().drawCenteredText("NTP SYNCHRO");
 
-        if(time(nullptr) > 24 * 3600 * 2) {
+        if (hal_time_is_synced(24UL * 3600UL * 2UL)) {
           ntpTimeoutTimer.abort();
           currentState = STATE_WIREGUARD_CONNECT;
           localTimeHasBeenSet = true;
@@ -142,7 +146,7 @@ void NTPMachine::stateMachine(void) {
     break;
 
     case STATE_WIREGUARD_CONNECT: {
-      if (WIFI_CONNECTED) {
+      if (hal_wifi_is_connected()) {
 
         if (wgHandshakeTimer.available()) {
           wgHandshakeTimer.restart();
@@ -162,7 +166,7 @@ void NTPMachine::stateMachine(void) {
     break;
 
     case STATE_WIREGUARD_CONNECTED: {
-      if (WIFI_CONNECTED) {
+      if (hal_wifi_is_connected()) {
         currentState = STATE_CONNECTED;
 
         mqtt().start(MQTT_BROKER_WIREGUARD, MQTT_BROKER_PORT);
@@ -181,18 +185,18 @@ void NTPMachine::stateMachine(void) {
     break;
 
     case STATE_CONNECTED: {
-      if (WIFI_CONNECTED) {
+      if (hal_wifi_is_connected()) {
 
         if (ntpReSyncTimer.available()) {
           ntpReSyncTimer.restart();
-          configTime(0, 0, ntpServer0, nullptr);
+          hal_time_sync_ntp(ntpServer0, nullptr);
         }
 
         if (pingTimer.available()) {
           pingTimer.restart();
 
           unsigned long t_ping = hal_millis();
-          int res1 = WiFi.ping(ping1Target);
+          int res1 = hal_wifi_ping(srv1.c_str());
           dt1 = hal_millis() - t_ping;
           hal_watchdog_feed();
 
@@ -224,7 +228,7 @@ void NTPMachine::stateMachine(void) {
   }
 
   hardware().updateBuildInLed();
-  if (WIFI_CONNECTED && isBrokerAvailable()) {  
+  if (hal_wifi_is_connected()) {
     hardware().handleOTAUpdates();
   }
 
@@ -237,7 +241,7 @@ void NTPMachine::stateMachine(void) {
 
   if (loopLogTimer.available()) {
     loopLogTimer.restart();
-    if (WIFI_CONNECTED && currentState >= STATE_CONNECTED) {
+    if (hal_wifi_is_connected() && currentState >= STATE_CONNECTED) {
       deb("%s, IP:%s, wg IP:%s, host:%s, mac:%s, heap:%ld bytes, wifi: %d/5",
           getTimeFormatted(),
           hardware().getMyIP(),
@@ -245,19 +249,20 @@ void NTPMachine::stateMachine(void) {
           getFriendlyHostname(hardware().getMyMAC()),
           hardware().getMyMAC(),
           hal_get_free_heap(),
-          hardware().getWifiStrength());
+          hal_wifi_get_strength());
     }
   }
 }
 
 void NTPMachine::evaluateTimeCondition() {
-  time_t now;
-  struct tm timeinfo;
+  struct tm timeinfo = {};
+  if (!hal_time_get_local(&timeinfo)) {
+    return;
+  }
 
-  time(&now);
-  localtime_r(&now, &timeinfo);
-  
-  strftime(buffer, sizeof(buffer), "%d/%m/%Y %H:%M:%S", &timeinfo);
+  if (!hal_time_format_local(buffer, sizeof(buffer), "%d/%m/%Y %H:%M:%S")) {
+    return;
+  }
 
   now_time = timeinfo.tm_hour * 60 + timeinfo.tm_min;
 

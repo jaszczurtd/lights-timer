@@ -5,7 +5,7 @@
 
 #include "Config.h"
 
-#include <WiFi.h>
+#include <hal/hal.h>
 #include <time.h>
 #include <Credentials.h>
 #include <tools.h>
@@ -17,8 +17,6 @@
 
 #include "MQTTClient.h"
 #include "MyHardware.h"
-
-#define WIFI_CONNECTED     (WiFi.status() == WL_CONNECTED)
 
 #define NTP_BUFFER 128
 enum {

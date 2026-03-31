@@ -1,0 +1,5 @@
+# Build artifacts
+.build/
+
+# Local Codex helper file
+.codex

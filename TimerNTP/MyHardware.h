@@ -4,9 +4,6 @@
 #include "Config.h"
 
 #include <Credentials.h>
-#include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
 
 #include <ArduinoOTA.h>
 #include <LittleFS.h>
@@ -41,7 +38,6 @@ public:
   explicit MyHardware(Logic& l);
   void start();
   void restartWiFi(void);
-  int getWifiStrength(void);
   const char *getMyIP(void);
   const char *getMyMAC(void);
   const char *getMyHostname(void);
@@ -67,13 +63,11 @@ public:
 
 private:
   Logic& logic;
-  Adafruit_SSD1306 display;
 
   NTPMachine& ntp();
   MQTTClient& mqtt();
 
   void updateDisplay(void);
-  void clearLine(int line);
   void drawWifiSignal(uint8_t strength);
   const char* getSwitchStatus(void);
   void handleButtonRelease(int buttonIndex);
@@ -104,6 +98,7 @@ private:
 
   bool lastLights = false;
   bool otaActive = false;
+  uint32_t otaRetryAtMs = 0;
 };
 
 

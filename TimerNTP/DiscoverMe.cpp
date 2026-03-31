@@ -20,7 +20,7 @@ void DiscoverMe::start(void) {
 }
 
 void DiscoverMe::handleDiscoveryRequests() {
-  if (!WIFI_CONNECTED) {
+  if (!hal_wifi_is_connected()) {
     pendingResponse = false;
     return;
   }
