@@ -8,12 +8,11 @@
 #include <WiFi.h>
 #include <time.h>
 #include <tools.h>
-#include <SmartTimers.h>
 #include <WiFiClientSecure.h>
 #include <string.h>
 #include <PubSubClient.h>
 
-#include "cJSON.h"
+#include <utils/cJSON.h>
 
 class NTPMachine;
 class MyHardware;

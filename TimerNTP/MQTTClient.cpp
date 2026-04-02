@@ -108,39 +108,55 @@ void MQTTClient::publish() {
     long s = 0, e = 0;
     hardware().loadStartEnd(&s, &e);
     bool *switches = hardware().getSwitchesStates();
+    cJSON *root = nullptr;
+    char *json = nullptr;
+    const char *time = nullptr;
+    char strength[10];
 
-    cJSON *root = cJSON_CreateObject();
-    if(root) {
-      memset(response, 0, sizeof(response));
-      bool ok = true;
-      ok &= cJSON_AddStringToObject(root, "status", "ok") != nullptr;
-      ok &= cJSON_AddNumberToObject(root, "dateHourStart", s) != nullptr;
-      ok &= cJSON_AddNumberToObject(root, "dateHourEnd", e) != nullptr;
-      ok &= cJSON_AddBoolToObject(root, "isOn1", switches[0]) != nullptr;
-      ok &= cJSON_AddBoolToObject(root, "isOn2", switches[1]) != nullptr;
-      ok &= cJSON_AddBoolToObject(root, "isOn3", switches[2]) != nullptr;
-      ok &= cJSON_AddBoolToObject(root, "isOn4", switches[3]) != nullptr;
-      const char *time = ntp().getTimeFormatted();
-      ok &= cJSON_AddStringToObject(root, "localTime", strlen(time) ? time : "not available yet.") != nullptr;
-      ok &= cJSON_AddNumberToObject(root, "localMillis", hal_millis()) != nullptr;
-      char strength[10]; snprintf(strength, sizeof(strength), "5/%d", hal_wifi_get_strength());
-      ok &= cJSON_AddStringToObject(root, "wifi", strength) != nullptr;
+    memset(response, 0, sizeof(response));
 
-      if(ok) {
-        char *json = cJSON_PrintUnformatted(root);
-        if(json) {
-          strncpy(response, json, sizeof(response) - 1);
-          free(json);
-        }
-      } else {
-        strncpy(response, "{\"status\":\"JSON build failed\"}", sizeof(response) - 1);
-      }
-      cJSON_Delete(root);
-    }
+    root = cJSON_CreateObject();
+    NONULL(root);
+
+    NONULL(cJSON_AddStringToObject(root, "status", "ok"));
+    NONULL(cJSON_AddNumberToObject(root, "dateHourStart", s));
+    NONULL(cJSON_AddNumberToObject(root, "dateHourEnd", e));
+    NONULL(cJSON_AddBoolToObject(root, "isOn1", switches[0]));
+    NONULL(cJSON_AddBoolToObject(root, "isOn2", switches[1]));
+    NONULL(cJSON_AddBoolToObject(root, "isOn3", switches[2]));
+    NONULL(cJSON_AddBoolToObject(root, "isOn4", switches[3]));
+
+    time = ntp().getTimeFormatted();
+    NONULL(cJSON_AddStringToObject(root, "localTime", strlen(time) ? time : "not available yet."));
+    NONULL(cJSON_AddNumberToObject(root, "localMillis", hal_millis()));
+
+    snprintf(strength, sizeof(strength), "5/%d", hal_wifi_get_strength());
+    NONULL(cJSON_AddStringToObject(root, "wifi", strength));
+
+    json = cJSON_PrintUnformatted(root);
+    NONULL(json);
+
+    strncpy(response, json, sizeof(response) - 1);
+    cJSON_free(json);
+    cJSON_Delete(root);
 
     snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_STATUS, hardware().getMyHostname());
     deb("MQTT: topic:%s publish: %s", topic, response);
 
+    mqttClient.publish(topic, response, true);
+    return;
+
+error:
+    if(json) {
+      cJSON_free(json);
+    }
+    if(root) {
+      cJSON_Delete(root);
+    }
+    strncpy(response, "{\"status\":\"JSON build failed\"}", sizeof(response) - 1);
+
+    snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_STATUS, hardware().getMyHostname());
+    deb("MQTT: topic:%s publish: %s", topic, response);
     mqttClient.publish(topic, response, true);
   } else {
     publishPending = true;

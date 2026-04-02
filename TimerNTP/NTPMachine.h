@@ -13,7 +13,6 @@
 #include <WiFiServer.h>
 #include <string.h>
 #include "arduino-wireguard-pico-w.h"
-#include <SmartTimers.h>
 
 #include "MQTTClient.h"
 #include "MyHardware.h"
