@@ -51,6 +51,7 @@ void MQTTClient::handleMessage(char* topicArrived, uint8_t* payload, unsigned in
       hardware().setTimeRange(dHourStart, dHourEnd);
       ntp().evaluateTimeCondition();
       publishPending = true;
+      hardware().wakeDisplayForEvent();
     }
   }
 
@@ -59,17 +60,19 @@ void MQTTClient::handleMessage(char* topicArrived, uint8_t* payload, unsigned in
     deb("MQTT: switch update requested from broker!");
 
     bool shouldSave = false;
+    bool anyChanged = false;
     for(int a = 0; a < getSwitchesNumber(hardware().getMyMAC()); a++) {
       char key[16];
       snprintf(key, sizeof(key), "isOn%d", a + 1);
       cJSON *value = cJSON_GetObjectItem(root, key);
       if(cJSON_IsBool(value)) {
-        hardware().setRelayTo(a, cJSON_IsTrue(value));
+        anyChanged |= hardware().setRelayTo(a, cJSON_IsTrue(value));
         shouldSave = true;
       }
     }
-    if(shouldSave) {
+    if(shouldSave && anyChanged) {
       hardware().saveSwitches();
+      hardware().wakeDisplayForEvent();
     }
     publishPending = true;
   }

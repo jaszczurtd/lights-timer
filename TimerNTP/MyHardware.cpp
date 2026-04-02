@@ -18,7 +18,7 @@ constexpr uint32_t OTA_INIT_RETRY_MS = 5000;
 NTPMachine& MyHardware::ntp() { return logic.ntpObj(); }
 MQTTClient& MyHardware::mqtt() { return logic.mqttObj(); }
 
-MyHardware::MyHardware(Logic& l) : logic(l) { }
+MyHardware::MyHardware(Logic& l) : logic(l), oledFlow(OLED_ACTIVE_WINDOW_MS) { }
 
 void MyHardware::start() {
 
@@ -55,6 +55,7 @@ void MyHardware::start() {
 
   displayTimer.begin(nullptr, 500);
   blinkTimer.begin(nullptr, 100);
+  oledFlow.begin(hal_millis());
 }
 
 void MyHardware::restartWiFi(void) {
@@ -131,8 +132,15 @@ void MyHardware::extractTime(long start, long end) {
 }
 
 void MyHardware::setTimeRange(long start, long end) {
+  const long oldStart = startHour * 60 + startMinute;
+  const long oldEnd = endHour * 60 + endMinute;
+
   extractTime(start, end);
   saveStartEnd(start, end);
+
+  if (oldStart != start || oldEnd != end) {
+    wakeDisplayForEvent();
+  }
 }
 
 void MyHardware::saveStartEnd(long start, long end) {
@@ -203,13 +211,16 @@ void MyHardware::checkConditionsForStartEnAction(long timeNow) {
   long start = startHour * 60 + startMinute;
   long end = endHour * 60 + endMinute;
 
-  bool flagLights = is_time_in_range(timeNow, start, end);
-  if(lastLights != flagLights) {
-    lastLights = flagLights;
-    //modules start action!
-    setLightsTo(flagLights);
+  const bool desiredLightsState = is_time_in_range(timeNow, start, end);
+
+  // Scheduler has lower priority than user actions:
+  // apply only on schedule edge transitions (enter/leave window), not continuously.
+  if (lastLights != desiredLightsState) {
+    setLightsTo(desiredLightsState);
     mqtt().publish();
   }
+
+  lastLights = desiredLightsState;
 }
 
 void MyHardware::setLightsTo(bool state) {
@@ -217,15 +228,39 @@ void MyHardware::setLightsTo(bool state) {
   setRelayTo(0, state);
 }
 
-void MyHardware::setRelayTo(int index, bool state) {
+bool MyHardware::setRelayTo(int index, bool state) {
+  if (index < 0 || index >= MAX_AMOUNT_OF_RELAYS) {
+    return false;
+  }
+
+  const bool changed = (switches[index] != state);
   switches[index] = state;
-  deb("got order to set the relay %d to %s!", index, (state) ? "on" : "off");
+  deb("got order to set the relay %d to %s! changed=%s",
+      index, state ? "on" : "off", changed ? "true" : "false");
   hal_gpio_write(relaysPins[index], switches[index]);
+
+  if (changed) {
+    wakeDisplayForEvent();
+  }
+
+  return changed;
 }
 
 void MyHardware::applyRelays(void) {
-  for(int a = 1; a < MAX_AMOUNT_OF_RELAYS; a++) {
+  int relaysCount = getSwitchesNumber(getMyMAC());
+  if (relaysCount < 0) {
+    relaysCount = 0;
+  } else if (relaysCount > MAX_AMOUNT_OF_RELAYS) {
+    relaysCount = MAX_AMOUNT_OF_RELAYS;
+  }
+
+  for(int a = 0; a < relaysCount; a++) {
     hal_gpio_write(relaysPins[a], switches[a]);
+    deb("apply relay %d as %s", a, switches[a] ? "on" : "off");
+  }
+
+  if (relaysCount > 0) {
+    lastLights = switches[0];
   }
 }
 
@@ -258,7 +293,26 @@ void MyHardware::drawWifiSignal(uint8_t strength) {
 void MyHardware::updateDisplayInNormalOperationMode(void) {
   if (displayTimer.available()) {
     displayTimer.restart();
-    updateDisplay();
+
+    tm local = {};
+    tm* localPtr = nullptr;
+    if (hal_time_get_local(&local)) {
+      localPtr = &local;
+    }
+
+    oledFlow.update(hal_millis(), localPtr);
+
+    if (oledFlow.consumeJustWentToSleep()) {
+      clearDisplay();
+      hal_display_flush();
+      return;
+    }
+
+    if (!oledFlow.isAwake()) {
+      return;
+    }
+
+    updateDisplay(oledFlow.consumeForceRedraw());
   }
 }
 
@@ -287,30 +341,34 @@ const char* MyHardware::getSwitchStatus(void) {
   return buffer;
 }
 
-void MyHardware::updateDisplay(void) {
-  static char lastTimes[20] = "";
-  static char lastTime[20] = "";
-  static char lastSwitches[32] = "";
-
+void MyHardware::updateDisplay(bool forceRefresh) {
   static char times[20];
   snprintf(times, sizeof(times), "%02d:%02d / %02d:%02d", startHour, startMinute, endHour, endMinute);
 
   const char* timeStr = ntp().getTimeFormatted();
   const char* switches = getSwitchStatus();
 
+  if (forceRefresh) {
+    resetDisplayCache();
+    clearDisplay();
+  }
+
   if (strcmp(times, lastTimes) != 0) {
     hal_display_print_line(0, LINE_HEIGHT, times, true, HAL_COLOR_WHITE, HAL_COLOR_BLACK);
     strncpy(lastTimes, times, sizeof(lastTimes));
+    lastTimes[sizeof(lastTimes) - 1] = '\0';
   }
 
   if (strcmp(timeStr, lastTime) != 0) {
     hal_display_print_line(1, LINE_HEIGHT, timeStr, true, HAL_COLOR_WHITE, HAL_COLOR_BLACK);
     strncpy(lastTime, timeStr, sizeof(lastTime));
+    lastTime[sizeof(lastTime) - 1] = '\0';
   }
 
   if (strcmp(switches, lastSwitches) != 0) {
     hal_display_print_line(2, LINE_HEIGHT, switches, true, HAL_COLOR_WHITE, HAL_COLOR_BLACK);
     strncpy(lastSwitches, switches, sizeof(lastSwitches));
+    lastSwitches[sizeof(lastSwitches) - 1] = '\0';
   }
 
   drawWifiSignal(hal_wifi_get_strength());
@@ -324,14 +382,30 @@ void MyHardware::clearDisplay(void) {
 }
 
 void MyHardware::drawCenteredText(const char* text) {
+  wakeDisplayForEvent();
   hal_display_draw_text_centered(text, HAL_COLOR_WHITE, HAL_COLOR_BLACK, true, true);
 }
 
 void MyHardware::handleButtonRelease(int buttonIndex) {
+  if (!oledFlow.onButtonRelease(hal_millis())) {
+    deb("button %d woke display only", buttonIndex);
+    return;
+  }
+
   deb("button action for: %d", buttonIndex);
   setRelayTo(buttonIndex, !switches[buttonIndex]);
   mqtt().publish();
   saveSwitches();
+}
+
+void MyHardware::wakeDisplayForEvent(void) {
+  oledFlow.wake(hal_millis());
+}
+
+void MyHardware::resetDisplayCache(void) {
+  memset(lastTimes, 0, sizeof(lastTimes));
+  memset(lastTime, 0, sizeof(lastTime));
+  memset(lastSwitches, 0, sizeof(lastSwitches));
 }
 
 void MyHardware::configureOTAUpdates(void) {
@@ -399,4 +473,3 @@ void MyHardware::handleOTAUpdates(void) {
 
   ArduinoOTA.handle();
 }
-

@@ -9,6 +9,8 @@
 #include <LittleFS.h>
 #include <tools.h>
 
+#include "OledDisplayFlow.h"
+
 #pragma once
 
 #define PIN_SDA 20
@@ -49,7 +51,7 @@ public:
   void loadStartEnd(long *start, long *end);
   void checkConditionsForStartEnAction(long timeNow);
   void setLightsTo(bool state);
-  void setRelayTo(int index, bool state);
+  bool setRelayTo(int index, bool state);
   bool *getSwitchesStates(void);
   void updateDisplayInNormalOperationMode(void);
   void hardwareLoop(void);
@@ -60,6 +62,7 @@ public:
   void applyRelays(void);
   void configureOTAUpdates(void);
   void handleOTAUpdates(void);
+  void wakeDisplayForEvent(void);
 
 private:
   Logic& logic;
@@ -67,10 +70,11 @@ private:
   NTPMachine& ntp();
   MQTTClient& mqtt();
 
-  void updateDisplay(void);
+  void updateDisplay(bool forceRefresh);
   void drawWifiSignal(uint8_t strength);
   const char* getSwitchStatus(void);
   void handleButtonRelease(int buttonIndex);
+  void resetDisplayCache(void);
 
   char ip_str[sizeof("255.255.255.255") + 1];
   char mac_str[sizeof("FF:FF:FF:FF:FF:FF") + 1];
@@ -91,6 +95,7 @@ private:
 
   SmartTimers displayTimer;
   SmartTimers blinkTimer;
+  OledDisplayFlow oledFlow;
 
   int relaysPins[MAX_AMOUNT_OF_RELAYS] = {PIN_RELAY_1, PIN_RELAY_2, PIN_RELAY_3, PIN_RELAY_4};
   int buttonPins[MAX_AMOUNT_OF_RELAYS] = {PIN_BUTTON_1, PIN_BUTTON_2, PIN_BUTTON_3, PIN_BUTTON_4};

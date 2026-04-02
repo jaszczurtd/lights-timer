@@ -37,6 +37,7 @@ const char *NTPMachine::getTimeFormatted(void) {
 void NTPMachine::reconnect(void) {
   failedPingsCNT = 0;
   currentState = STATE_NOT_CONNECTED;
+  hardware().wakeDisplayForEvent();
   hardware().drawCenteredText("NO CONNECTION");
 }
 
@@ -218,7 +219,6 @@ void NTPMachine::stateMachine(void) {
 
         mqtt().handleMQTTClient();
         hardware().updateDisplayInNormalOperationMode();
-        hardware().hardwareLoop();
 
       } else {
         reconnect();
@@ -227,6 +227,7 @@ void NTPMachine::stateMachine(void) {
     break;
   }
 
+  hardware().hardwareLoop();
   hardware().updateBuildInLed();
   if (hal_wifi_is_connected()) {
     hardware().handleOTAUpdates();
@@ -282,5 +283,3 @@ bool NTPMachine::isBrokerAvailable(void) {
 unsigned long NTPMachine::lastBrokerRespoinsePingTime(void) {
   return dt1;
 }
-
-
