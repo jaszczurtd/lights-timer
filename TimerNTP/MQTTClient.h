@@ -5,12 +5,10 @@
 
 #include "Config.h"
 
-#include <WiFi.h>
 #include <time.h>
 #include <tools.h>
-#include <WiFiClientSecure.h>
 #include <string.h>
-#include <PubSubClient.h>
+#include <stdint.h>
 
 #include <utils/cJSON.h>
 
@@ -26,12 +24,10 @@ public:
   void stop(); 
   void handleMQTTClient();
   void publish();
-  void handleMessage(char* topic, uint8_t* payload, unsigned int length);
+  void handleMessage(const char* topic, const uint8_t* payload, uint16_t length);
 
 private:
   Logic& logic;
-  WiFiClient currentClient;   
-  PubSubClient mqttClient;
 
   NTPMachine& ntp();
   MyHardware& hardware();

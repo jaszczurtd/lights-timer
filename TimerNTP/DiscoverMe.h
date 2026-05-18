@@ -5,12 +5,9 @@
 
 #include "Config.h"
 
-#include <WiFi.h>
 #include <Credentials.h>
 #include <tools.h>
-#include <WiFiClient.h>
 #include <string.h>
-#include <WiFiUdp.h>
 
 class NTPMachine;
 class MyHardware;
@@ -26,12 +23,11 @@ public:
 private:
   Logic& logic;
   char packetBuffer[255] = {0};
-  WiFiUDP udp;
   bool multicastInitialized = false;
   bool pendingResponse = false;
   unsigned long scheduledResponseTime = 0;
-  IPAddress remoteIp;
-  uint16_t remotePort;  
+  char remoteIp[HAL_UDP_IP_STR_LEN] = "0.0.0.0";
+  uint16_t remotePort = 0;
 
   MyHardware& hardware();
 };

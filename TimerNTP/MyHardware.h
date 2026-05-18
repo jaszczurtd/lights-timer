@@ -4,12 +4,10 @@
 #include "Config.h"
 
 #include <Credentials.h>
-
-#include <ArduinoOTA.h>
-#include <LittleFS.h>
 #include <tools.h>
 
 #include "OledDisplayFlow.h"
+#include "OTAUpdates.h"
 
 #pragma once
 
@@ -60,7 +58,6 @@ public:
   void loadSwitches(void);
   void saveSwitches(void);
   void applyRelays(void);
-  void configureOTAUpdates(void);
   void handleOTAUpdates(void);
   void wakeDisplayForEvent(void);
 
@@ -102,8 +99,7 @@ private:
   bool lastStates[MAX_AMOUNT_OF_RELAYS];
 
   bool lastLights = false;
-  bool otaActive = false;
-  uint32_t otaRetryAtMs = 0;
+  OTAUpdates otaUpdates;
 };
 
 

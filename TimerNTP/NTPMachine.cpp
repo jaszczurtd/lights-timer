@@ -35,7 +35,10 @@ const char *NTPMachine::getTimeFormatted(void) {
 }
 
 void NTPMachine::reconnect(void) {
+  hal_wireguard_end();
+  mqtt().stop();
   failedPingsCNT = 0;
+  isBAvailable = false;
   currentState = STATE_NOT_CONNECTED;
   hardware().wakeDisplayForEvent();
   hardware().drawCenteredText("NO CONNECTION");
@@ -86,7 +89,6 @@ void NTPMachine::stateMachine(void) {
 
           hal_watchdog_feed();
           hardware().drawCenteredText("CONNECTED");
-          hardware().configureOTAUpdates();
 
           hal_time_set_timezone("CET-1CEST,M3.5.0/2,M10.5.0/3");
           hal_time_sync_ntp(ntpServer0, nullptr);
@@ -111,21 +113,14 @@ void NTPMachine::stateMachine(void) {
 
           hal_watchdog_feed();
 
-          IPAddress localIP, allowedIP, allowedMask;
-
-          localIP.fromString(getWireguardLocalIP(hardware().getMyMAC()));
-          allowedIP.fromString(WG_ALLOWED_IP);
-          allowedMask.fromString(WG_ALLOWED_MASK);
-
-          if (!wg.beginAdvanced(
-              localIP,
+          if (!hal_wireguard_begin_advanced_text(
+              getWireguardLocalIP(hardware().getMyMAC()),
               getWireguardPrivateKey(hardware().getMyMAC()),
               WG_ENDPOINT,
               WG_SERVER_PUBLIC_KEY,
               WG_ENDPOINT_PORT,
-              allowedIP,
-              allowedMask
-            )) {
+              WG_ALLOWED_IP,
+              WG_ALLOWED_MASK)) {
             deb("WireGuard initialization failed.");
             reconnect();
             break;
@@ -151,11 +146,12 @@ void NTPMachine::stateMachine(void) {
 
         if (wgHandshakeTimer.available()) {
           wgHandshakeTimer.restart();
-          if (!wg.peerUp()) {
-            IPAddress kicker;
-            kicker.fromString(getWireguardLocalIP(hardware().getMyMAC()));
-            wg.kickHandshake(kicker, 9);
-            deb("WG not ready yet (no session key). Handshake kicked.");
+          if (!hal_wireguard_peer_up(nullptr, 0, nullptr)) {
+            if (!hal_wireguard_kick_handshake_text(getWireguardLocalIP(hardware().getMyMAC()), 9, 0)) {
+              deb("WG handshake kick failed.");
+            } else {
+              deb("WG not ready yet (no session key). Handshake kicked.");
+            }
             break;
           }
           currentState = STATE_WIREGUARD_CONNECTED;
@@ -177,6 +173,7 @@ void NTPMachine::stateMachine(void) {
         ntpReSyncTimer.begin(nullptr, (unsigned long)HOURS_SYNC_INTERVAL * 3600 * 1000UL);
         pingTimer.begin(nullptr, NEXT_PING_TIME);
 
+        deb("build datetime: %s", BuildDateTime);
         break;
 
       } else {

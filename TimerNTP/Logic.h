@@ -14,6 +14,10 @@
 #include "MyHardware.h"
 #include "DiscoverMe.h"
 
+#define BuildDate       __DATE__
+#define BuildTime       __TIME__
+#define BuildDateTime   BuildDate " " BuildTime
+
 class NTPMachine;
 class MQTTClient;
 class MyHardware;

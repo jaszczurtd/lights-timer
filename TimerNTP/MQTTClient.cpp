@@ -1,5 +1,3 @@
-#include "PubSubClient.h"
-#include "ca_cert.h"
 #include "MQTTClient.h"
 
 #include "Logic.h"
@@ -9,21 +7,38 @@
 #include <cstring>
 #include <cstdio>
 
+namespace {
+void halMqttCallback(const char *topic, const uint8_t *payload, uint16_t length, void *user) {
+  MQTTClient *client = static_cast<MQTTClient *>(user);
+  if (!client) {
+    return;
+  }
+
+  client->handleMessage(topic, payload, length);
+}
+}
+
 NTPMachine& MQTTClient::ntp() { return logic.ntpObj(); }
 MyHardware& MQTTClient::hardware() { return logic.hardwareObj(); }
 
-MQTTClient::MQTTClient(Logic& l) : logic(l), currentClient(), mqttClient(currentClient) { }
+MQTTClient::MQTTClient(Logic& l) : logic(l) { }
 
-static MQTTClient* g_mqtt = nullptr;
+void MQTTClient::handleMessage(const char* topicArrived, const uint8_t* payload, uint16_t length) {
+  if(!topicArrived) {
+    return;
+  }
 
-void callback(char* topic, byte* payload, unsigned int length) {
-  if(!g_mqtt) return;
-  g_mqtt->handleMessage(topic, payload, length);
-}
+  if(!payload && length > 0) {
+    deb("MQTT: payload was NULL");
+    return;
+  }
 
-void MQTTClient::handleMessage(char* topicArrived, uint8_t* payload, unsigned int length) {
-  if(length >= sizeof(msg)) length = sizeof(msg) - 1;
-  memcpy(msg, payload, length);
+  if(length >= sizeof(msg)) {
+    length = (uint16_t)(sizeof(msg) - 1);
+  }
+  if(length > 0) {
+    memcpy(msg, payload, length);
+  }
   msg[length] = '\0';
 
   cJSON *root = cJSON_Parse(msg);
@@ -81,33 +96,55 @@ void MQTTClient::handleMessage(char* topicArrived, uint8_t* payload, unsigned in
 }
 
 void MQTTClient::start(const char *brokerIP, const int port) {
-  if(brokerIP == NULL) {
+  if(brokerIP == NULL || brokerIP[0] == '\0') {
     derr("invalid broker IP address!");
     return;
   }
+
+  if (port <= 0 || port > 65535) {
+    derr("MQTT: invalid broker port: %d", port);
+    return;
+  }
+
   deb("MQTT: connect attempt! %s / %d", brokerIP, port);
-  
-  IPAddress server;
-  server.fromString(brokerIP);
 
-  mqttClient.setServer(server, port);
-  mqttClient.setSocketTimeout(MQTT_SOCKET_MAX_TIMEOUT);
-  mqttClient.setKeepAlive(MQTT_KEEPALIVE);
+  if(!hal_mqtt_set_server(brokerIP, (uint16_t)port)) {
+    derr("MQTT: hal_mqtt_set_server failed");
+    return;
+  }
 
-  g_mqtt = this;
-  mqttClient.setCallback(callback);
+  if(!hal_mqtt_set_socket_timeout(MQTT_SOCKET_MAX_TIMEOUT)) {
+    derr("MQTT: hal_mqtt_set_socket_timeout failed");
+  }
+
+  if(!hal_mqtt_set_keepalive(MQTT_KEEP_ALIVE)) {
+    derr("MQTT: hal_mqtt_set_keepalive failed");
+  }
+
+  const uint16_t mqttBufferSize = (uint16_t)(sizeof(response) + sizeof(topic) + 32U);
+  if(!hal_mqtt_set_buffer_size(mqttBufferSize)) {
+    deb("MQTT: keeping packet buffer size=%u", (unsigned)hal_mqtt_get_buffer_size());
+  }
+
+  if(!hal_mqtt_set_callback(halMqttCallback, this)) {
+    derr("MQTT: hal_mqtt_set_callback failed");
+    return;
+  }
+
   reconnectTimer.begin(nullptr, MQTT_RECONNECT_TIME);
-  reconnect();
   clientInitialized = true;
+  reconnect();
 }
 
 void MQTTClient::stop() {
-  publishPending = clientInitialized = false;
-  g_mqtt = nullptr;
+  publishPending = false;
+  clientInitialized = false;
+  hal_mqtt_disconnect();
+  hal_mqtt_set_callback(nullptr, nullptr);
 }
 
 void MQTTClient::publish() {
-  if(hal_wifi_is_connected() && mqttClient.connected()) {
+  if(hal_wifi_is_connected() && hal_mqtt_connected()) {
     long s = 0, e = 0;
     hardware().loadStartEnd(&s, &e);
     bool *switches = hardware().getSwitchesStates();
@@ -146,7 +183,10 @@ void MQTTClient::publish() {
     snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_STATUS, hardware().getMyHostname());
     deb("MQTT: topic:%s publish: %s", topic, response);
 
-    mqttClient.publish(topic, response, true);
+    if(!hal_mqtt_publish_str(topic, response, true)) {
+      deb("MQTT: publish failed, state=%d", hal_mqtt_state());
+      publishPending = true;
+    }
     return;
 
 error:
@@ -160,7 +200,10 @@ error:
 
     snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_STATUS, hardware().getMyHostname());
     deb("MQTT: topic:%s publish: %s", topic, response);
-    mqttClient.publish(topic, response, true);
+    if(!hal_mqtt_publish_str(topic, response, true)) {
+      deb("MQTT: publish failed after JSON error, state=%d", hal_mqtt_state());
+      publishPending = true;
+    }
   } else {
     publishPending = true;
   }
@@ -173,22 +216,22 @@ bool MQTTClient::reconnect() {
     const char *hostName = hardware().getMyHostname();
     hal_watchdog_feed();
 
-    if(mqttClient.connect(hostName, MQTT_USER, MQTT_PASSWORD)) {
+    if(hal_mqtt_connect_auth(hostName, MQTT_USER, MQTT_PASSWORD)) {
       hal_watchdog_feed();
 
       snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_STATUS, hostName);
-      mqttClient.publish(topic, "", true);
+      hal_mqtt_publish_str(topic, "", true);
       snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_UPDATE, hostName);
-      mqttClient.publish(topic, "", true);
+      hal_mqtt_publish_str(topic, "", true);
       snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_TIME_SET, hostName);
-      mqttClient.publish(topic, "", true);
+      hal_mqtt_publish_str(topic, "", true);
       snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_SWITCH_SET, hostName);
-      mqttClient.publish(topic, "", true);
+      hal_mqtt_publish_str(topic, "", true);
 
       snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_TIME_SET, hostName);
-      mqttClient.subscribe(topic);
+      hal_mqtt_subscribe(topic, 0);
       snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_SWITCH_SET, hostName);
-      mqttClient.subscribe(topic);
+      hal_mqtt_subscribe(topic, 0);
 
       publishPending = true;
 
@@ -196,7 +239,7 @@ bool MQTTClient::reconnect() {
 
       return true;
     }
-    deb("MQTT: connect failed! state=%d", mqttClient.state());
+    deb("MQTT: connect failed! state=%d", hal_mqtt_state());
 
   } else {
     deb("MQTT: wifi is not connected!");
@@ -209,21 +252,21 @@ void MQTTClient::handleMQTTClient() {
 
   if(ntp().isBrokerAvailable()) {
     if(clientInitialized) {
-      if(!mqttClient.connected()) {
+      if(!hal_mqtt_connected()) {
         if (reconnectTimer.available()) {
           reconnectTimer.restart();
           reconnect();
         }
       } else {
-        mqttClient.loop();
+        hal_mqtt_loop();
 
         if(publishPending) {
-          publish();
           publishPending = false;
+          publish();
         }
       }
     } else {
-      mqttClient.loop();
+      hal_mqtt_loop();
     }
   }
 }

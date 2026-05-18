@@ -6,14 +6,14 @@
             "description": "Select target board",
             "type": "pickString",
             "options": [
-                "rp2040:rp2040:rpipico          — Raspberry Pi Pico",
-                "rp2040:rp2040:rpipicow         — Raspberry Pi Pico W",
-                "rp2040:rp2040:rpipico2         — Raspberry Pi Pico 2",
-                "rp2040:rp2040:rpipico2w        — Raspberry Pi Pico 2 W",
-                "rp2040:rp2040:waveshare_rp2040_zero — Waveshare RP2040-Zero",
-                "rp2040:rp2040:waveshare_rp2040_plus — Waveshare RP2040-Plus"
+                "rp2040:rp2040:rpipico:flash=2097152_524288          — Raspberry Pi Pico (FS 512KB)",
+                "rp2040:rp2040:rpipicow:flash=2097152_524288         — Raspberry Pi Pico W (FS 512KB)",
+                "rp2040:rp2040:rpipico2:flash=4194304_2097152         — Raspberry Pi Pico 2 (FS 2MB)",
+                "rp2040:rp2040:rpipico2w:flash=4194304_2097152        — Raspberry Pi Pico 2 W (FS 2MB)",
+                "rp2040:rp2040:waveshare_rp2040_zero:flash=2097152_524288 — Waveshare RP2040-Zero (FS 512KB)",
+                "rp2040:rp2040:waveshare_rp2040_plus:flash=2097152_524288 — Waveshare RP2040-Plus (FS 512KB)"
             ],
-            "default": "rp2040:rp2040:rpipico          — Raspberry Pi Pico"
+            "default": "rp2040:rp2040:rpipicow:flash=2097152_524288         — Raspberry Pi Pico W (FS 512KB)"
         },
         {
             "id": "libraryName",
@@ -30,7 +30,7 @@
     ],
     "tasks": [
         {
-            "label": "Arduino: Build",
+            "label": "Build: Build",
             "detail": "Ctrl+Shift+1 - compile sketch",
             "type": "shell",
             "command": "bash",
@@ -64,7 +64,7 @@
             }
         },
         {
-            "label": "Arduino: Build (Debug)",
+            "label": "Build: Build (Debug)",
             "detail": "Compile with debug symbols (auto-run by F5/Run)",
             "type": "shell",
             "command": "bash",
@@ -95,7 +95,7 @@
             }
         },
         {
-            "label": "Arduino: Upload",
+            "label": "Build: Upload",
             "detail": "Ctrl+Shift+2 - start persistent monitor (if needed) + compile + upload",
             "type": "shell",
             "command": "bash",
@@ -125,7 +125,7 @@
             }
         },
         {
-            "label": "Arduino: Upload (UF2 / BOOTSEL)",
+            "label": "Build: Upload (UF2 / BOOTSEL)",
             "detail": "Ctrl+Shift+4 - compile + copy UF2 to BOOTSEL drive",
             "type": "shell",
             "command": "${workspaceFolder}/scripts/upload-uf2.sh",
@@ -140,7 +140,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Arduino: Monitor (persistent)",
+            "label": "Build: Monitor (persistent)",
             "detail": "Ctrl+Shift+3 - waits for Pico (VID:PID), connects, then reconnects after unplug",
             "type": "shell",
             "command": "python3",
@@ -156,7 +156,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Arduino: Monitor (Debug Probe)",
+            "label": "Build: Monitor (Debug Probe)",
             "detail": "Ctrl+Shift+5 - monitor for Raspberry Pi Debug Probe / Picoprobe",
             "type": "shell",
             "command": "python3",
@@ -172,7 +172,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Arduino: Monitor (any port)",
+            "label": "Build: Monitor (any port)",
             "detail": "Monitor any /dev/ttyACM* or /dev/ttyUSB* device",
             "type": "shell",
             "command": "python3",
@@ -188,13 +188,13 @@
             "problemMatcher": []
         },
         {
-            "label": "Arduino: Select board (GUI)",
+            "label": "Build: Select board (GUI)",
             "detail": "Ctrl+Shift+Alt+1 - quick selection from VS Code dropdown",
             "type": "shell",
             "command": "bash",
             "args": [
                 "-c",
-                "SELECTION='${input:boardChoice}'; FQBN=$(echo \"$SELECTION\" | sed 's/ *—.*//'); FQBN=$(echo $FQBN | xargs); DESC=$(echo \"$SELECTION\" | sed 's/.*— *//'); echo \"Setting board: $DESC\"; echo \"FQBN: $FQBN\"; python3 -c \"import json; f='${workspaceFolder}/.vscode/settings.json'; s=json.load(open(f)); s['arduino.fqbn']='$FQBN'; s['arduino.boardDescription']='$DESC'; json.dump(s,open(f,'w'),indent=4); print('\\nOK: settings.json updated'); print('Run: Arduino: Refresh IntelliSense')\""
+                "SELECTION='${input:boardChoice}'; FQBN=$(echo \"$SELECTION\" | sed 's/ *—.*//'); FQBN=$(echo $FQBN | xargs); DESC=$(echo \"$SELECTION\" | sed 's/.*— *//'); echo \"Setting board: $DESC\"; echo \"FQBN: $FQBN\"; python3 -c \"import json; f='${workspaceFolder}/.vscode/settings.json'; s=json.load(open(f)); s['arduino.fqbn']='$FQBN'; s['arduino.boardDescription']='$DESC'; json.dump(s,open(f,'w'),indent=4); print('\\nOK: settings.json updated'); print('Run: Build: Refresh IntelliSense')\""
             ],
             "presentation": {
                 "echo": true,
@@ -207,7 +207,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Arduino: Select board (interactive)",
+            "label": "Build: Select board (interactive)",
             "detail": "Ctrl+Shift+Alt+2 - full menu with advanced options (flash, freq, USB, debug)",
             "type": "shell",
             "command": "${workspaceFolder}/scripts/select-board.sh",
@@ -221,7 +221,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Arduino: Refresh IntelliSense",
+            "label": "Build: Refresh IntelliSense",
             "detail": "Ctrl+Shift+6 - compile project and generate c_cpp_properties.json",
             "type": "shell",
             "command": "${workspaceFolder}/scripts/refresh-intellisense.sh",
@@ -236,7 +236,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Arduino: Install library",
+            "label": "Build: Install library",
             "detail": "Ctrl+Shift+0 - install library via arduino-cli",
             "type": "shell",
             "command": "${config:arduino.cliPath}",
@@ -254,7 +254,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Arduino: Clean",
+            "label": "Build: Clean",
             "detail": "Ctrl+Shift+7 - remove .build directory",
             "type": "shell",
             "command": "rm",
@@ -268,7 +268,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Arduino: List ports",
+            "label": "Build: List ports",
             "detail": "Ctrl+Shift+8 - list connected Arduino devices",
             "type": "shell",
             "command": "${config:arduino.cliPath}",
@@ -283,7 +283,7 @@
             "problemMatcher": []
         },
         {
-            "label": "Arduino: Change port",
+            "label": "Build: Change port",
             "detail": "Ctrl+Shift+9 - set upload port in settings.json",
             "type": "shell",
             "command": "python3",

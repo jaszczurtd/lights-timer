@@ -9,10 +9,8 @@
 #include <time.h>
 #include <Credentials.h>
 #include <tools.h>
-#include <WiFiClient.h>
-#include <WiFiServer.h>
 #include <string.h>
-#include "arduino-wireguard-pico-w.h"
+#include <IPAddress.h>
 
 #include "MQTTClient.h"
 #include "MyHardware.h"
@@ -50,8 +48,6 @@ private:
 
   MyHardware& hardware();
   MQTTClient& mqtt();
-
-  WireGuard wg;
 
   void reconnect(void);
 

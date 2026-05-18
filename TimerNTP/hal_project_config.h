@@ -21,4 +21,9 @@
 #define HAL_DISABLE_EXTERNAL_ADC     /* no external ADC (e.g. ADS1115)      */
 #define HAL_DISABLE_CAN             /* no CAN bus                          */
 #define HAL_ENABLE_CJSON            /* enable cJSON from JaszczurHAL/utils */
+#define HAL_ENABLE_LITTLEFS         /* enable HAL LittleFS wrapper          */
+#define HAL_ENABLE_UDP              /* enable HAL UDP (WiFiUDP wrapper)    */
+#define HAL_ENABLE_WIREGUARD        /* enable HAL WireGuard wrapper        */
+#define HAL_ENABLE_MQTT             /* enable HAL MQTT (PubSubClient)      */
+#define HAL_ENABLE_OTA              /* enable HAL ArduinoOTA wrapper        */
 #define HAL_DISABLE_UNITY           /* no Unity test framework              */

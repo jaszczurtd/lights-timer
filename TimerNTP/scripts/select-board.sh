@@ -43,6 +43,26 @@ DEFAULT_DBGLVL="None"       # None, Core, SPI, Wire, All, NDEBUG
 DEFAULT_USBSTACK="picosdk"  # picosdk, tinyusb, nousb
 DEFAULT_IPSTACK="ipv4only"  # ipv4only, ipv4ipv6
 
+default_flash_option_for_chip() {
+    local chip="$1"
+    if [[ "$chip" == "RP2040" ]]; then
+        echo "flash=2097152_524288"
+    else
+        echo "flash=4194304_2097152"
+    fi
+}
+
+apply_project_default_flash_if_missing() {
+    local fqbn="$1"
+    local chip="$2"
+
+    if [[ "$fqbn" == *":flash="* ]]; then
+        echo "$fqbn"
+    else
+        echo "${fqbn}:$(default_flash_option_for_chip "$chip")"
+    fi
+}
+
 # ---------------------------------------------------------------------------
 # Show menu
 # ---------------------------------------------------------------------------
@@ -70,40 +90,43 @@ show_menu() {
 ask_advanced_options() {
     local fqbn="$1"
     local chip="$2"
+    local default_flash
+    default_flash=$(default_flash_option_for_chip "$chip")
 
     echo "" >&2
     read -rp "  Configure advanced options (flash/freq/USB/debug)? [y/N] " advanced
 
     if [[ ! "$advanced" =~ ^[yY]$ ]]; then
-        echo "$fqbn"
+        apply_project_default_flash_if_missing "$fqbn" "$chip"
         return
     fi
 
-    local options=""
+    local flash_option="$default_flash"
+    local extra_options=""
 
     # --- Flash Size ---
     echo "" >&2
     echo -e "  ${BOLD}Flash Size / Filesystem:${NC}" >&2
     if [[ "$chip" == "RP2040" ]]; then
-        echo "    1) 2MB (no FS)  [Pico default]" >&2
-        echo "    2) 2MB (64KB FS)" >&2
+        echo "    1) 2MB (512KB FS) [project default]" >&2
+        echo "    2) 2MB (256KB FS)" >&2
         echo "    3) 2MB (128KB FS)" >&2
-        echo "    4) 2MB (256KB FS)" >&2
-        echo "    5) 2MB (512KB FS)" >&2
+        echo "    4) 2MB (64KB FS)" >&2
+        echo "    5) 2MB (no FS)" >&2
     else
-        echo "    1) 4MB (no FS)  [Pico 2 default]" >&2
-        echo "    2) 4MB (2MB FS)" >&2
-        echo "    3) 4MB (3MB FS)" >&2
+        echo "    1) 4MB (2MB FS) [project default]" >&2
+        echo "    2) 4MB (3MB FS)" >&2
+        echo "    3) 4MB (no FS)" >&2
     fi
-    echo "    Enter) Keep default" >&2
+    echo "    Enter) Keep project default" >&2
     read -rp "    Choice: " flash_choice
 
     case "$flash_choice" in
-        1) ;;
-        2) [[ "$chip" == "RP2040" ]] && options="flash=2097152_65536" || options="flash=4194304_2097152" ;;
-        3) [[ "$chip" == "RP2040" ]] && options="flash=2097152_131072" || options="flash=4194304_3145728" ;;
-        4) [[ "$chip" == "RP2040" ]] && options="flash=2097152_262144" ;;
-        5) [[ "$chip" == "RP2040" ]] && options="flash=2097152_524288" ;;
+        ""|1) ;;
+        2) [[ "$chip" == "RP2040" ]] && flash_option="flash=2097152_262144" || flash_option="flash=4194304_3145728" ;;
+        3) [[ "$chip" == "RP2040" ]] && flash_option="flash=2097152_131072" || flash_option="" ;;
+        4) [[ "$chip" == "RP2040" ]] && flash_option="flash=2097152_65536" ;;
+        5) [[ "$chip" == "RP2040" ]] && flash_option="" ;;
         *) ;;
     esac
 
@@ -129,11 +152,11 @@ ask_advanced_options() {
 
     case "$freq_choice" in
         1) ;;
-        2) [[ "$chip" == "RP2040" ]] && options="${options:+$options,}freq=50" || options="${options:+$options,}freq=125" ;;
-        3) [[ "$chip" == "RP2040" ]] && options="${options:+$options,}freq=125" || options="${options:+$options,}freq=200" ;;
-        4) [[ "$chip" == "RP2040" ]] && options="${options:+$options,}freq=150" || options="${options:+$options,}freq=250" ;;
-        5) [[ "$chip" == "RP2040" ]] && options="${options:+$options,}freq=200" || options="${options:+$options,}freq=300" ;;
-        6) [[ "$chip" == "RP2040" ]] && options="${options:+$options,}freq=250" ;;
+        2) [[ "$chip" == "RP2040" ]] && extra_options="${extra_options:+$extra_options,}freq=50" || extra_options="${extra_options:+$extra_options,}freq=125" ;;
+        3) [[ "$chip" == "RP2040" ]] && extra_options="${extra_options:+$extra_options,}freq=125" || extra_options="${extra_options:+$extra_options,}freq=200" ;;
+        4) [[ "$chip" == "RP2040" ]] && extra_options="${extra_options:+$extra_options,}freq=150" || extra_options="${extra_options:+$extra_options,}freq=250" ;;
+        5) [[ "$chip" == "RP2040" ]] && extra_options="${extra_options:+$extra_options,}freq=200" || extra_options="${extra_options:+$extra_options,}freq=300" ;;
+        6) [[ "$chip" == "RP2040" ]] && extra_options="${extra_options:+$extra_options,}freq=250" ;;
         *) ;;
     esac
 
@@ -147,8 +170,8 @@ ask_advanced_options() {
     read -rp "    Choice: " usb_choice
 
     case "$usb_choice" in
-        2) options="${options:+$options,}usbstack=tinyusb" ;;
-        3) options="${options:+$options,}usbstack=nousb" ;;
+        2) extra_options="${extra_options:+$extra_options,}usbstack=tinyusb" ;;
+        3) extra_options="${extra_options:+$extra_options,}usbstack=nousb" ;;
         *) ;;
     esac
 
@@ -163,9 +186,9 @@ ask_advanced_options() {
     read -rp "    Choice: " dbg_choice
 
     case "$dbg_choice" in
-        2) options="${options:+$options,}dbgport=Serial" ;;
-        3) options="${options:+$options,}dbgport=Serial1" ;;
-        4) options="${options:+$options,}dbgport=Serial2" ;;
+        2) extra_options="${extra_options:+$extra_options,}dbgport=Serial" ;;
+        3) extra_options="${extra_options:+$extra_options,}dbgport=Serial1" ;;
+        4) extra_options="${extra_options:+$extra_options,}dbgport=Serial2" ;;
         *) ;;
     esac
 
@@ -179,8 +202,8 @@ ask_advanced_options() {
     read -rp "    Choice: " dbglvl_choice
 
     case "$dbglvl_choice" in
-        2) options="${options:+$options,}dbglvl=Core" ;;
-        3) options="${options:+$options,}dbglvl=All" ;;
+        2) extra_options="${extra_options:+$extra_options,}dbglvl=Core" ;;
+        3) extra_options="${extra_options:+$extra_options,}dbglvl=All" ;;
         *) ;;
     esac
 
@@ -194,9 +217,17 @@ ask_advanced_options() {
         read -rp "    Choice: " ip_choice
 
         case "$ip_choice" in
-            2) options="${options:+$options,}ipstack=ipv4ipv6" ;;
+            2) extra_options="${extra_options:+$extra_options,}ipstack=ipv4ipv6" ;;
             *) ;;
         esac
+    fi
+
+    local options=""
+    if [[ -n "$flash_option" ]]; then
+        options="$flash_option"
+    fi
+    if [[ -n "$extra_options" ]]; then
+        options="${options:+$options,}$extra_options"
     fi
 
     # Print ONLY the resulting FQBN to stdout

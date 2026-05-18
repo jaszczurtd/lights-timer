@@ -12,7 +12,6 @@ namespace {
 constexpr uint16_t KV_KEY_START_MIN = 1;
 constexpr uint16_t KV_KEY_END_MIN = 2;
 constexpr uint16_t KV_KEY_SWITCHES = 3;
-constexpr uint32_t OTA_INIT_RETRY_MS = 5000;
 }
 
 NTPMachine& MyHardware::ntp() { return logic.ntpObj(); }
@@ -59,11 +58,19 @@ void MyHardware::start() {
 }
 
 void MyHardware::restartWiFi(void) {
-  hal_wifi_disconnect(true);
+  if (!hal_wifi_disconnect(true)) {
+    derr("hal_wifi_disconnect failed");
+  }
   hal_delay_ms(50);
-  hal_wifi_set_hostname(getMyHostname());
-  hal_wifi_set_mode(HAL_WIFI_MODE_STA);
-  hal_wifi_begin_station(WIFI_SSID, WIFI_PASSWORD, true);
+  if (!hal_wifi_set_hostname(getMyHostname())) {
+    derr("hal_wifi_set_hostname failed");
+  }
+  if (!hal_wifi_set_mode(HAL_WIFI_MODE_STA)) {
+    derr("hal_wifi_set_mode(STA) failed");
+  }
+  if (!hal_wifi_begin_station(WIFI_SSID, WIFI_PASSWORD, true)) {
+    derr("hal_wifi_begin_station failed");
+  }
 }
 
 const char *MyHardware::getMyIP(void) {
@@ -408,68 +415,6 @@ void MyHardware::resetDisplayCache(void) {
   memset(lastSwitches, 0, sizeof(lastSwitches));
 }
 
-void MyHardware::configureOTAUpdates(void) {
-  if (otaActive) {
-    return;
-  }
-
-  const uint32_t now = hal_millis();
-  if ((int32_t)(now - otaRetryAtMs) < 0) {
-    return;
-  }
-
-  if (!LittleFS.begin()) {
-    deb("LittleFS mount failed. OTA retry in %lu ms", (unsigned long)OTA_INIT_RETRY_MS);
-    otaActive = false;
-    otaRetryAtMs = now + OTA_INIT_RETRY_MS;
-    return;
-  }
-
-  ArduinoOTA.onStart([]() {
-    const char *type = (ArduinoOTA.getCommand() == U_FS) ? "filesystem" : "sketch";
-    deb("OTA start: %s", type);
-  });
-  ArduinoOTA.onEnd([]() {
-    deb("OTA end: success");
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-    if (total == 0) {
-      return;
-    }
-    deb("OTA progress: %u%%", (progress * 100U) / total);
-  });
-  ArduinoOTA.onError([](ota_error_t error) {
-    switch (error) {
-      case OTA_AUTH_ERROR:    derr("OTA error: auth"); break;
-      case OTA_BEGIN_ERROR:   derr("OTA error: begin"); break;
-      case OTA_CONNECT_ERROR: derr("OTA error: connect"); break;
-      case OTA_RECEIVE_ERROR: derr("OTA error: receive"); break;
-      case OTA_END_ERROR:     derr("OTA error: end"); break;
-      default:                derr("OTA error: unknown=%u", (unsigned)error); break;
-    }
-  });
-
-  ArduinoOTA.setPort(OTA_UPDATE_PORT);
-  char hostname_ascii[64];
-  remove_non_ascii(getMyHostname(), hostname_ascii, sizeof(hostname_ascii));
-  ArduinoOTA.setHostname(hostname_ascii);
-  ArduinoOTA.setPassword(OTA_UPDATE_PASSWORD);
-  ArduinoOTA.begin();
-
-  otaActive = true;
-  otaRetryAtMs = 0;
-  deb("OTA ready: host=%s port=%d", hostname_ascii, OTA_UPDATE_PORT);
-}
-
 void MyHardware::handleOTAUpdates(void) {
-  if (!hal_wifi_is_connected()) {
-    return;
-  }
-
-  if (!otaActive) {
-    configureOTAUpdates();
-    return;
-  }
-
-  ArduinoOTA.handle();
+  otaUpdates.handle(hal_wifi_is_connected(), getMyHostname());
 }
