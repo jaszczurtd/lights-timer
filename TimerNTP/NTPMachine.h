@@ -10,7 +10,6 @@
 #include <Credentials.h>
 #include <tools.h>
 #include <string.h>
-#include <IPAddress.h>
 
 #include "MQTTClient.h"
 #include "MyHardware.h"
@@ -56,8 +55,6 @@ private:
   long now_time;
   bool localTimeHasBeenSet = false;
 
-  IPAddress ping1Target;
-  String srv1;
   bool isBAvailable = false;
   unsigned long dt1 = 0;
   int failedPingsCNT = 0;

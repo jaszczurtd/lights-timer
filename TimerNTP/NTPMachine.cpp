@@ -11,9 +11,6 @@ MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
 void NTPMachine::start() {
   currentState = STATE_NOT_CONNECTED;
 
-  ping1Target.fromString(MQTT_BROKER);
-  srv1 = ping1Target.toString();
-
   hardware().start();
 
   long s = 0, e = 0;
@@ -84,7 +81,7 @@ void NTPMachine::stateMachine(void) {
           }
 
           deb("Connected to WiFi. Local IP address: %s", hardware().getMyIP());
-          deb("ping target: %s", srv1.c_str());
+          deb("ping target: %s", MQTT_BROKER);
           deb("DNS IP:%s", dns_ip);
 
           hal_watchdog_feed();
@@ -194,7 +191,7 @@ void NTPMachine::stateMachine(void) {
           pingTimer.restart();
 
           unsigned long t_ping = hal_millis();
-          int res1 = hal_wifi_ping(srv1.c_str());
+          int res1 = hal_wifi_ping(MQTT_BROKER);
           dt1 = hal_millis() - t_ping;
           hal_watchdog_feed();
 

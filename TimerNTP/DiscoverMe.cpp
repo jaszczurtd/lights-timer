@@ -1,5 +1,6 @@
 
 #include <hal/hal.h>
+#include <cstdlib>
 #include "DiscoverMe.h"
 #include "Logic.h"
 #include "NTPMachine.h"
@@ -16,7 +17,7 @@ void DiscoverMe::start(void) {
     seed ^= mac[i] << (i % 4);
   }
 
-  srand((unsigned int)seed);
+  std::srand((unsigned int)seed);
 }
 
 void DiscoverMe::handleDiscoveryRequests() {
@@ -53,7 +54,7 @@ void DiscoverMe::handleDiscoveryRequests() {
     deb("received discovery packet:%s", packetBuffer);
 
     if (strcmp(packetBuffer, DISCOVER_PACKET) == 0) {
-      unsigned long delayMs = random(5, 300);
+      unsigned long delayMs = 5UL + (unsigned long)(std::rand() % (300 - 5));
       scheduledResponseTime = hal_millis() + delayMs;
       bool hasRemoteIp = hal_udp_remote_ip(remoteIp, sizeof(remoteIp));
       remotePort = hal_udp_remote_port();

@@ -5,7 +5,6 @@
 
 #include "Config.h"
 
-#include <Arduino.h>
 #include <JaszczurHAL.h>
 #include <tools.h>
 
