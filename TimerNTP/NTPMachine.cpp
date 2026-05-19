@@ -32,8 +32,11 @@ const char *NTPMachine::getTimeFormatted(void) {
 }
 
 void NTPMachine::reconnect(void) {
+  hal_watchdog_feed();
   hal_wireguard_end();
+  hal_watchdog_feed();
   mqtt().stop();
+  hal_watchdog_feed();
   failedPingsCNT = 0;
   isBAvailable = false;
   currentState = STATE_NOT_CONNECTED;
@@ -50,8 +53,10 @@ void NTPMachine::stateMachine(void) {
       memset(buffer, 0, sizeof(buffer));
 
       mqtt().stop();
+      hal_watchdog_feed();
 
       hardware().restartWiFi();
+      hal_watchdog_feed();
       hardware().drawCenteredText("CONNECTING...");
 
       wifiTimeoutTimer.begin(nullptr, WIFI_TIMEOUT_MS);
@@ -118,10 +123,12 @@ void NTPMachine::stateMachine(void) {
               WG_ENDPOINT_PORT,
               WG_ALLOWED_IP,
               WG_ALLOWED_MASK)) {
+            hal_watchdog_feed();
             deb("WireGuard initialization failed.");
             reconnect();
             break;
           }
+          hal_watchdog_feed();
           wgHandshakeTimer.begin(nullptr, 500);
           break;
         }
@@ -190,6 +197,7 @@ void NTPMachine::stateMachine(void) {
         if (pingTimer.available()) {
           pingTimer.restart();
 
+          hal_watchdog_feed();
           unsigned long t_ping = hal_millis();
           int res1 = hal_wifi_ping(MQTT_BROKER);
           dt1 = hal_millis() - t_ping;
@@ -212,6 +220,7 @@ void NTPMachine::stateMachine(void) {
         }
 
         mqtt().handleMQTTClient();
+        hal_watchdog_feed();
         hardware().updateDisplayInNormalOperationMode();
 
       } else {
@@ -225,6 +234,7 @@ void NTPMachine::stateMachine(void) {
   hardware().updateBuildInLed();
   if (hal_wifi_is_connected()) {
     hardware().handleOTAUpdates();
+    hal_watchdog_feed();
   }
 
   if (evaluateRelayTimer.available()) {
