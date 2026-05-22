@@ -12,6 +12,11 @@ namespace {
 constexpr uint16_t KV_KEY_START_MIN = 1;
 constexpr uint16_t KV_KEY_END_MIN = 2;
 constexpr uint16_t KV_KEY_SWITCHES = 3;
+constexpr uint32_t DS18B20_REQUEST_INTERVAL_MS = (SECOND * 10);
+constexpr uint32_t DS18B20_INIT_RETRY_INTERVAL_MS = (SECOND * 5);
+constexpr float DS18B20_PUBLISH_DELTA_C = 0.1f;
+constexpr float DS18B20_MIN_VALID_C = -55.0f;
+constexpr float DS18B20_MAX_VALID_C = 125.0f;
 }
 
 NTPMachine& MyHardware::ntp() { return logic.ntpObj(); }
@@ -54,7 +59,10 @@ void MyHardware::start() {
 
   displayTimer.begin(nullptr, 500);
   blinkTimer.begin(nullptr, 100);
+  ds18b20InitRetryTimer.begin(nullptr, DS18B20_INIT_RETRY_INTERVAL_MS);
   oledFlow.begin(hal_millis());
+
+  initDs18b20();
 }
 
 void MyHardware::restartWiFi(void) {
@@ -76,6 +84,9 @@ void MyHardware::restartWiFi(void) {
     derr("hal_wifi_begin_station failed");
   }
   hal_watchdog_feed();
+  if (!hal_wifi_set_timeout_ms(MAX_TIMEOUT)) {
+    derr("hal_wifi_set_timeout_ms failed");
+  }
 }
 
 const char *MyHardware::getMyIP(void) {
@@ -156,12 +167,17 @@ void MyHardware::setTimeRange(long start, long end) {
 }
 
 void MyHardware::saveStartEnd(long start, long end) {
+  // Coalesce both KV writes into a single flash commit (one sector erase
+  // instead of two) to reduce flash wear and shorten the IRQ-off window.
+  hal_kv_set_auto_commit(false);
   if (!hal_kv_set_u32(KV_KEY_START_MIN, (uint32_t)start)) {
     derr("KV save failed for start=%ld", start);
   }
   if (!hal_kv_set_u32(KV_KEY_END_MIN, (uint32_t)end)) {
     derr("KV save failed for end=%ld", end);
   }
+  hal_kv_commit();
+  hal_kv_set_auto_commit(true);
 }
 
 void MyHardware::saveSwitches(void) {
@@ -229,7 +245,7 @@ void MyHardware::checkConditionsForStartEnAction(long timeNow) {
   // apply only on schedule edge transitions (enter/leave window), not continuously.
   if (lastLights != desiredLightsState) {
     setLightsTo(desiredLightsState);
-    mqtt().publish();
+    mqtt().requestPublish();
   }
 
   lastLights = desiredLightsState;
@@ -329,6 +345,8 @@ void MyHardware::updateDisplayInNormalOperationMode(void) {
 }
 
 void MyHardware::hardwareLoop(void) {
+  serviceDs18b20();
+
   for (int i = 0; i < getSwitchesNumber(getMyMAC()); i++) {
     bool currentState = hal_gpio_read(buttonPins[i]);
 
@@ -337,6 +355,70 @@ void MyHardware::hardwareLoop(void) {
     }
 
     lastStates[i] = currentState;
+  }
+}
+
+void MyHardware::initDs18b20(void) {
+  if (ds18b20) {
+    return;
+  }
+
+  hal_ds18b20_config_t cfg = {};
+  cfg.data_pin = PIN_DS18B20;
+  cfg.use_rom = false;
+  cfg.resolution_hint = HAL_DS18B20_RES_12_BIT;
+
+  ds18b20 = hal_ds18b20_init(&cfg);
+  if (!ds18b20) {
+    derr("DS18B20 init failed on GPIO %d", PIN_DS18B20);
+    return;
+  }
+
+  deb("DS18B20 initialized on GPIO %d", PIN_DS18B20);
+
+  ds18b20RequestTimer.begin(nullptr, DS18B20_REQUEST_INTERVAL_MS);
+  if (!hal_ds18b20_request(ds18b20)) {
+    derr("DS18B20 first request failed on GPIO %d", PIN_DS18B20);
+  }
+}
+
+void MyHardware::serviceDs18b20(void) {
+  if (!ds18b20) {
+    if (ds18b20InitRetryTimer.available()) {
+      ds18b20InitRetryTimer.restart();
+      initDs18b20();
+    }
+    return;
+  }
+
+  hal_ds18b20_poll(ds18b20);
+
+  float latestTemp = 0.0f;
+  bool fresh = false;
+  if (hal_ds18b20_take_latest(ds18b20, &latestTemp, &fresh)) {
+    if (latestTemp >= DS18B20_MIN_VALID_C && latestTemp <= DS18B20_MAX_VALID_C) {
+      float delta = latestTemp - ds18b20TemperatureC;
+      if (delta < 0.0f) {
+        delta = -delta;
+      }
+
+      const bool firstSample = !ds18b20TemperatureValid;
+      ds18b20TemperatureC = latestTemp;
+      ds18b20TemperatureValid = true;
+
+      if (fresh && (firstSample || delta >= DS18B20_PUBLISH_DELTA_C)) {
+        mqtt().requestPublish();
+      }
+    } else {
+      deb("DS18B20 sample out of range: %.4f C", (double)latestTemp);
+    }
+  }
+
+  if (ds18b20RequestTimer.available()) {
+    ds18b20RequestTimer.restart();
+    if (!hal_ds18b20_is_busy(ds18b20) && !hal_ds18b20_request(ds18b20)) {
+      deb("DS18B20 request skipped/failed on GPIO %d", PIN_DS18B20);
+    }
   }
 }
 
@@ -406,7 +488,7 @@ void MyHardware::handleButtonRelease(int buttonIndex) {
 
   deb("button action for: %d", buttonIndex);
   setRelayTo(buttonIndex, !switches[buttonIndex]);
-  mqtt().publish();
+  mqtt().requestPublish();
   saveSwitches();
 }
 
@@ -422,4 +504,13 @@ void MyHardware::resetDisplayCache(void) {
 
 void MyHardware::handleOTAUpdates(void) {
   otaUpdates.handle(hal_wifi_is_connected(), getMyHostname());
+}
+
+bool MyHardware::getDs18b20TemperatureC(float *temperatureC) const {
+  if (!temperatureC || !ds18b20TemperatureValid) {
+    return false;
+  }
+
+  *temperatureC = ds18b20TemperatureC;
+  return true;
 }

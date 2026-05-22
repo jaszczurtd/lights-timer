@@ -301,6 +301,78 @@
                 "showReuseMessage": false
             },
             "problemMatcher": []
+        },
+        {
+            "label": "Project: Build",
+            "detail": "Legacy alias for global keybindings -> Build: Build",
+            "dependsOn": "Build: Build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Upload",
+            "detail": "Legacy alias for global keybindings -> Build: Upload",
+            "dependsOn": "Build: Upload",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Monitor (persistent)",
+            "detail": "Legacy alias for global keybindings -> Build: Monitor (persistent)",
+            "dependsOn": "Build: Monitor (persistent)",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Upload (UF2 / BOOTSEL)",
+            "detail": "Legacy alias for global keybindings -> Build: Upload (UF2 / BOOTSEL)",
+            "dependsOn": "Build: Upload (UF2 / BOOTSEL)",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Monitor (Debug Probe)",
+            "detail": "Legacy alias for global keybindings -> Build: Monitor (Debug Probe)",
+            "dependsOn": "Build: Monitor (Debug Probe)",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Refresh IntelliSense",
+            "detail": "Legacy alias for global keybindings -> Build: Refresh IntelliSense",
+            "dependsOn": "Build: Refresh IntelliSense",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Clean",
+            "detail": "Legacy alias for global keybindings -> Build: Clean",
+            "dependsOn": "Build: Clean",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: List ports",
+            "detail": "Legacy alias for global keybindings -> Build: List ports",
+            "dependsOn": "Build: List ports",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Change port",
+            "detail": "Legacy alias for global keybindings -> Build: Change port",
+            "dependsOn": "Build: Change port",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Install library",
+            "detail": "Legacy alias for global keybindings -> Build: Install library",
+            "dependsOn": "Build: Install library",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Select board (GUI)",
+            "detail": "Legacy alias for global keybindings -> Build: Select board (GUI)",
+            "dependsOn": "Build: Select board (GUI)",
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Select board (interactive)",
+            "detail": "Legacy alias for global keybindings -> Build: Select board (interactive)",
+            "dependsOn": "Build: Select board (interactive)",
+            "problemMatcher": []
         }
     ]
 }

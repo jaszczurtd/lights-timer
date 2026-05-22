@@ -24,6 +24,7 @@ public:
   void stop(); 
   void handleMQTTClient();
   void publish();
+  void requestPublish() { publishPending = true; }
   void handleMessage(const char* topic, const uint8_t* payload, uint16_t length);
 
 private:

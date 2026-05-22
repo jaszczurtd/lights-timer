@@ -3,9 +3,11 @@
 
 #include <JaszczurHAL.h>
 
-#define WATCHDOG_TIME (SECOND * 7)
+//The maximum watchdog time for the RP2040 is 8388 ms
+#define WATCHDOG_TIME (8000)
 #define CORE_OPERATION_DELAY 1
 
+#define PING_TIMEOUT_MS   (SECOND * 3) 
 #define WIFI_TIMEOUT_MS    (SECOND * 30)
 #define NTP_TIMEOUT_MS     (SECOND * 30)
 #define PRINT_INTERVAL_MS  (SECOND * 10)

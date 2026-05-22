@@ -33,7 +33,10 @@ const char *NTPMachine::getTimeFormatted(void) {
 
 void NTPMachine::reconnect(void) {
   hal_watchdog_feed();
-  hal_wireguard_end();
+  if (wgStarted) {
+    hal_wireguard_end();
+    wgStarted = false;
+  }
   hal_watchdog_feed();
   mqtt().stop();
   hal_watchdog_feed();
@@ -45,6 +48,8 @@ void NTPMachine::reconnect(void) {
 }
 
 void NTPMachine::stateMachine(void) {
+
+  hal_watchdog_feed();
 
   switch(currentState) {
     case STATE_NOT_CONNECTED: {
@@ -128,6 +133,7 @@ void NTPMachine::stateMachine(void) {
             reconnect();
             break;
           }
+          wgStarted = true;
           hal_watchdog_feed();
           wgHandshakeTimer.begin(nullptr, 500);
           break;
@@ -150,14 +156,17 @@ void NTPMachine::stateMachine(void) {
 
         if (wgHandshakeTimer.available()) {
           wgHandshakeTimer.restart();
+          hal_watchdog_feed();
           if (!hal_wireguard_peer_up(nullptr, 0, nullptr)) {
             if (!hal_wireguard_kick_handshake_text(getWireguardLocalIP(hardware().getMyMAC()), 9, 0)) {
               deb("WG handshake kick failed.");
             } else {
               deb("WG not ready yet (no session key). Handshake kicked.");
             }
+            hal_watchdog_feed();
             break;
           }
+          hal_watchdog_feed();
           currentState = STATE_WIREGUARD_CONNECTED;
         }
       } else {
@@ -170,7 +179,9 @@ void NTPMachine::stateMachine(void) {
       if (hal_wifi_is_connected()) {
         currentState = STATE_CONNECTED;
 
+        hal_watchdog_feed();
         mqtt().start(MQTT_BROKER_WIREGUARD, MQTT_BROKER_PORT);
+        hal_watchdog_feed();
         hardware().clearDisplay();
         hal_watchdog_feed();
 
@@ -199,7 +210,7 @@ void NTPMachine::stateMachine(void) {
 
           hal_watchdog_feed();
           unsigned long t_ping = hal_millis();
-          int res1 = hal_wifi_ping(MQTT_BROKER);
+          int res1 = hal_wifi_ping_ex(MQTT_BROKER, PING_TIMEOUT_MS);
           dt1 = hal_millis() - t_ping;
           hal_watchdog_feed();
 

@@ -46,6 +46,10 @@ void MQTTClient::handleMessage(const char* topicArrived, const uint8_t* payload,
     deb("MQTT: problem with json parsing");
     return;
   }
+  // Long-running message handler: feed watchdog at each major stage to avoid
+  // a hardware reset while flash commits / cJSON parsing are in flight (see
+  // architectural notes about saveSwitches() doing a full sector flash erase).
+  hal_watchdog_feed();
 
   const char *myHostName = hardware().getMyHostname();
 
@@ -84,15 +88,19 @@ void MQTTClient::handleMessage(const char* topicArrived, const uint8_t* payload,
         anyChanged |= hardware().setRelayTo(a, cJSON_IsTrue(value));
         shouldSave = true;
       }
+      hal_watchdog_feed();
     }
     if(shouldSave && anyChanged) {
+      hal_watchdog_feed();
       hardware().saveSwitches();
+      hal_watchdog_feed();
       hardware().wakeDisplayForEvent();
     }
     publishPending = true;
   }
 
   cJSON_Delete(root);
+  hal_watchdog_feed();
 }
 
 void MQTTClient::start(const char *brokerIP, const int port) {
@@ -137,6 +145,9 @@ void MQTTClient::start(const char *brokerIP, const int port) {
 }
 
 void MQTTClient::stop() {
+  if (!clientInitialized) {
+    return;
+  }
   publishPending = false;
   clientInitialized = false;
   hal_mqtt_disconnect();
@@ -152,6 +163,8 @@ void MQTTClient::publish() {
     char *json = nullptr;
     const char *time = nullptr;
     char strength[10];
+    float ds18b20TempC = 0.0f;
+    bool hasTemperature = false;
 
     memset(response, 0, sizeof(response));
 
@@ -172,6 +185,14 @@ void MQTTClient::publish() {
 
     snprintf(strength, sizeof(strength), "5/%d", hal_wifi_get_strength());
     NONULL(cJSON_AddStringToObject(root, "wifi", strength));
+
+    hasTemperature = hardware().getDs18b20TemperatureC(&ds18b20TempC);
+    NONULL(cJSON_AddBoolToObject(root, "temperatureAvailable", hasTemperature));
+    if (hasTemperature) {
+      NONULL(cJSON_AddNumberToObject(root, "temperatureC", (double)ds18b20TempC));
+    } else {
+      NONULL(cJSON_AddNullToObject(root, "temperatureC"));
+    }
 
     json = cJSON_PrintUnformatted(root);
     NONULL(json);
@@ -258,15 +279,15 @@ void MQTTClient::handleMQTTClient() {
           reconnect();
         }
       } else {
+        hal_watchdog_feed();
         hal_mqtt_loop();
+        hal_watchdog_feed();
 
         if(publishPending) {
           publishPending = false;
           publish();
         }
       }
-    } else {
-      hal_mqtt_loop();
     }
   }
 }

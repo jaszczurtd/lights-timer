@@ -24,6 +24,7 @@
 #define PIN_BUTTON_2 5
 #define PIN_BUTTON_3 6
 #define PIN_BUTTON_4 7
+#define PIN_DS18B20 15
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
@@ -60,6 +61,7 @@ public:
   void applyRelays(void);
   void handleOTAUpdates(void);
   void wakeDisplayForEvent(void);
+  bool getDs18b20TemperatureC(float *temperatureC) const;
 
 private:
   Logic& logic;
@@ -72,6 +74,8 @@ private:
   const char* getSwitchStatus(void);
   void handleButtonRelease(int buttonIndex);
   void resetDisplayCache(void);
+  void initDs18b20(void);
+  void serviceDs18b20(void);
 
   char ip_str[sizeof("255.255.255.255") + 1];
   char mac_str[sizeof("FF:FF:FF:FF:FF:FF") + 1];
@@ -92,6 +96,8 @@ private:
 
   SmartTimers displayTimer;
   SmartTimers blinkTimer;
+  SmartTimers ds18b20RequestTimer;
+  SmartTimers ds18b20InitRetryTimer;
   OledDisplayFlow oledFlow;
 
   int relaysPins[MAX_AMOUNT_OF_RELAYS] = {PIN_RELAY_1, PIN_RELAY_2, PIN_RELAY_3, PIN_RELAY_4};
@@ -100,6 +106,10 @@ private:
 
   bool lastLights = false;
   OTAUpdates otaUpdates;
+
+  hal_ds18b20_t ds18b20 = nullptr;
+  float ds18b20TemperatureC = 0.0f;
+  bool ds18b20TemperatureValid = false;
 };
 
 

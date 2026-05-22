@@ -54,6 +54,7 @@ private:
   char buffer[NTP_BUFFER];
   long now_time;
   bool localTimeHasBeenSet = false;
+  bool wgStarted = false;
 
   bool isBAvailable = false;
   unsigned long dt1 = 0;
