@@ -6,14 +6,14 @@
             "description": "Select target board",
             "type": "pickString",
             "options": [
-                "rp2040:rp2040:rpipico:flash=2097152_524288          — Raspberry Pi Pico (FS 512KB)",
-                "rp2040:rp2040:rpipicow:flash=2097152_524288         — Raspberry Pi Pico W (FS 512KB)",
-                "rp2040:rp2040:rpipico2:flash=4194304_2097152         — Raspberry Pi Pico 2 (FS 2MB)",
-                "rp2040:rp2040:rpipico2w:flash=4194304_2097152        — Raspberry Pi Pico 2 W (FS 2MB)",
-                "rp2040:rp2040:waveshare_rp2040_zero:flash=2097152_524288 — Waveshare RP2040-Zero (FS 512KB)",
-                "rp2040:rp2040:waveshare_rp2040_plus:flash=2097152_524288 — Waveshare RP2040-Plus (FS 512KB)"
+                "rp2040:rp2040:rpipico:flash=2097152_524288          - Raspberry Pi Pico (FS 512KB)",
+                "rp2040:rp2040:rpipicow:flash=2097152_524288         - Raspberry Pi Pico W (FS 512KB)",
+                "rp2040:rp2040:rpipico2:flash=4194304_2097152         - Raspberry Pi Pico 2 (FS 2MB)",
+                "rp2040:rp2040:rpipico2w:flash=4194304_2097152        - Raspberry Pi Pico 2 W (FS 2MB)",
+                "rp2040:rp2040:waveshare_rp2040_zero:flash=2097152_524288 - Waveshare RP2040-Zero (FS 512KB)",
+                "rp2040:rp2040:waveshare_rp2040_plus:flash=2097152_524288 - Waveshare RP2040-Plus (FS 512KB)"
             ],
-            "default": "rp2040:rp2040:rpipicow:flash=2097152_524288         — Raspberry Pi Pico W (FS 512KB)"
+            "default": "rp2040:rp2040:rpipicow:flash=2097152_524288         - Raspberry Pi Pico W (FS 512KB)"
         },
         {
             "id": "libraryName",
@@ -194,7 +194,7 @@
             "command": "bash",
             "args": [
                 "-c",
-                "SELECTION='${input:boardChoice}'; FQBN=$(echo \"$SELECTION\" | sed 's/ *—.*//'); FQBN=$(echo $FQBN | xargs); DESC=$(echo \"$SELECTION\" | sed 's/.*— *//'); echo \"Setting board: $DESC\"; echo \"FQBN: $FQBN\"; python3 -c \"import json; f='${workspaceFolder}/.vscode/settings.json'; s=json.load(open(f)); s['arduino.fqbn']='$FQBN'; s['arduino.boardDescription']='$DESC'; json.dump(s,open(f,'w'),indent=4); print('\\nOK: settings.json updated'); print('Run: Build: Refresh IntelliSense')\""
+                "SELECTION='${input:boardChoice}'; FQBN=$(echo \"$SELECTION\" | sed 's/ *-.*//'); FQBN=$(echo $FQBN | xargs); DESC=$(echo \"$SELECTION\" | sed 's/.*- *//'); echo \"Setting board: $DESC\"; echo \"FQBN: $FQBN\"; python3 -c \"import json; f='${workspaceFolder}/.vscode/settings.json'; s=json.load(open(f)); s['arduino.fqbn']='$FQBN'; s['arduino.boardDescription']='$DESC'; json.dump(s,open(f,'w'),indent=4); print('\\nOK: settings.json updated'); print('Run: Build: Refresh IntelliSense')\""
             ],
             "presentation": {
                 "echo": true,

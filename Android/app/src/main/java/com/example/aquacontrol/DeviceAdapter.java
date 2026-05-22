@@ -143,6 +143,24 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         sw.setChecked(state);
     }
 
+    void bindTemperature(DeviceViewHolder h, DeviceInfo d) {
+        if (!d.hasTemperatureAvailabilityField) {
+            h.temperatureText.setVisibility(View.GONE);
+            return;
+        }
+
+        h.temperatureText.setVisibility(View.VISIBLE);
+        if (d.temperatureAvailable) {
+            h.temperatureText.setText(String.format(
+                    Locale.ENGLISH,
+                    ContextProvider.getContext().getString(R.string.temperature_value),
+                    d.temperatureC
+            ));
+        } else {
+            h.temperatureText.setText(R.string.temperature_unavailable);
+        }
+    }
+
     void consumeBrokerUpdate(String topic, String update) {
         if(topic == null || update == null){
             Log.e(TAG, "Invalid data provided:" + topic + "/" + update);
@@ -191,6 +209,16 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
                 }
             }
 
+            device.hasTemperatureAvailabilityField = root.has("temperatureAvailable");
+            device.temperatureAvailable = false;
+            if (device.hasTemperatureAvailabilityField && root.optBoolean("temperatureAvailable", false)
+                    && root.has("temperatureC") && !root.isNull("temperatureC")) {
+                device.temperatureAvailable = true;
+                device.temperatureC = root.optDouble("temperatureC", 0.0d);
+            }
+
+            bindTemperature(holder, device);
+
         } catch (Exception e) {
             Log.e(TAG, "topic broker response parse error:" + e);
         }
@@ -216,6 +244,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
         holder.label.setText(formatLabel(device.hostName));
 
         configureSwitches(holder, device);
+        bindTemperature(holder, device);
 
         if(toggleListener != null) {
             toggleListener.onDeviceJustAppearOnList(device);
@@ -232,7 +261,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
     }
 
     public static class DeviceViewHolder extends RecyclerView.ViewHolder {
-        TextView label, startTimeText, endTimeText;
+        TextView label, startTimeText, endTimeText, temperatureText;
 
         SwitchCompat isOn1, isOn2, isOn3, isOn4;
         LinearLayout sw1Container, sw2Container, sw3Container, sw4Container;
@@ -253,6 +282,7 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
             startTimeText = itemView.findViewById(R.id.startTimeText);
             endTimeText = itemView.findViewById(R.id.endTimeText);
+            temperatureText = itemView.findViewById(R.id.temperatureText);
 
             time = itemView.findViewById(R.id.timeButton);
         }

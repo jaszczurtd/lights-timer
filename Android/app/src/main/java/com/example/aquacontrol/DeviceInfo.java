@@ -12,6 +12,9 @@ public class DeviceInfo implements Constants {
 
     boolean[] isOnFlags = new boolean[MAX_AMOUNT_OF_RELAYS];
     long start, end;
+    boolean hasTemperatureAvailabilityField;
+    boolean temperatureAvailable;
+    double temperatureC;
 
     DeviceInfo(String mac, String ip, String hostName, int switches) {
         this.mac = mac;

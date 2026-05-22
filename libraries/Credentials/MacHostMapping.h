@@ -3,15 +3,17 @@
 
 #pragma once
 
-#include "Credentials.h"
+#include <stddef.h>
 
 typedef struct {
-    const char* mac;
-    const char* hostname;
+    const char *mac;
+    const char *hostname;
     int switches;
-} MacHostnamePair;
+    const char *wireguard_local_ip;
+    const char *wireguard_private_key;
+} MacEntry;
 
-extern const MacHostnamePair mac_table[];
+extern const MacEntry mac_table[];
 extern const size_t mac_table_size;
 
 #endif

@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # =============================================================================
 # Serial Monitor
-# Łączy się z portem szeregowym płytki
+# Connects to the board serial port
 # =============================================================================
 set -euo pipefail
 
@@ -15,7 +15,7 @@ YELLOW='\033[1;33m'
 CYAN='\033[0;36m'
 NC='\033[0m'
 
-# Wczytaj ustawienia
+# Load settings
 read_setting() {
     python3 -c "
 import json
@@ -33,21 +33,21 @@ echo -e "  Port: ${GREEN}$PORT${NC}"
 echo -e "  Baud: ${GREEN}$BAUD${NC}"
 echo ""
 
-# Sprawdź czy port istnieje
+# Check if the port exists
 if [[ ! -e "$PORT" ]]; then
-    echo -e "${RED}Port $PORT nie istnieje${NC}"
+    echo -e "${RED}Port $PORT does not exist${NC}"
     echo ""
-    echo "Dostępne porty:"
-    ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null || echo "  (brak)"
+    echo "Available ports:"
+    ls /dev/ttyACM* /dev/ttyUSB* 2>/dev/null || echo "  (none)"
     exit 1
 fi
 
-# Sprawdź czy port jest zajęty
+# Check if the port is busy
 if fuser "$PORT" &>/dev/null; then
-    echo -e "${YELLOW}Port $PORT jest zajęty przez inny proces:${NC}"
+    echo -e "${YELLOW}Port $PORT is busy (used by another process):${NC}"
     fuser -v "$PORT" 2>&1 || true
     echo ""
-    read -rp "Zabić procesy blokujące port? [t/N] " kill_answer
+    read -rp "Kill processes blocking the port? [y/N] " kill_answer
     if [[ "$kill_answer" =~ ^[tTyY]$ ]]; then
         fuser -k "$PORT" 2>/dev/null || true
         sleep 1
@@ -56,21 +56,21 @@ if fuser "$PORT" &>/dev/null; then
     fi
 fi
 
-# Wybierz narzędzie do połączenia
-# Priorytet: cat (najprostsze), screen, minicom
-echo -e "Łączenie... (${YELLOW}Ctrl+C${NC} aby zakończyć)"
+# Choose connection tool
+# Priority: cat (simplest), screen, minicom
+echo -e "Connecting... (${YELLOW}Ctrl+C${NC} to exit)"
 echo "----------------------------------------"
 
-# Konfiguruj port
+# Configure the port
 stty -F "$PORT" "$BAUD" cs8 -cstopb -parenb raw -echo 2>/dev/null || true
 
-# Trap Ctrl+C żeby posprzątać
+# Trap Ctrl+C to clean up
 cleanup() {
     echo ""
-    echo -e "${CYAN}Rozłączono.${NC}"
+    echo -e "${CYAN}Disconnected.${NC}"
     exit 0
 }
 trap cleanup INT TERM
 
-# Czytaj port — cat działa najlepiej w VS Code terminalu
+# Read from port - cat works best in VS Code terminal
 cat "$PORT"
