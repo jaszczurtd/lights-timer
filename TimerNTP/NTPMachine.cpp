@@ -18,6 +18,7 @@ void NTPMachine::start() {
   hardware().loadSwitches();
   hardware().extractTime(s, e);
   hardware().applyRelays();
+  hardware().restartWiFi();
 
   evaluateRelayTimer.begin(nullptr, EVALUATE_TIME_FOR_RELAY_MS);
   loopLogTimer.begin(nullptr, PRINT_INTERVAL_MS);
@@ -40,6 +41,7 @@ void NTPMachine::reconnect(void) {
   hal_watchdog_feed();
   mqtt().stop();
   hal_watchdog_feed();
+  hardware().restartWiFi();
   failedPingsCNT = 0;
   isBAvailable = false;
   currentState = STATE_NOT_CONNECTED;
@@ -53,15 +55,9 @@ void NTPMachine::stateMachine(void) {
 
   switch(currentState) {
     case STATE_NOT_CONNECTED: {
-      deb("Not connected to WiFi. Trying to reconnect...");
+      deb("Not connected to WiFi. Trying to reconnect to %s...", WIFI_SSID);
 
       memset(buffer, 0, sizeof(buffer));
-
-      mqtt().stop();
-      hal_watchdog_feed();
-
-      hardware().restartWiFi();
-      hal_watchdog_feed();
       hardware().drawCenteredText("CONNECTING...");
 
       wifiTimeoutTimer.begin(nullptr, WIFI_TIMEOUT_MS);
@@ -74,7 +70,7 @@ void NTPMachine::stateMachine(void) {
     case STATE_CONNECTING: {
 
       if (wifiTimeoutTimer.available()) {
-        deb("\nWiFi connection timeout!");
+        deb("\n%s: WiFi connection timeout!", WIFI_SSID);
         wifiTimeoutTimer.abort();
         reconnect();
         break;
@@ -83,14 +79,13 @@ void NTPMachine::stateMachine(void) {
       if (connectingPollTimer.available()) {
         connectingPollTimer.restart();
         if(hal_wifi_is_connected()) {
-          hal_wifi_set_timeout_ms(MAX_TIMEOUT);
 
           char dns_ip[32] = {0};
           if (!hal_wifi_get_dns_ip(dns_ip, sizeof(dns_ip))) {
             snprintf(dns_ip, sizeof(dns_ip), "%s", "0.0.0.0");
           }
 
-          deb("Connected to WiFi. Local IP address: %s", hardware().getMyIP());
+          deb("Connected to WiFi %s. Local IP address: %s", WIFI_SSID, hardware().getMyIP());
           deb("ping target: %s", MQTT_BROKER);
           deb("DNS IP:%s", dns_ip);
 
@@ -157,7 +152,7 @@ void NTPMachine::stateMachine(void) {
         if (wgHandshakeTimer.available()) {
           wgHandshakeTimer.restart();
           hal_watchdog_feed();
-          if (!hal_wireguard_peer_up(nullptr, 0, nullptr)) {
+          if (!hal_wireguard_peer_up_quick()) {
             if (!hal_wireguard_kick_handshake_text(getWireguardLocalIP(hardware().getMyMAC()), 9, 0)) {
               deb("WG handshake kick failed.");
             } else {

@@ -70,23 +70,20 @@ void MyHardware::restartWiFi(void) {
   if (!hal_wifi_disconnect(true)) {
     derr("hal_wifi_disconnect failed");
   }
-  hal_watchdog_feed();
   hal_delay_ms(50);
   if (!hal_wifi_set_hostname(getMyHostname())) {
     derr("hal_wifi_set_hostname failed");
   }
-  hal_watchdog_feed();
   if (!hal_wifi_set_mode(HAL_WIFI_MODE_STA)) {
     derr("hal_wifi_set_mode(STA) failed");
   }
-  hal_watchdog_feed();
   if (!hal_wifi_begin_station(WIFI_SSID, WIFI_PASSWORD, true)) {
     derr("hal_wifi_begin_station failed");
   }
-  hal_watchdog_feed();
   if (!hal_wifi_set_timeout_ms(MAX_TIMEOUT)) {
     derr("hal_wifi_set_timeout_ms failed");
   }
+  hal_watchdog_feed();
 }
 
 const char *MyHardware::getMyIP(void) {

@@ -27,7 +27,7 @@
 #define MQTT_TOPIC_TIME_SET "time-"
 #define MQTT_TOPIC_SWITCH_SET "switch-"
 
-#define MAX_TIMEOUT (SECOND * 3)
+#define MAX_TIMEOUT (SECOND * 5)
 #define MQTT_SOCKET_MAX_TIMEOUT 2
 #define MQTT_KEEP_ALIVE 15
 
