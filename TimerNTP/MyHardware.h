@@ -5,6 +5,7 @@
 
 #include <Credentials.h>
 #include <tools.h>
+#include <stdint.h>
 
 #include "OledDisplayFlow.h"
 #include "OTAUpdates.h"
@@ -49,7 +50,7 @@ public:
   void saveStartEnd(long start, long end);
   void loadStartEnd(long *start, long *end);
   void checkConditionsForStartEnAction(long timeNow);
-  void setLightsTo(bool state);
+  bool setLightsTo(bool state);
   bool setRelayTo(int index, bool state);
   bool *getSwitchesStates(void);
   void updateDisplayInNormalOperationMode(void);
@@ -58,10 +59,12 @@ public:
   void drawCenteredText(const char* text);
   void loadSwitches(void);
   void saveSwitches(void);
-  void applyRelays(void);
+  void applyRelays(bool allowSchedulerRelayRestore = true);
   void handleOTAUpdates(void);
   void wakeDisplayForEvent(void);
   bool getDs18b20TemperatureC(float *temperatureC) const;
+  uint32_t markWatchdogBootAndGetCount(bool watchdogBoot);
+  uint32_t getWdtBootCount() const;
 
 private:
   Logic& logic;
@@ -105,6 +108,7 @@ private:
   bool lastStates[MAX_AMOUNT_OF_RELAYS];
 
   bool lastLights = false;
+  uint32_t wdtBootCount = 0;
   OTAUpdates otaUpdates;
 
   hal_ds18b20_t ds18b20 = nullptr;

@@ -5,19 +5,63 @@
 #include "MyHardware.h"
 #include "MQTTClient.h"
 
+namespace {
+NOINIT int g_lastStateBeforeReset = STATE_NOT_CONNECTED;
+NOINIT uint32_t g_lastUptimeBeforeResetMs = 0;
+
+const char* stateNameForTelemetry(int state) {
+  switch (state) {
+    case STATE_NOT_CONNECTED:
+      return "not_connected";
+    case STATE_CONNECTING:
+      return "connecting";
+    case STATE_NTP_SYNCHRO:
+      return "ntp_synchro";
+    case STATE_WIREGUARD_CONNECT:
+      return "wireguard_connect";
+    case STATE_WIREGUARD_CONNECTED:
+      return "wireguard_connected";
+    case STATE_CONNECTED:
+      return "connected";
+    default:
+      return "unknown";
+  }
+}
+}
+
 MyHardware& NTPMachine::hardware() { return logic.hardwareObj(); }
 MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
 
 void NTPMachine::start() {
   currentState = STATE_NOT_CONNECTED;
+  watchdogResetOnBoot = hal_watchdog_caused_reboot();
+  lastStateBeforeReset = -1;
+  lastUptimeBeforeResetMs = 0;
+  wdtBootCount = 0;
+
+  if (watchdogResetOnBoot) {
+    lastStateBeforeReset = g_lastStateBeforeReset;
+    lastUptimeBeforeResetMs = g_lastUptimeBeforeResetMs;
+    deb("Watchdog reboot detected. Last state=%d (%s), uptime=%lu ms",
+        lastStateBeforeReset,
+        stateNameForTelemetry(lastStateBeforeReset),
+        (unsigned long)lastUptimeBeforeResetMs);
+  } else {
+    deb("Clean boot (watchdog did not cause reboot)");
+  }
+
+  g_lastStateBeforeReset = STATE_NOT_CONNECTED;
+  g_lastUptimeBeforeResetMs = 0;
+  saveResetBreadcrumb();
 
   hardware().start();
+  wdtBootCount = hardware().markWatchdogBootAndGetCount(watchdogResetOnBoot);
 
   long s = 0, e = 0;
   hardware().loadStartEnd(&s, &e);
   hardware().loadSwitches();
   hardware().extractTime(s, e);
-  hardware().applyRelays();
+  hardware().applyRelays(false);
   hardware().restartWiFi();
 
   evaluateRelayTimer.begin(nullptr, EVALUATE_TIME_FOR_RELAY_MS);
@@ -45,6 +89,7 @@ void NTPMachine::reconnect(void) {
   failedPingsCNT = 0;
   isBAvailable = false;
   currentState = STATE_NOT_CONNECTED;
+  saveResetBreadcrumb();
   hardware().wakeDisplayForEvent();
   hardware().drawCenteredText("NO CONNECTION");
 }
@@ -52,6 +97,7 @@ void NTPMachine::reconnect(void) {
 void NTPMachine::stateMachine(void) {
 
   hal_watchdog_feed();
+  saveResetBreadcrumb();
 
   switch(currentState) {
     case STATE_NOT_CONNECTED: {
@@ -263,6 +309,8 @@ void NTPMachine::stateMachine(void) {
           hal_wifi_get_strength());
     }
   }
+
+  saveResetBreadcrumb();
 }
 
 void NTPMachine::evaluateTimeCondition() {
@@ -292,4 +340,29 @@ bool NTPMachine::isBrokerAvailable(void) {
 
 unsigned long NTPMachine::lastBrokerRespoinsePingTime(void) {
   return dt1;
+}
+
+bool NTPMachine::wasWatchdogResetOnBoot() const {
+  return watchdogResetOnBoot;
+}
+
+int NTPMachine::getLastStateBeforeReset() const {
+  return lastStateBeforeReset;
+}
+
+uint32_t NTPMachine::getLastUptimeBeforeResetMs() const {
+  return lastUptimeBeforeResetMs;
+}
+
+uint32_t NTPMachine::getWdtBootCount() const {
+  return wdtBootCount;
+}
+
+const char* NTPMachine::getStateName(int state) const {
+  return stateNameForTelemetry(state);
+}
+
+void NTPMachine::saveResetBreadcrumb(void) {
+  g_lastStateBeforeReset = currentState;
+  g_lastUptimeBeforeResetMs = hal_millis();
 }

@@ -4,4 +4,32 @@ broker ip: 192.168.2.100
 test with broker:
 mosquitto_sub -h localhost -u piuser -P Password -t status-pico-08dde4 -v
 
+MQTT watchdog reboot diagnostics:
+- Firmware publishes a diagnostic message after a hard reboot caused by watchdog.
+- Topic: `event-<hostname>` (for example `event-pico-08dde4`).
+- The message is sent only once per boot, and only if the reboot was watchdog-related.
+- Publish uses `retain=false` (the message is not retained by the broker).
 
+Example JSON fields:
+- `reason` (always `watchdog`)
+- `build`
+- `hostname`
+- `mac`
+- `bootMillis`
+- `watchdogTimeoutMs`
+- `freeHeap`
+- `wdtBootCount`
+- `lastStateBeforeReset`
+- `lastStateBeforeResetName`
+- `lastUptimeBeforeResetMs`
+
+Reading on Raspberry Pi (local broker):
+1. Subscribe to all event messages:
+   mosquitto_sub -h localhost -u piuser -P Password -t 'event-+' -v
+2. Subscribe to a single device:
+   mosquitto_sub -h localhost -u piuser -P Password -t event-pico-08dde4 -v
+3. Version with JSON preview:
+   mosquitto_sub -h localhost -u piuser -P Password -t 'event-+' | jq .
+
+Note:
+- If the device did not reboot due to watchdog, no `event-...` message is sent.

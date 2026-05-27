@@ -10,6 +10,7 @@
 #include <Credentials.h>
 #include <tools.h>
 #include <string.h>
+#include <stdint.h>
 
 #include "MQTTClient.h"
 #include "MyHardware.h"
@@ -41,6 +42,11 @@ public:
   void evaluateTimeCondition();
   bool isBrokerAvailable(void);
   unsigned long lastBrokerRespoinsePingTime(void);
+  bool wasWatchdogResetOnBoot() const;
+  int getLastStateBeforeReset() const;
+  uint32_t getLastUptimeBeforeResetMs() const;
+  uint32_t getWdtBootCount() const;
+  const char* getStateName(int state) const;
 
 private:
   Logic& logic;
@@ -49,12 +55,17 @@ private:
   MQTTClient& mqtt();
 
   void reconnect(void);
+  void saveResetBreadcrumb(void);
 
   int currentState;
   char buffer[NTP_BUFFER];
   long now_time;
   bool localTimeHasBeenSet = false;
   bool wgStarted = false;
+  bool watchdogResetOnBoot = false;
+  int lastStateBeforeReset = -1;
+  uint32_t lastUptimeBeforeResetMs = 0;
+  uint32_t wdtBootCount = 0;
 
   bool isBAvailable = false;
   unsigned long dt1 = 0;

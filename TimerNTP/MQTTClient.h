@@ -41,6 +41,16 @@ private:
   char topic[128];
   char response[512];
 
+  void prepareWatchdogEventIfNeeded();
+  bool publishWatchdogEvent();
+
+  bool watchdogEventPrepared = false;
+  bool watchdogEventPending = false;
+  bool watchdogEventPublished = false;
+  uint32_t watchdogEventBootCount = 0;
+  int watchdogEventLastStateBeforeReset = -1;
+  uint32_t watchdogEventLastUptimeBeforeResetMs = 0;
+
   bool reconnect();
 };
 

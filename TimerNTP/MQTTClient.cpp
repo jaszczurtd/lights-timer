@@ -172,6 +172,7 @@ void MQTTClient::publish() {
     NONULL(root);
 
     NONULL(cJSON_AddStringToObject(root, "status", "ok"));
+    NONULL(cJSON_AddStringToObject(root, "build", BuildDateTime));
     NONULL(cJSON_AddNumberToObject(root, "dateHourStart", s));
     NONULL(cJSON_AddNumberToObject(root, "dateHourEnd", e));
     NONULL(cJSON_AddBoolToObject(root, "isOn1", switches[0]));
@@ -230,6 +231,80 @@ error:
   }
 }
 
+void MQTTClient::prepareWatchdogEventIfNeeded() {
+  if (watchdogEventPrepared) {
+    return;
+  }
+
+  watchdogEventPrepared = true;
+
+  if (!ntp().wasWatchdogResetOnBoot()) {
+    return;
+  }
+
+  watchdogEventPending = true;
+  watchdogEventBootCount = ntp().getWdtBootCount();
+  watchdogEventLastStateBeforeReset = ntp().getLastStateBeforeReset();
+  watchdogEventLastUptimeBeforeResetMs = ntp().getLastUptimeBeforeResetMs();
+
+  deb("MQTT: watchdog reboot event prepared (wdtBootCount=%lu, lastState=%d, lastUptime=%lu ms)",
+      (unsigned long)watchdogEventBootCount,
+      watchdogEventLastStateBeforeReset,
+      (unsigned long)watchdogEventLastUptimeBeforeResetMs);
+}
+
+bool MQTTClient::publishWatchdogEvent() {
+  cJSON *root = nullptr;
+  char *json = nullptr;
+
+  memset(response, 0, sizeof(response));
+  root = cJSON_CreateObject();
+  NONULL(root);
+
+  NONULL(cJSON_AddStringToObject(root, "reason", "watchdog"));
+  NONULL(cJSON_AddStringToObject(root, "build", BuildDateTime));
+  NONULL(cJSON_AddStringToObject(root, "hostname", hardware().getMyHostname()));
+  NONULL(cJSON_AddStringToObject(root, "mac", hardware().getMyMAC()));
+  NONULL(cJSON_AddNumberToObject(root, "bootMillis", (double)hal_millis()));
+  NONULL(cJSON_AddNumberToObject(root, "watchdogTimeoutMs", WATCHDOG_TIME));
+  NONULL(cJSON_AddNumberToObject(root, "freeHeap", (double)hal_get_free_heap()));
+  NONULL(cJSON_AddNumberToObject(root, "wdtBootCount", (double)watchdogEventBootCount));
+  NONULL(cJSON_AddNumberToObject(root, "lastStateBeforeReset", watchdogEventLastStateBeforeReset));
+  NONULL(cJSON_AddStringToObject(root, "lastStateBeforeResetName",
+                                 ntp().getStateName(watchdogEventLastStateBeforeReset)));
+  NONULL(cJSON_AddNumberToObject(root, "lastUptimeBeforeResetMs",
+                                 (double)watchdogEventLastUptimeBeforeResetMs));
+
+  json = cJSON_PrintUnformatted(root);
+  NONULL(json);
+
+  strncpy(response, json, sizeof(response) - 1);
+  cJSON_free(json);
+  cJSON_Delete(root);
+
+  snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_EVENT, hardware().getMyHostname());
+  deb("MQTT: topic:%s publish watchdog reboot event: %s", topic, response);
+  if (!hal_mqtt_publish_str(topic, response, false)) {
+    deb("MQTT: watchdog event publish failed, state=%d", hal_mqtt_state());
+    return false;
+  }
+
+  return true;
+
+error:
+  if (json) {
+    cJSON_free(json);
+  }
+  if (root) {
+    cJSON_Delete(root);
+  }
+  snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_EVENT, hardware().getMyHostname());
+  if (!hal_mqtt_publish_str(topic, "{\"reason\":\"watchdog\",\"error\":\"json_build_failed\"}", false)) {
+    deb("MQTT: watchdog event fallback publish failed, state=%d", hal_mqtt_state());
+  }
+  return false;
+}
+
 bool MQTTClient::reconnect() {
   deb("MQTT: WiFi status: %d", hal_wifi_status());
 
@@ -270,6 +345,7 @@ bool MQTTClient::reconnect() {
 }
 
 void MQTTClient::handleMQTTClient() {
+  prepareWatchdogEventIfNeeded();
 
   if(ntp().isBrokerAvailable()) {
     if(clientInitialized) {
@@ -286,6 +362,13 @@ void MQTTClient::handleMQTTClient() {
         if(publishPending) {
           publishPending = false;
           publish();
+        }
+
+        if (watchdogEventPending && !watchdogEventPublished) {
+          if (publishWatchdogEvent()) {
+            watchdogEventPending = false;
+            watchdogEventPublished = true;
+          }
         }
       }
     }
