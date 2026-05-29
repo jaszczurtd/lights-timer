@@ -21,6 +21,7 @@ public:
   void onMqttSessionStop();
   void processPingHealthProbe();
   void publishPendingIfConnected(NTPMachine& ntp, MyHardware& hardware);
+  bool isBrokerAvailable() const { return brokerAvailable; }
 
 private:
   enum class DiagnosticEventType : uint8_t {

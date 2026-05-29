@@ -15,6 +15,7 @@ PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 SETTINGS_FILE="$PROJECT_DIR/.vscode/settings.json"
 CPP_PROPS_FILE="$PROJECT_DIR/.vscode/c_cpp_properties.json"
 BUILD_DIR="$PROJECT_DIR/.build"
+ENSURE_CORE_SCRIPT="$SCRIPT_DIR/ensure-core-version.sh"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -370,6 +371,13 @@ main() {
         exit 1
     fi
     info "FQBN: $fqbn"
+
+    if [[ ! -f "$ENSURE_CORE_SCRIPT" ]]; then
+        err "Missing core version helper: $ENSURE_CORE_SCRIPT"
+        exit 1
+    fi
+    info "Ensuring required core version..."
+    bash "$ENSURE_CORE_SCRIPT" --cli "$cli" --fqbn "$fqbn"
 
     sketch=$(find_sketch)
     info "Sketch: $sketch"

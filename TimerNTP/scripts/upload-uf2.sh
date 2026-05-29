@@ -9,6 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 SETTINGS_FILE="$PROJECT_DIR/.vscode/settings.json"
 BUILD_DIR="$PROJECT_DIR/.build"
+ENSURE_CORE_SCRIPT="$SCRIPT_DIR/ensure-core-version.sh"
 
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -34,6 +35,14 @@ print(s.get('$1', '${2:-}'))
 CLI=$(read_setting "arduino.cliPath" "arduino-cli")
 FQBN=$(read_setting "arduino.fqbn")
 SKETCHBOOK=$(read_setting "arduino.sketchbookPath")
+
+if [[ ! -f "$ENSURE_CORE_SCRIPT" ]]; then
+    err "Missing core version helper: $ENSURE_CORE_SCRIPT"
+    exit 1
+fi
+
+info "Ensuring required core version..."
+bash "$ENSURE_CORE_SCRIPT" --cli "$CLI" --fqbn "$FQBN"
 
 LIB_ARGS=""
 if [[ -n "$SKETCHBOOK" && -d "$SKETCHBOOK/libraries" ]]; then

@@ -264,6 +264,7 @@ bool MQTTClient::reconnect() {
 
       return true;
     }
+    hal_watchdog_feed();
     deb("MQTT: connect failed! state=%d", hal_mqtt_state());
 
   } else {
@@ -287,7 +288,13 @@ void MQTTClient::handleMQTTClient() {
     if(!hal_mqtt_connected()) {
       if (reconnectTimer.available()) {
         reconnectTimer.restart();
-        reconnect();
+        if (diagnostics.isBrokerAvailable()) {
+          hal_watchdog_feed();
+          reconnect();
+          hal_watchdog_feed();
+        } else {
+          deb("MQTT: reconnect delayed (broker unavailable by ping diagnostics)");
+        }
       }
     } else {
       hal_watchdog_feed();

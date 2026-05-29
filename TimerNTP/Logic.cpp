@@ -26,6 +26,7 @@ void Logic::logicLoop(void) {
 
   discover.handleDiscoveryRequests();
   hal_watchdog_feed();
+  hal_debug_loop();
   
   m_delay(CORE_OPERATION_DELAY);  
   hal_idle();
