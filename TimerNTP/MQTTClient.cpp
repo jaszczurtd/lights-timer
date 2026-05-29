@@ -4,6 +4,7 @@
 #include "NTPMachine.h"
 #include "MyHardware.h"
 #include <Credentials.h>
+#include <utils/cJSON.h>
 #include <cstring>
 #include <cstdio>
 
@@ -21,7 +22,7 @@ void halMqttCallback(const char *topic, const uint8_t *payload, uint16_t length,
 NTPMachine& MQTTClient::ntp() { return logic.ntpObj(); }
 MyHardware& MQTTClient::hardware() { return logic.hardwareObj(); }
 
-MQTTClient::MQTTClient(Logic& l) : logic(l) { }
+MQTTClient::MQTTClient(Logic& l) : logic(l), diagnostics(BuildDateTime) { }
 
 void MQTTClient::handleMessage(const char* topicArrived, const uint8_t* payload, uint16_t length) {
   if(!topicArrived) {
@@ -141,6 +142,7 @@ void MQTTClient::start(const char *brokerIP, const int port) {
 
   reconnectTimer.begin(nullptr, MQTT_RECONNECT_TIME);
   clientInitialized = true;
+  diagnostics.onMqttSessionStart();
   reconnect();
 }
 
@@ -148,6 +150,7 @@ void MQTTClient::stop() {
   if (!clientInitialized) {
     return;
   }
+  diagnostics.onMqttSessionStop();
   publishPending = false;
   clientInitialized = false;
   hal_mqtt_disconnect();
@@ -231,80 +234,6 @@ error:
   }
 }
 
-void MQTTClient::prepareWatchdogEventIfNeeded() {
-  if (watchdogEventPrepared) {
-    return;
-  }
-
-  watchdogEventPrepared = true;
-
-  if (!ntp().wasWatchdogResetOnBoot()) {
-    return;
-  }
-
-  watchdogEventPending = true;
-  watchdogEventBootCount = ntp().getWdtBootCount();
-  watchdogEventLastStateBeforeReset = ntp().getLastStateBeforeReset();
-  watchdogEventLastUptimeBeforeResetMs = ntp().getLastUptimeBeforeResetMs();
-
-  deb("MQTT: watchdog reboot event prepared (wdtBootCount=%lu, lastState=%d, lastUptime=%lu ms)",
-      (unsigned long)watchdogEventBootCount,
-      watchdogEventLastStateBeforeReset,
-      (unsigned long)watchdogEventLastUptimeBeforeResetMs);
-}
-
-bool MQTTClient::publishWatchdogEvent() {
-  cJSON *root = nullptr;
-  char *json = nullptr;
-
-  memset(response, 0, sizeof(response));
-  root = cJSON_CreateObject();
-  NONULL(root);
-
-  NONULL(cJSON_AddStringToObject(root, "reason", "watchdog"));
-  NONULL(cJSON_AddStringToObject(root, "build", BuildDateTime));
-  NONULL(cJSON_AddStringToObject(root, "hostname", hardware().getMyHostname()));
-  NONULL(cJSON_AddStringToObject(root, "mac", hardware().getMyMAC()));
-  NONULL(cJSON_AddNumberToObject(root, "bootMillis", (double)hal_millis()));
-  NONULL(cJSON_AddNumberToObject(root, "watchdogTimeoutMs", WATCHDOG_TIME));
-  NONULL(cJSON_AddNumberToObject(root, "freeHeap", (double)hal_get_free_heap()));
-  NONULL(cJSON_AddNumberToObject(root, "wdtBootCount", (double)watchdogEventBootCount));
-  NONULL(cJSON_AddNumberToObject(root, "lastStateBeforeReset", watchdogEventLastStateBeforeReset));
-  NONULL(cJSON_AddStringToObject(root, "lastStateBeforeResetName",
-                                 ntp().getStateName(watchdogEventLastStateBeforeReset)));
-  NONULL(cJSON_AddNumberToObject(root, "lastUptimeBeforeResetMs",
-                                 (double)watchdogEventLastUptimeBeforeResetMs));
-
-  json = cJSON_PrintUnformatted(root);
-  NONULL(json);
-
-  strncpy(response, json, sizeof(response) - 1);
-  cJSON_free(json);
-  cJSON_Delete(root);
-
-  snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_EVENT, hardware().getMyHostname());
-  deb("MQTT: topic:%s publish watchdog reboot event: %s", topic, response);
-  if (!hal_mqtt_publish_str(topic, response, false)) {
-    deb("MQTT: watchdog event publish failed, state=%d", hal_mqtt_state());
-    return false;
-  }
-
-  return true;
-
-error:
-  if (json) {
-    cJSON_free(json);
-  }
-  if (root) {
-    cJSON_Delete(root);
-  }
-  snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_EVENT, hardware().getMyHostname());
-  if (!hal_mqtt_publish_str(topic, "{\"reason\":\"watchdog\",\"error\":\"json_build_failed\"}", false)) {
-    deb("MQTT: watchdog event fallback publish failed, state=%d", hal_mqtt_state());
-  }
-  return false;
-}
-
 bool MQTTClient::reconnect() {
   deb("MQTT: WiFi status: %d", hal_wifi_status());
 
@@ -344,33 +273,33 @@ bool MQTTClient::reconnect() {
   return false;
 }
 
+void MQTTClient::handleDiagnosticsPingHealth() {
+  if (!clientInitialized) {
+    return;
+  }
+  diagnostics.processPingHealthProbe();
+}
+
 void MQTTClient::handleMQTTClient() {
-  prepareWatchdogEventIfNeeded();
+  diagnostics.prepareWatchdogEventIfNeeded(ntp());
 
-  if(ntp().isBrokerAvailable()) {
-    if(clientInitialized) {
-      if(!hal_mqtt_connected()) {
-        if (reconnectTimer.available()) {
-          reconnectTimer.restart();
-          reconnect();
-        }
-      } else {
-        hal_watchdog_feed();
-        hal_mqtt_loop();
-        hal_watchdog_feed();
-
-        if(publishPending) {
-          publishPending = false;
-          publish();
-        }
-
-        if (watchdogEventPending && !watchdogEventPublished) {
-          if (publishWatchdogEvent()) {
-            watchdogEventPending = false;
-            watchdogEventPublished = true;
-          }
-        }
+  if(clientInitialized) {
+    if(!hal_mqtt_connected()) {
+      if (reconnectTimer.available()) {
+        reconnectTimer.restart();
+        reconnect();
       }
+    } else {
+      hal_watchdog_feed();
+      hal_mqtt_loop();
+      hal_watchdog_feed();
+
+      if(publishPending) {
+        publishPending = false;
+        publish();
+      }
+
+      diagnostics.publishPendingIfConnected(ntp(), hardware());
     }
   }
 }

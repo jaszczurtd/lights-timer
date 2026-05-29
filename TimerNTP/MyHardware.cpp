@@ -120,16 +120,16 @@ const char*MyHardware::getAmountOfSwitches(void) {
 void MyHardware::updateBuildInLed(void) {
   static int prevState = -1;
 
-  if (ntp().getCurrentState() != prevState) {
+  if (ntp().getNTPState() != prevState) {
     blinkTimer.restart();
     hal_gpio_write(LED_BUILTIN, false);
-    prevState = ntp().getCurrentState();
+    prevState = ntp().getNTPState();
   }
 
-  switch(ntp().getCurrentState()) {
+  switch(ntp().getNTPState()) {
     case STATE_CONNECTING:
     case STATE_NTP_SYNCHRO: {
-      unsigned long interval = (ntp().getCurrentState() == STATE_CONNECTING) ? 100 : 300;
+      unsigned long interval = (ntp().getNTPState() == STATE_CONNECTING) ? 100 : 300;
       blinkTimer.time(interval);
       if (blinkTimer.available()) {
         blinkTimer.restart();

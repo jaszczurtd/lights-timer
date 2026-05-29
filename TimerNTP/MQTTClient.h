@@ -4,13 +4,12 @@
 #pragma once
 
 #include "Config.h"
+#include "MQTTDiagnostics.h"
 
 #include <time.h>
 #include <tools.h>
 #include <string.h>
 #include <stdint.h>
-
-#include <utils/cJSON.h>
 
 class NTPMachine;
 class MyHardware;
@@ -23,6 +22,7 @@ public:
   void start(const char *brokerIP, const int port);
   void stop(); 
   void handleMQTTClient();
+  void handleDiagnosticsPingHealth();
   void publish();
   void requestPublish() { publishPending = true; }
   void handleMessage(const char* topic, const uint8_t* payload, uint16_t length);
@@ -37,19 +37,11 @@ private:
   bool clientInitialized = false;
   bool publishPending = false;
 
-  char msg[512];
-  char topic[128];
-  char response[512];
+  char msg[MQTT_MAX_BUFFER_LENGTH];
+  char topic[MQTT_MAX_TOPIC_LENGTH];
+  char response[MQTT_MAX_BUFFER_LENGTH];
 
-  void prepareWatchdogEventIfNeeded();
-  bool publishWatchdogEvent();
-
-  bool watchdogEventPrepared = false;
-  bool watchdogEventPending = false;
-  bool watchdogEventPublished = false;
-  uint32_t watchdogEventBootCount = 0;
-  int watchdogEventLastStateBeforeReset = -1;
-  uint32_t watchdogEventLastUptimeBeforeResetMs = 0;
+  MQTTDiagnostics diagnostics;
 
   bool reconnect();
 };

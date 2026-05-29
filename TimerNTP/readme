@@ -6,7 +6,7 @@ mosquitto_sub -h localhost -u piuser -P Password -t status-pico-08dde4 -v
 
 MQTT watchdog reboot diagnostics:
 - Firmware publishes a diagnostic message after a hard reboot caused by watchdog.
-- Topic: `event-<hostname>` (for example `event-pico-08dde4`).
+- Current firmware topic format: `diagnostics/<hostname>/watchdog` (for example `diagnostics/pico-08dde4/watchdog`).
 - The message is sent only once per boot, and only if the reboot was watchdog-related.
 - Publish uses `retain=false` (the message is not retained by the broker).
 
@@ -22,14 +22,16 @@ Example JSON fields:
 - `lastStateBeforeReset`
 - `lastStateBeforeResetName`
 - `lastUptimeBeforeResetMs`
+- `lastPhaseBeforeReset`
+- `phaseAtPublish`
 
 Reading on Raspberry Pi (local broker):
 1. Subscribe to all event messages:
-   mosquitto_sub -h localhost -u piuser -P Password -t 'event-+' -v
+   mosquitto_sub -h localhost -u piuser -P Password -t 'diagnostics/+/#' -v
 2. Subscribe to a single device:
-   mosquitto_sub -h localhost -u piuser -P Password -t event-pico-08dde4 -v
+   mosquitto_sub -h localhost -u piuser -P Password -t 'diagnostics/pico-08dde4/#' -v
 3. Version with JSON preview:
-   mosquitto_sub -h localhost -u piuser -P Password -t 'event-+' | jq .
+   mosquitto_sub -h localhost -u piuser -P Password -t 'diagnostics/+/#' | jq .
 
 Note:
-- If the device did not reboot due to watchdog, no `event-...` message is sent.
+- If the device did not reboot due to watchdog, no `diagnostics/...` message is sent.

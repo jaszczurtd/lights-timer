@@ -1,6 +1,7 @@
 **/.build/
 *.salive
 detection.exe
+TimerNTP/loooog2.txt
 RaspberryPi/sip/sip_receiver
 RaspberryPi/sip/build/*
 materials/~*
@@ -8,4 +9,5 @@ materials/~*
 Android/.idea/*
 RaspberryPi/aqua_topic_provider/provider
 Android/app/src/main/res/raw/ca.crt
+.codex
 

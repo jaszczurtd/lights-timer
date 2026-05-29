@@ -5,71 +5,36 @@
 #include "MyHardware.h"
 #include "MQTTClient.h"
 
-namespace {
-NOINIT int g_lastStateBeforeReset = STATE_NOT_CONNECTED;
-NOINIT uint32_t g_lastUptimeBeforeResetMs = 0;
-
-const char* stateNameForTelemetry(int state) {
-  switch (state) {
-    case STATE_NOT_CONNECTED:
-      return "not_connected";
-    case STATE_CONNECTING:
-      return "connecting";
-    case STATE_NTP_SYNCHRO:
-      return "ntp_synchro";
-    case STATE_WIREGUARD_CONNECT:
-      return "wireguard_connect";
-    case STATE_WIREGUARD_CONNECTED:
-      return "wireguard_connected";
-    case STATE_CONNECTED:
-      return "connected";
-    default:
-      return "unknown";
-  }
-}
-}
-
 MyHardware& NTPMachine::hardware() { return logic.hardwareObj(); }
 MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
 
 void NTPMachine::start() {
-  currentState = STATE_NOT_CONNECTED;
-  watchdogResetOnBoot = hal_watchdog_caused_reboot();
-  lastStateBeforeReset = -1;
-  lastUptimeBeforeResetMs = 0;
-  wdtBootCount = 0;
-
-  if (watchdogResetOnBoot) {
-    lastStateBeforeReset = g_lastStateBeforeReset;
-    lastUptimeBeforeResetMs = g_lastUptimeBeforeResetMs;
-    deb("Watchdog reboot detected. Last state=%d (%s), uptime=%lu ms",
-        lastStateBeforeReset,
-        stateNameForTelemetry(lastStateBeforeReset),
-        (unsigned long)lastUptimeBeforeResetMs);
-  } else {
-    deb("Clean boot (watchdog did not cause reboot)");
-  }
-
-  g_lastStateBeforeReset = STATE_NOT_CONNECTED;
-  g_lastUptimeBeforeResetMs = 0;
-  saveResetBreadcrumb();
+  watchdog.start(STATE_NOT_CONNECTED, stateNameForTelemetry);
+  setNTPState(STATE_NOT_CONNECTED);
 
   hardware().start();
-  wdtBootCount = hardware().markWatchdogBootAndGetCount(watchdogResetOnBoot);
+  watchdog.setBootCount(hardware().markWatchdogBootAndGetCount(watchdog.wasResetOnBoot()));
 
   long s = 0, e = 0;
   hardware().loadStartEnd(&s, &e);
   hardware().loadSwitches();
   hardware().extractTime(s, e);
-  hardware().applyRelays(false);
+  // Keep cold-boot fail-safe, but after watchdog reboot restore relays from
+  // persisted switch state to avoid unexpected OFF transition.
+  hardware().applyRelays(watchdog.wasResetOnBoot());
   hardware().restartWiFi();
 
   evaluateRelayTimer.begin(nullptr, EVALUATE_TIME_FOR_RELAY_MS);
   loopLogTimer.begin(nullptr, PRINT_INTERVAL_MS);
 }
 
-int NTPMachine::getCurrentState(void) {
+int NTPMachine::getNTPState(void) {
   return currentState;
+}
+
+void NTPMachine::setNTPState(NTPState state) {
+  currentState = state;
+  watchdog.saveNTPState(currentState);
 }
 
 const char *NTPMachine::getTimeFormatted(void) {
@@ -77,19 +42,20 @@ const char *NTPMachine::getTimeFormatted(void) {
 }
 
 void NTPMachine::reconnect(void) {
-  hal_watchdog_feed();
+  setWatchdogPhase(WatchdogPhase::ReconnectBegin);
   if (wgStarted) {
+    setWatchdogPhase(WatchdogPhase::ReconnectWireguardEnd);
     hal_wireguard_end();
     wgStarted = false;
   }
   hal_watchdog_feed();
+  setWatchdogPhase(WatchdogPhase::ReconnectMqttStop);
   mqtt().stop();
   hal_watchdog_feed();
+  setWatchdogPhase(WatchdogPhase::ReconnectWifiRestart);
   hardware().restartWiFi();
-  failedPingsCNT = 0;
-  isBAvailable = false;
-  currentState = STATE_NOT_CONNECTED;
-  saveResetBreadcrumb();
+  setNTPState(STATE_NOT_CONNECTED);
+  setWatchdogPhase(WatchdogPhase::StateNotConnected);
   hardware().wakeDisplayForEvent();
   hardware().drawCenteredText("NO CONNECTION");
 }
@@ -97,10 +63,10 @@ void NTPMachine::reconnect(void) {
 void NTPMachine::stateMachine(void) {
 
   hal_watchdog_feed();
-  saveResetBreadcrumb();
 
-  switch(currentState) {
+  switch(getNTPState()) {
     case STATE_NOT_CONNECTED: {
+      setWatchdogPhase(WatchdogPhase::StateNotConnected);
       deb("Not connected to WiFi. Trying to reconnect to %s...", WIFI_SSID);
 
       memset(buffer, 0, sizeof(buffer));
@@ -109,11 +75,12 @@ void NTPMachine::stateMachine(void) {
       wifiTimeoutTimer.begin(nullptr, WIFI_TIMEOUT_MS);
       connectingPollTimer.begin(nullptr, 200);
 
-      currentState = STATE_CONNECTING;
+      setNTPState(STATE_CONNECTING);
     }
     break;
 
     case STATE_CONNECTING: {
+      setWatchdogPhase(WatchdogPhase::StateConnecting);
 
       if (wifiTimeoutTimer.available()) {
         deb("\n%s: WiFi connection timeout!", WIFI_SSID);
@@ -132,34 +99,34 @@ void NTPMachine::stateMachine(void) {
           }
 
           deb("Connected to WiFi %s. Local IP address: %s", WIFI_SSID, hardware().getMyIP());
-          deb("ping target: %s", MQTT_BROKER);
+          deb("ping target: %s", MQTT_BROKER_WIREGUARD);
           deb("DNS IP:%s", dns_ip);
 
           hal_watchdog_feed();
           hardware().drawCenteredText("CONNECTED");
 
+          setWatchdogPhase(WatchdogPhase::NtpSyncStart);
           hal_time_set_timezone("CET-1CEST,M3.5.0/2,M10.5.0/3");
           hal_time_sync_ntp(ntpServer0, nullptr);
 
           ntpTimeoutTimer.begin(nullptr, NTP_TIMEOUT_MS);
-          currentState = STATE_NTP_SYNCHRO;
+          setNTPState(STATE_NTP_SYNCHRO);
         }
       }
     }
     break;
 
     case STATE_NTP_SYNCHRO: {
+      setWatchdogPhase(WatchdogPhase::StateNtpSynchro);
       if (hal_wifi_is_connected()) {
         hardware().drawCenteredText("NTP SYNCHRO");
 
         if (hal_time_is_synced(24UL * 3600UL * 2UL)) {
           ntpTimeoutTimer.abort();
-          currentState = STATE_WIREGUARD_CONNECT;
+          setNTPState(STATE_WIREGUARD_CONNECT);
           localTimeHasBeenSet = true;
 
-          deb("Starting WireGuard...");
-
-          hal_watchdog_feed();
+          setWatchdogPhase(WatchdogPhase::WireguardBegin);
 
           if (!hal_wireguard_begin_advanced_text(
               getWireguardLocalIP(hardware().getMyMAC()),
@@ -193,12 +160,15 @@ void NTPMachine::stateMachine(void) {
     break;
 
     case STATE_WIREGUARD_CONNECT: {
+      setWatchdogPhase(WatchdogPhase::StateWireguardConnect);
       if (hal_wifi_is_connected()) {
 
         if (wgHandshakeTimer.available()) {
           wgHandshakeTimer.restart();
           hal_watchdog_feed();
+          setWatchdogPhase(WatchdogPhase::WireguardPeerUpCheck);
           if (!hal_wireguard_peer_up_quick()) {
+            setWatchdogPhase(WatchdogPhase::WireguardHandshakeKick);
             if (!hal_wireguard_kick_handshake_text(getWireguardLocalIP(hardware().getMyMAC()), 9, 0)) {
               deb("WG handshake kick failed.");
             } else {
@@ -208,7 +178,7 @@ void NTPMachine::stateMachine(void) {
             break;
           }
           hal_watchdog_feed();
-          currentState = STATE_WIREGUARD_CONNECTED;
+          setNTPState(STATE_WIREGUARD_CONNECTED);
         }
       } else {
         reconnect();
@@ -217,17 +187,17 @@ void NTPMachine::stateMachine(void) {
     break;
 
     case STATE_WIREGUARD_CONNECTED: {
+      setWatchdogPhase(WatchdogPhase::StateWireguardConnected);
       if (hal_wifi_is_connected()) {
-        currentState = STATE_CONNECTED;
+        setNTPState(STATE_CONNECTED);
 
-        hal_watchdog_feed();
+        setWatchdogPhase(WatchdogPhase::MqttStart);
         mqtt().start(MQTT_BROKER_WIREGUARD, MQTT_BROKER_PORT);
         hal_watchdog_feed();
         hardware().clearDisplay();
         hal_watchdog_feed();
 
         ntpReSyncTimer.begin(nullptr, (unsigned long)HOURS_SYNC_INTERVAL * 3600 * 1000UL);
-        pingTimer.begin(nullptr, NEXT_PING_TIME);
 
         deb("build datetime: %s", BuildDateTime);
         break;
@@ -239,6 +209,7 @@ void NTPMachine::stateMachine(void) {
     break;
 
     case STATE_CONNECTED: {
+      setWatchdogPhase(WatchdogPhase::StateConnected);
       if (hal_wifi_is_connected()) {
 
         if (ntpReSyncTimer.available()) {
@@ -246,33 +217,12 @@ void NTPMachine::stateMachine(void) {
           hal_time_sync_ntp(ntpServer0, nullptr);
         }
 
-        if (pingTimer.available()) {
-          pingTimer.restart();
+        setWatchdogPhase(WatchdogPhase::ConnectedPing);
+        mqtt().handleDiagnosticsPingHealth();
 
-          hal_watchdog_feed();
-          unsigned long t_ping = hal_millis();
-          int res1 = hal_wifi_ping_ex(MQTT_BROKER, PING_TIMEOUT_MS);
-          dt1 = hal_millis() - t_ping;
-          hal_watchdog_feed();
-
-          isBAvailable = res1 >= 0;
-          if(isBAvailable) {
-            if(failedPingsCNT > 0) {
-              failedPingsCNT--;
-            }
-          } else {
-            if(++failedPingsCNT > MAX_FAILED_PINGS) {
-              reconnect();
-            }
-          }
-
-          deb("ping test:%ldms isBrokerAvailable:%s failed pings:%d",
-              lastBrokerRespoinsePingTime(), (isBrokerAvailable()) ? "true" : "false",
-              failedPingsCNT);
-        }
-
+        setWatchdogPhase(WatchdogPhase::ConnectedMqttHandle);
         mqtt().handleMQTTClient();
-        hal_watchdog_feed();
+        setWatchdogPhase(WatchdogPhase::ConnectedDisplayUpdate);
         hardware().updateDisplayInNormalOperationMode();
 
       } else {
@@ -282,9 +232,11 @@ void NTPMachine::stateMachine(void) {
     break;
   }
 
+  setWatchdogPhase(WatchdogPhase::HardwareLoop);
   hardware().hardwareLoop();
   hardware().updateBuildInLed();
   if (hal_wifi_is_connected()) {
+    setWatchdogPhase(WatchdogPhase::OtaLoop);
     hardware().handleOTAUpdates();
     hal_watchdog_feed();
   }
@@ -292,6 +244,7 @@ void NTPMachine::stateMachine(void) {
   if (evaluateRelayTimer.available()) {
     evaluateRelayTimer.restart();
     if(localTimeHasBeenSet) {
+      setWatchdogPhase(WatchdogPhase::EvaluateTimeCondition);
       evaluateTimeCondition();
     }
   }
@@ -310,7 +263,6 @@ void NTPMachine::stateMachine(void) {
     }
   }
 
-  saveResetBreadcrumb();
 }
 
 void NTPMachine::evaluateTimeCondition() {
@@ -334,35 +286,38 @@ long NTPMachine::getTimeNow(void) {
   return now_time;
 }
 
-bool NTPMachine::isBrokerAvailable(void) {
-  return isBAvailable;
+NTPMachine::WatchdogTelemetry NTPMachine::getWatchdogTelemetry() const {
+  WatchdogTelemetry telemetry = {};
+  telemetry.watchdogResetOnBoot = watchdog.wasResetOnBoot();
+  telemetry.lastStateBeforeReset = watchdog.getLastStateBeforeReset();
+  telemetry.lastUptimeBeforeResetMs = watchdog.getLastUptimeBeforeResetMs();
+  telemetry.wdtBootCount = watchdog.getBootCount();
+  telemetry.currentPhase = watchdog.getCurrentPhase();
+  telemetry.lastPhaseBeforeReset = watchdog.getLastPhaseBeforeReset();
+  telemetry.lastPhaseBeforeResetRaw = watchdog.getLastPhaseBeforeResetRaw();
+  return telemetry;
 }
 
-unsigned long NTPMachine::lastBrokerRespoinsePingTime(void) {
-  return dt1;
+void NTPMachine::setWatchdogPhase(WatchdogPhase phase) {
+  hal_watchdog_feed();
+  watchdog.setPhase(phase, currentState);
 }
 
-bool NTPMachine::wasWatchdogResetOnBoot() const {
-  return watchdogResetOnBoot;
-}
-
-int NTPMachine::getLastStateBeforeReset() const {
-  return lastStateBeforeReset;
-}
-
-uint32_t NTPMachine::getLastUptimeBeforeResetMs() const {
-  return lastUptimeBeforeResetMs;
-}
-
-uint32_t NTPMachine::getWdtBootCount() const {
-  return wdtBootCount;
-}
-
-const char* NTPMachine::getStateName(int state) const {
-  return stateNameForTelemetry(state);
-}
-
-void NTPMachine::saveResetBreadcrumb(void) {
-  g_lastStateBeforeReset = currentState;
-  g_lastUptimeBeforeResetMs = hal_millis();
+const char* NTPMachine::stateNameForTelemetry(int state) {
+  switch (state) {
+    case STATE_NOT_CONNECTED:
+      return "not_connected";
+    case STATE_CONNECTING:
+      return "connecting";
+    case STATE_NTP_SYNCHRO:
+      return "ntp_synchro";
+    case STATE_WIREGUARD_CONNECT:
+      return "wireguard_connect";
+    case STATE_WIREGUARD_CONNECTED:
+      return "wireguard_connected";
+    case STATE_CONNECTED:
+      return "connected";
+    default:
+      return "unknown";
+  }
 }

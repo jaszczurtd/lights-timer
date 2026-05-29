@@ -4,6 +4,7 @@
 #pragma once
 
 #include "Config.h"
+#include "watchdog.h"
 
 #include <hal/hal.h>
 #include <time.h>
@@ -16,7 +17,7 @@
 #include "MyHardware.h"
 
 #define NTP_BUFFER 128
-enum {
+enum NTPState {
   STATE_NOT_CONNECTED = 0, 
   STATE_CONNECTING, 
   STATE_NTP_SYNCHRO, 
@@ -33,20 +34,24 @@ class Logic;
 
 class NTPMachine {
 public:
+  struct WatchdogTelemetry {
+    bool watchdogResetOnBoot = false;
+    int lastStateBeforeReset = -1;
+    uint32_t lastUptimeBeforeResetMs = 0;
+    uint32_t wdtBootCount = 0;
+    WatchdogPhase currentPhase = WatchdogPhase::Unknown;
+    WatchdogPhase lastPhaseBeforeReset = WatchdogPhase::Unknown;
+    uint8_t lastPhaseBeforeResetRaw = static_cast<uint8_t>(WatchdogPhase::Unknown);
+  };
+
   explicit NTPMachine(Logic& l) : logic(l) {}
   void start();
-  int getCurrentState(void);
+  int getNTPState(void);
   void stateMachine(void);
   const char *getTimeFormatted(void);
   long getTimeNow(void);
   void evaluateTimeCondition();
-  bool isBrokerAvailable(void);
-  unsigned long lastBrokerRespoinsePingTime(void);
-  bool wasWatchdogResetOnBoot() const;
-  int getLastStateBeforeReset() const;
-  uint32_t getLastUptimeBeforeResetMs() const;
-  uint32_t getWdtBootCount() const;
-  const char* getStateName(int state) const;
+  WatchdogTelemetry getWatchdogTelemetry() const;
 
 private:
   Logic& logic;
@@ -55,27 +60,21 @@ private:
   MQTTClient& mqtt();
 
   void reconnect(void);
-  void saveResetBreadcrumb(void);
+  void setNTPState(NTPState state);
+  void setWatchdogPhase(WatchdogPhase phase);
+  static const char* stateNameForTelemetry(int state);
 
-  int currentState;
+  NTPState currentState = STATE_NOT_CONNECTED;
   char buffer[NTP_BUFFER];
   long now_time;
   bool localTimeHasBeenSet = false;
   bool wgStarted = false;
-  bool watchdogResetOnBoot = false;
-  int lastStateBeforeReset = -1;
-  uint32_t lastUptimeBeforeResetMs = 0;
-  uint32_t wdtBootCount = 0;
-
-  bool isBAvailable = false;
-  unsigned long dt1 = 0;
-  int failedPingsCNT = 0;
+  Watchdog watchdog;
 
   SmartTimers wifiTimeoutTimer;
   SmartTimers connectingPollTimer;
   SmartTimers ntpTimeoutTimer;
   SmartTimers wgHandshakeTimer;
-  SmartTimers pingTimer;
   SmartTimers ntpReSyncTimer;
   SmartTimers evaluateRelayTimer;
   SmartTimers loopLogTimer;
