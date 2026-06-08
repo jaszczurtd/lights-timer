@@ -12,6 +12,18 @@ void NTPMachine::start() {
   watchdog.start(STATE_NOT_CONNECTED, stateNameForTelemetry);
   setNTPState(STATE_NOT_CONNECTED);
 
+#if ENABLE_STACK_GUARD
+  stackGuardArmed = hal_stack_guard_init();
+  if (stackGuardArmed) {
+    deb("Stack guard initialized");
+  } else {
+    deb("Stack guard unavailable on this target");
+  }
+#else
+  stackGuardArmed = false;
+  deb("Stack guard disabled by config");
+#endif
+
   hardware().start();
   watchdog.setBootCount(hardware().markWatchdogBootAndGetCount(watchdog.wasResetOnBoot()));
 
@@ -295,6 +307,10 @@ NTPMachine::WatchdogTelemetry NTPMachine::getWatchdogTelemetry() const {
   telemetry.currentPhase = watchdog.getCurrentPhase();
   telemetry.lastPhaseBeforeReset = watchdog.getLastPhaseBeforeReset();
   telemetry.lastPhaseBeforeResetRaw = watchdog.getLastPhaseBeforeResetRaw();
+  telemetry.resetReason = hal_get_reset_reason();
+  telemetry.brownoutSuspected = hal_last_boot_was_brownout();
+  telemetry.lastFaultValid = hal_get_last_fault(&telemetry.lastFault);
+  telemetry.stackGuardArmed = stackGuardArmed;
   return telemetry;
 }
 

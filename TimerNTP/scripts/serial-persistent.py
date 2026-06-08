@@ -213,7 +213,31 @@ def _clear_hupcl(fd: int) -> None:
         pass
 
 
-def open_serial(port, baud):
+def kill_existing_monitors(port):
+    """Kill other serial-persistent.py processes that have this port open."""
+    try:
+        output = os.popen(f"lsof {port} 2>/dev/null").read()
+        for line in output.split('\n'):
+            if 'serial-persistent.py' in line or 'python3' in line:
+                parts = line.split()
+                if len(parts) >= 2:
+                    try:
+                        pid = int(parts[1])
+                        if pid != os.getpid():
+                            os.kill(pid, signal.SIGTERM)
+                            print(f"{YELLOW}Killed existing process PID {pid} on {port}{NC}")
+                            time.sleep(0.5)
+                    except (ValueError, ProcessLookupError):
+                        pass
+    except Exception:
+        pass
+
+
+def open_serial(port, baud, replace_existing=False):
+    if replace_existing:
+        kill_existing_monitors(port)
+        time.sleep(0.3)
+
     ser = serial.Serial()
     ser.port         = port
     ser.baudrate     = baud
@@ -251,9 +275,9 @@ def open_serial(port, baud):
     return ser
 
 
-def monitor(port, baud):
+def monitor(port, baud, replace_existing=False):
     try:
-        ser = open_serial(port, baud)
+        ser = open_serial(port, baud, replace_existing)
     except serial.SerialException as e:
         print(f"{RED}Cannot open {port}: {e}{NC}")
         return "error"
@@ -318,6 +342,11 @@ def parse_args():
         default="pico",
         help="Autodetection mode (default: pico)",
     )
+    parser.add_argument(
+        "--replace-existing",
+        action="store_true",
+        help="Kill existing serial-persistent.py processes on the same port before connecting",
+    )
     return parser.parse_args()
 
 
@@ -332,6 +361,8 @@ def main():
     print(f"  Baud:   {GREEN}{args.baud}{NC}")
     print(f"  Mode:   {GREEN}{args.mode}{NC}")
     print(f"  Port:   {GREEN}{preferred if preferred else 'auto'}{NC}")
+    if args.replace_existing:
+        print(f"  Replace: {GREEN}Yes (will kill existing monitors){NC}")
     print(f"  {YELLOW}Ctrl+C{NC} to stop")
     print()
 
@@ -341,7 +372,7 @@ def main():
         if not port:
             port = wait_for_device(args.mode, preferred)
 
-        result = monitor(port, args.baud)
+        result = monitor(port, args.baud, args.replace_existing)
 
         if result == "quit":
             print(f"\n{CYAN}Done.{NC}")

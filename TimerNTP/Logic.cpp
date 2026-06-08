@@ -3,6 +3,10 @@
 #include "Logic.h"
 
 void Logic::logicSetup(void) {
+#if ENABLE_FAULT_DIAGNOSTICS
+  // Initialize retained fault/reset diagnostics before touching watchdog.
+  hal_fault_subsystem_init();
+#endif
   hal_watchdog_enable(WATCHDOG_TIME, false);
 
   ntp.start();
@@ -20,6 +24,15 @@ void Logic::logicLoop(void) {
   if(!initialized) {
     return;
   }
+
+#if ENABLE_FAULT_DIAGNOSTICS
+  // Keep brown-out heuristic marker fresh after early boot is complete.
+  hal_alive_mark();
+#endif
+#if ENABLE_STACK_GUARD
+  // Soft guard: triggers controlled reboot with stack-overflow reset reason.
+  hal_stack_guard_check();
+#endif
 
   ntp.stateMachine();
   hal_watchdog_feed();
