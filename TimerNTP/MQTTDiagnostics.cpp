@@ -18,6 +18,40 @@ void buildDiagnosticTopic(char* out, size_t outSize, const char* hostName, const
 
   snprintf(out, outSize, "%s/%s/%s", MQTT_TOPIC_DIAGNOSTICS, hostName, eventName);
 }
+
+bool addDiagnosticTemperatures(cJSON* root, MyHardware& hardware) {
+  if (!root) {
+    return false;
+  }
+
+  float ds18b20TemperatureC = 0.0f;
+  const bool ds18b20TemperatureAvailable = hardware.getDs18b20TemperatureC(&ds18b20TemperatureC);
+  if (!cJSON_AddBoolToObject(root, D_DS18B20_TEMPERATURE_AVAILABLE, ds18b20TemperatureAvailable)) {
+    return false;
+  }
+  if (ds18b20TemperatureAvailable) {
+    if (!cJSON_AddNumberToObject(root, D_DS18B20_TEMPERATURE_C, (double)ds18b20TemperatureC)) {
+      return false;
+    }
+  } else {
+    if (!cJSON_AddNullToObject(root, D_DS18B20_TEMPERATURE_C)) {
+      return false;
+    }
+  }
+
+  if (!cJSON_AddNumberToObject(root, D_RP2040_TEMPERATURE_C, (double)hal_read_chip_temp())) {
+    return false;
+  }
+
+  char strength[10];
+
+  snprintf(strength, sizeof(strength), "5/%d", hal_wifi_get_strength());
+  if (!cJSON_AddStringToObject(root, D_WIFI_STRENGTH, strength)) {
+    return false;
+  }
+
+  return true;
+}
 } // namespace
 
 MQTTDiagnostics::MQTTDiagnostics(const char* buildDateTimeArg)
@@ -71,6 +105,42 @@ const char* MQTTDiagnostics::ntpStateToString(int state) {
     default:
       return "unknown";
   }
+}
+
+const char* MQTTDiagnostics::resetReasonToString(hal_reset_reason_t reason) {
+  const char* name = hal_reset_reason_str(reason);
+  if (!name || name[0] == '\0') {
+    return "UNKNOWN";
+  }
+  return name;
+}
+
+void MQTTDiagnostics::prepareBootCauseEventIfNeeded(NTPMachine& ntp) {
+  if (bootCauseEventPrepared) {
+    return;
+  }
+
+  bootCauseEventPrepared = true;
+
+  const NTPMachine::WatchdogTelemetry telemetry = ntp.getWatchdogTelemetry();
+
+  DiagnosticEvent event = {};
+  event.type = DiagnosticEventType::BootCause;
+  event.bootCause.resetReason = telemetry.resetReason;
+  event.bootCause.brownoutSuspected = telemetry.brownoutSuspected;
+  event.bootCause.watchdogResetOnBoot = telemetry.watchdogResetOnBoot;
+  event.bootCause.wdtBootCount = telemetry.wdtBootCount;
+  event.bootCause.lastFaultValid = telemetry.lastFaultValid;
+  event.bootCause.lastFault = telemetry.lastFault;
+  event.bootCause.stackGuardArmed = telemetry.stackGuardArmed;
+  event.bootCause.bootMillis = hal_millis();
+  enqueueEvent(event);
+
+  deb("MQTT diagnostics: boot cause event queued (reason=%s, watchdog=%s, brownout=%s, fault=%s)",
+      resetReasonToString(event.bootCause.resetReason),
+      event.bootCause.watchdogResetOnBoot ? "true" : "false",
+      event.bootCause.brownoutSuspected ? "true" : "false",
+      event.bootCause.lastFaultValid ? "true" : "false");
 }
 
 void MQTTDiagnostics::enqueueEvent(const DiagnosticEvent& event) {
@@ -260,27 +330,30 @@ bool MQTTDiagnostics::publishWatchdogEvent(const DiagnosticEvent& event,
   root = cJSON_CreateObject();
   NONULL(root);
 
-  NONULL(cJSON_AddStringToObject(root, "reason", "watchdog"));
-  NONULL(cJSON_AddStringToObject(root, "build", buildDateTime));
-  NONULL(cJSON_AddStringToObject(root, "hostname", hardware.getMyHostname()));
-  NONULL(cJSON_AddStringToObject(root, "mac", hardware.getMyMAC()));
-  NONULL(cJSON_AddNumberToObject(root, "bootMillis", (double)hal_millis()));
-  NONULL(cJSON_AddNumberToObject(root, "watchdogTimeoutMs", WATCHDOG_TIME));
-  NONULL(cJSON_AddNumberToObject(root, "freeHeap", (double)hal_get_free_heap()));
-  NONULL(cJSON_AddNumberToObject(root, "wdtBootCount", (double)event.watchdog.wdtBootCount));
-  NONULL(cJSON_AddNumberToObject(root, "lastStateBeforeReset", event.watchdog.lastStateBeforeReset));
-  NONULL(cJSON_AddBoolToObject(root, "lastStateBeforeResetKnown", lastStateKnown));
-  NONULL(cJSON_AddStringToObject(root, "lastStateBeforeResetName", lastStateName));
-  NONULL(cJSON_AddNumberToObject(root, "lastUptimeBeforeResetMs",
+  NONULL(cJSON_AddStringToObject(root, D_REASON, D_REASON_WATCHDOG));
+  NONULL(cJSON_AddStringToObject(root, D_BUILD, buildDateTime));
+  NONULL(cJSON_AddStringToObject(root, D_HOSTNAME, hardware.getMyHostname()));
+  NONULL(cJSON_AddStringToObject(root, D_MAC, hardware.getMyMAC()));
+  NONULL(cJSON_AddNumberToObject(root, D_BOOT_MILLIS, (double)hal_millis()));
+  NONULL(cJSON_AddNumberToObject(root, D_WATCHDOG_TIMEOUT_MS, WATCHDOG_TIME));
+  NONULL(cJSON_AddNumberToObject(root, D_FREE_HEAP, (double)hal_get_free_heap()));
+  NONULL(cJSON_AddNumberToObject(root, D_WDT_BOOT_COUNT, (double)event.watchdog.wdtBootCount));
+  NONULL(cJSON_AddNumberToObject(root, D_LAST_STATE_BEFORE_RESET, event.watchdog.lastStateBeforeReset));
+  NONULL(cJSON_AddBoolToObject(root, D_LAST_STATE_BEFORE_RESET_KNOWN, lastStateKnown));
+  NONULL(cJSON_AddStringToObject(root, D_LAST_STATE_BEFORE_RESET_NAME, lastStateName));
+  NONULL(cJSON_AddNumberToObject(root, D_LAST_UPTIME_BEFORE_RESET_MS,
                                  (double)event.watchdog.lastUptimeBeforeResetMs));
-  NONULL(cJSON_AddBoolToObject(root, "lastPhaseBeforeResetKnown", lastPhaseKnown));
-  NONULL(cJSON_AddNumberToObject(root, "lastPhaseBeforeResetRaw",
+  NONULL(cJSON_AddBoolToObject(root, D_LAST_PHASE_BEFORE_RESET_KNOWN, lastPhaseKnown));
+  NONULL(cJSON_AddNumberToObject(root, D_LAST_PHASE_BEFORE_RESET_RAW,
                                  (double)event.watchdog.lastPhaseBeforeResetRaw));
-  NONULL(cJSON_AddStringToObject(root, "lastPhaseBeforeReset", lastPhaseName));
-  NONULL(cJSON_AddStringToObject(root, "phaseAtPublish",
+  NONULL(cJSON_AddStringToObject(root, D_LAST_PHASE_BEFORE_RESET, lastPhaseName));
+  NONULL(cJSON_AddStringToObject(root, D_PHASE_AT_PUBLISH,
                                  Watchdog::phaseToString(telemetry.currentPhase)));
-  NONULL(cJSON_AddNumberToObject(root, "queuedEvents", (double)diagnosticsQueueCount));
-  NONULL(cJSON_AddNumberToObject(root, "droppedEvents", (double)droppedEventsCount));
+  if (!addDiagnosticTemperatures(root, hardware)) {
+    goto error;
+  }
+  NONULL(cJSON_AddNumberToObject(root, D_QUEUED_EVENTS, (double)diagnosticsQueueCount));
+  NONULL(cJSON_AddNumberToObject(root, D_DROPPED_EVENTS, (double)droppedEventsCount));
 
   json = cJSON_PrintUnformatted(root);
   NONULL(json);
@@ -291,7 +364,7 @@ bool MQTTDiagnostics::publishWatchdogEvent(const DiagnosticEvent& event,
 
   buildDiagnosticTopic(topic, sizeof(topic), hardware.getMyHostname(), MQTT_TOPIC_DIAGNOSTICS_WATCHDOG);
   deb("MQTT: topic:%s publish watchdog reboot event: %s", topic, response);
-  if (!hal_mqtt_publish_str(topic, response, false)) {
+  if (!hal_mqtt_publish_str(topic, response, true)) {
     deb("MQTT diagnostics: watchdog event publish failed, state=%d", hal_mqtt_state());
     return false;
   }
@@ -306,8 +379,86 @@ error:
     cJSON_Delete(root);
   }
   buildDiagnosticTopic(topic, sizeof(topic), hardware.getMyHostname(), MQTT_TOPIC_DIAGNOSTICS_WATCHDOG);
-  if (!hal_mqtt_publish_str(topic, "{\"reason\":\"watchdog\",\"error\":\"json_build_failed\"}", false)) {
+  memset(response, 0, sizeof(response));
+  snprintf(response, sizeof(response),
+           "{\"%s\":\"%s\",\"%s\":\"%s\"}",
+           D_REASON,
+           D_REASON_WATCHDOG,
+           D_ERROR,
+           D_ERROR_JSON_BUILD_FAILED);
+  if (!hal_mqtt_publish_str(topic, response, true)) {
     deb("MQTT diagnostics: watchdog event fallback publish failed, state=%d", hal_mqtt_state());
+  }
+  return false;
+}
+
+bool MQTTDiagnostics::publishBootCauseEvent(const DiagnosticEvent& event,
+                                            NTPMachine& ntp,
+                                            MyHardware& hardware) {
+  cJSON *root = nullptr;
+  char *json = nullptr;
+  const NTPMachine::WatchdogTelemetry telemetry = ntp.getWatchdogTelemetry();
+
+  memset(response, 0, sizeof(response));
+  root = cJSON_CreateObject();
+  NONULL(root);
+
+  NONULL(cJSON_AddStringToObject(root, D_REASON, D_REASON_BOOT_CAUSE));
+  NONULL(cJSON_AddStringToObject(root, D_BUILD, buildDateTime));
+  NONULL(cJSON_AddStringToObject(root, D_HOSTNAME, hardware.getMyHostname()));
+  NONULL(cJSON_AddStringToObject(root, D_MAC, hardware.getMyMAC()));
+  NONULL(cJSON_AddNumberToObject(root, D_BOOT_MILLIS, (double)event.bootCause.bootMillis));
+  NONULL(cJSON_AddStringToObject(root, D_RESET_REASON, resetReasonToString(event.bootCause.resetReason)));
+  NONULL(cJSON_AddNumberToObject(root, D_RESET_REASON_CODE, (double)event.bootCause.resetReason));
+  NONULL(cJSON_AddBoolToObject(root, D_WATCHDOG_RESET_ON_BOOT, event.bootCause.watchdogResetOnBoot));
+  NONULL(cJSON_AddBoolToObject(root, D_BROWNOUT_SUSPECTED, event.bootCause.brownoutSuspected));
+  NONULL(cJSON_AddBoolToObject(root, D_LAST_FAULT_VALID, event.bootCause.lastFaultValid));
+  NONULL(cJSON_AddNumberToObject(root, D_LAST_FAULT_PC, (double)event.bootCause.lastFault.pc));
+  NONULL(cJSON_AddNumberToObject(root, D_LAST_FAULT_LR, (double)event.bootCause.lastFault.lr));
+  NONULL(cJSON_AddNumberToObject(root, D_LAST_FAULT_PSR, (double)event.bootCause.lastFault.psr));
+  NONULL(cJSON_AddBoolToObject(root, D_STACK_GUARD_ARMED, event.bootCause.stackGuardArmed));
+  NONULL(cJSON_AddNumberToObject(root, D_WDT_BOOT_COUNT, (double)event.bootCause.wdtBootCount));
+  NONULL(cJSON_AddStringToObject(root, D_PHASE_AT_PUBLISH,
+                                 Watchdog::phaseToString(telemetry.currentPhase)));
+  if (!addDiagnosticTemperatures(root, hardware)) {
+    goto error;
+  }
+  NONULL(cJSON_AddNumberToObject(root, D_QUEUED_EVENTS, (double)diagnosticsQueueCount));
+  NONULL(cJSON_AddNumberToObject(root, D_DROPPED_EVENTS, (double)droppedEventsCount));
+
+  json = cJSON_PrintUnformatted(root);
+  NONULL(json);
+
+  strncpy(response, json, sizeof(response) - 1);
+  cJSON_free(json);
+  cJSON_Delete(root);
+
+  buildDiagnosticTopic(topic, sizeof(topic), hardware.getMyHostname(), MQTT_TOPIC_DIAGNOSTICS_BOOT_CAUSE);
+  deb("MQTT: topic:%s publish boot cause event: %s", topic, response);
+  if (!hal_mqtt_publish_str(topic, response, true)) {
+    deb("MQTT diagnostics: boot cause event publish failed, state=%d", hal_mqtt_state());
+    return false;
+  }
+
+  return true;
+
+error:
+  if (json) {
+    cJSON_free(json);
+  }
+  if (root) {
+    cJSON_Delete(root);
+  }
+  buildDiagnosticTopic(topic, sizeof(topic), hardware.getMyHostname(), MQTT_TOPIC_DIAGNOSTICS_BOOT_CAUSE);
+  memset(response, 0, sizeof(response));
+  snprintf(response, sizeof(response),
+           "{\"%s\":\"%s\",\"%s\":\"%s\"}",
+           D_REASON,
+           D_REASON_BOOT_CAUSE,
+           D_ERROR,
+           D_ERROR_JSON_BUILD_FAILED);
+  if (!hal_mqtt_publish_str(topic, response, true)) {
+    deb("MQTT diagnostics: boot cause fallback publish failed, state=%d", hal_mqtt_state());
   }
   return false;
 }
@@ -320,22 +471,25 @@ bool MQTTDiagnostics::publishPingHealthEvent(const DiagnosticEvent& event, MyHar
   root = cJSON_CreateObject();
   NONULL(root);
 
-  NONULL(cJSON_AddStringToObject(root, "reason", "ping_health_transition"));
-  NONULL(cJSON_AddStringToObject(root, "build", buildDateTime));
-  NONULL(cJSON_AddStringToObject(root, "hostname", hardware.getMyHostname()));
-  NONULL(cJSON_AddStringToObject(root, "mac", hardware.getMyMAC()));
-  NONULL(cJSON_AddNumberToObject(root, "localMillis", (double)hal_millis()));
-  NONULL(cJSON_AddNumberToObject(root, "transitionLocalMillis",
+  NONULL(cJSON_AddStringToObject(root, D_REASON, D_REASON_PING_HEALTH_TRANSITION));
+  NONULL(cJSON_AddStringToObject(root, D_BUILD, buildDateTime));
+  NONULL(cJSON_AddStringToObject(root, D_HOSTNAME, hardware.getMyHostname()));
+  NONULL(cJSON_AddStringToObject(root, D_MAC, hardware.getMyMAC()));
+  NONULL(cJSON_AddNumberToObject(root, D_LOCAL_MILLIS, (double)hal_millis()));
+  NONULL(cJSON_AddNumberToObject(root, D_TRANSITION_LOCAL_MILLIS,
                                  (double)event.pingHealth.transitionMillis));
-  NONULL(cJSON_AddStringToObject(root, "from", pingHealthStateToString(event.pingHealth.from)));
-  NONULL(cJSON_AddStringToObject(root, "to", pingHealthStateToString(event.pingHealth.to)));
-  NONULL(cJSON_AddNumberToObject(root, "failedPings", event.pingHealth.failedPings));
-  NONULL(cJSON_AddNumberToObject(root, "maxFailedPings", event.pingHealth.maxFailedPings));
-  NONULL(cJSON_AddNumberToObject(root, "degradedThreshold", event.pingHealth.degradedThreshold));
-  NONULL(cJSON_AddBoolToObject(root, "brokerAvailable", event.pingHealth.brokerAvailable));
-  NONULL(cJSON_AddNumberToObject(root, "brokerPingMs", (double)event.pingHealth.brokerPingMs));
-  NONULL(cJSON_AddNumberToObject(root, "queuedEvents", (double)diagnosticsQueueCount));
-  NONULL(cJSON_AddNumberToObject(root, "droppedEvents", (double)droppedEventsCount));
+  NONULL(cJSON_AddStringToObject(root, D_FROM, pingHealthStateToString(event.pingHealth.from)));
+  NONULL(cJSON_AddStringToObject(root, D_TO, pingHealthStateToString(event.pingHealth.to)));
+  NONULL(cJSON_AddNumberToObject(root, D_FAILED_PINGS, event.pingHealth.failedPings));
+  NONULL(cJSON_AddNumberToObject(root, D_MAX_FAILED_PINGS, event.pingHealth.maxFailedPings));
+  NONULL(cJSON_AddNumberToObject(root, D_DEGRADED_THRESHOLD, event.pingHealth.degradedThreshold));
+  NONULL(cJSON_AddBoolToObject(root, D_BROKER_AVAILABLE, event.pingHealth.brokerAvailable));
+  NONULL(cJSON_AddNumberToObject(root, D_BROKER_PING_MS, (double)event.pingHealth.brokerPingMs));
+  if (!addDiagnosticTemperatures(root, hardware)) {
+    goto error;
+  }
+  NONULL(cJSON_AddNumberToObject(root, D_QUEUED_EVENTS, (double)diagnosticsQueueCount));
+  NONULL(cJSON_AddNumberToObject(root, D_DROPPED_EVENTS, (double)droppedEventsCount));
 
   json = cJSON_PrintUnformatted(root);
   NONULL(json);
@@ -346,7 +500,7 @@ bool MQTTDiagnostics::publishPingHealthEvent(const DiagnosticEvent& event, MyHar
 
   buildDiagnosticTopic(topic, sizeof(topic), hardware.getMyHostname(), MQTT_TOPIC_DIAGNOSTICS_PING_HEALTH);
   deb("MQTT: topic:%s publish ping health event: %s", topic, response);
-  if (!hal_mqtt_publish_str(topic, response, false)) {
+  if (!hal_mqtt_publish_str(topic, response, true)) {
     deb("MQTT diagnostics: ping health event publish failed, state=%d", hal_mqtt_state());
     return false;
   }
@@ -361,7 +515,14 @@ error:
     cJSON_Delete(root);
   }
   buildDiagnosticTopic(topic, sizeof(topic), hardware.getMyHostname(), MQTT_TOPIC_DIAGNOSTICS_PING_HEALTH);
-  if (!hal_mqtt_publish_str(topic, "{\"reason\":\"ping_health_transition\",\"error\":\"json_build_failed\"}", false)) {
+  memset(response, 0, sizeof(response));
+  snprintf(response, sizeof(response),
+           "{\"%s\":\"%s\",\"%s\":\"%s\"}",
+           D_REASON,
+           D_REASON_PING_HEALTH_TRANSITION,
+           D_ERROR,
+           D_ERROR_JSON_BUILD_FAILED);
+  if (!hal_mqtt_publish_str(topic, response, true)) {
     deb("MQTT diagnostics: ping health event fallback publish failed, state=%d", hal_mqtt_state());
   }
   return false;
@@ -375,6 +536,9 @@ void MQTTDiagnostics::publishPendingIfConnected(NTPMachine& ntp, MyHardware& har
 
   bool sent = false;
   switch (event->type) {
+    case DiagnosticEventType::BootCause:
+      sent = publishBootCauseEvent(*event, ntp, hardware);
+      break;
     case DiagnosticEventType::WatchdogReboot:
       sent = publishWatchdogEvent(*event, ntp, hardware);
       break;

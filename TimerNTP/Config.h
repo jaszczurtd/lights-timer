@@ -31,6 +31,7 @@
 #define MQTT_TOPIC_TIME_SET "time-"
 #define MQTT_TOPIC_SWITCH_SET "switch-"
 #define MQTT_TOPIC_DIAGNOSTICS "diagnostics"
+#define MQTT_TOPIC_DIAGNOSTICS_BOOT_CAUSE "boot_cause"
 #define MQTT_TOPIC_DIAGNOSTICS_WATCHDOG "watchdog"
 #define MQTT_TOPIC_DIAGNOSTICS_PING_HEALTH "ping_health"
 
@@ -40,5 +41,13 @@
 
 #define MAX_FAILED_PINGS 7
 #define NEXT_PING_TIME (SECOND * 5)
+
+// Stack guard is currently opt-in. Some RP2040 core/build combinations may
+// report false positives and trigger reboot loops when checked each loop.
+#define ENABLE_STACK_GUARD 0
+
+// Fault diagnostics hooks are opt-in during stabilization. Disable by default
+// to avoid regressions on boards/core builds with backend incompatibilities.
+#define ENABLE_FAULT_DIAGNOSTICS 0
 
 #endif

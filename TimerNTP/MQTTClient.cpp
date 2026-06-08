@@ -8,6 +8,25 @@
 #include <cstring>
 #include <cstdio>
 
+#define AQ_DATE_HOUR_START "dateHourStart"
+#define AQ_DATE_HOUR_END "dateHourEnd"
+#define AQ_IS_ON_KEY_FORMAT "isOn%d"
+#define AQ_IS_ON_1 "isOn1"
+#define AQ_IS_ON_2 "isOn2"
+#define AQ_IS_ON_3 "isOn3"
+#define AQ_IS_ON_4 "isOn4"
+
+#define AQ_STATUS "status"
+#define AQ_STATUS_OK "ok"
+#define AQ_BUILD "build"
+#define AQ_LOCAL_TIME "localTime"
+#define AQ_LOCAL_TIME_NOT_AVAILABLE "not available yet."
+#define AQ_LOCAL_MILLIS "localMillis"
+#define AQ_WIFI "wifi"
+#define AQ_TEMPERATURE_AVAILABLE "temperatureAvailable"
+#define AQ_TEMPERATURE_C "temperatureC"
+#define AQ_ERROR_JSON_BUILD_FAILED "JSON build failed"
+
 namespace {
 void halMqttCallback(const char *topic, const uint8_t *payload, uint16_t length, void *user) {
   MQTTClient *client = static_cast<MQTTClient *>(user);
@@ -60,8 +79,8 @@ void MQTTClient::handleMessage(const char* topicArrived, const uint8_t* payload,
   if(strcasecmp(topicArrived, topic) == 0) {
     deb("MQTT: time update requested from broker!");
 
-    cJSON *start = cJSON_GetObjectItem(root, "dateHourStart");
-    cJSON *end = cJSON_GetObjectItem(root, "dateHourEnd");
+    cJSON *start = cJSON_GetObjectItem(root, AQ_DATE_HOUR_START);
+    cJSON *end = cJSON_GetObjectItem(root, AQ_DATE_HOUR_END);
 
     if(start && cJSON_IsNumber(start) && end && cJSON_IsNumber(end)) {
       int dHourStart = start->valueint;
@@ -83,7 +102,7 @@ void MQTTClient::handleMessage(const char* topicArrived, const uint8_t* payload,
     bool anyChanged = false;
     for(int a = 0; a < getSwitchesNumber(hardware().getMyMAC()); a++) {
       char key[16];
-      snprintf(key, sizeof(key), "isOn%d", a + 1);
+      snprintf(key, sizeof(key), AQ_IS_ON_KEY_FORMAT, a + 1);
       cJSON *value = cJSON_GetObjectItem(root, key);
       if(cJSON_IsBool(value)) {
         anyChanged |= hardware().setRelayTo(a, cJSON_IsTrue(value));
@@ -174,28 +193,28 @@ void MQTTClient::publish() {
     root = cJSON_CreateObject();
     NONULL(root);
 
-    NONULL(cJSON_AddStringToObject(root, "status", "ok"));
-    NONULL(cJSON_AddStringToObject(root, "build", BuildDateTime));
-    NONULL(cJSON_AddNumberToObject(root, "dateHourStart", s));
-    NONULL(cJSON_AddNumberToObject(root, "dateHourEnd", e));
-    NONULL(cJSON_AddBoolToObject(root, "isOn1", switches[0]));
-    NONULL(cJSON_AddBoolToObject(root, "isOn2", switches[1]));
-    NONULL(cJSON_AddBoolToObject(root, "isOn3", switches[2]));
-    NONULL(cJSON_AddBoolToObject(root, "isOn4", switches[3]));
+    NONULL(cJSON_AddStringToObject(root, AQ_STATUS, AQ_STATUS_OK));
+    NONULL(cJSON_AddStringToObject(root, AQ_BUILD, BuildDateTime));
+    NONULL(cJSON_AddNumberToObject(root, AQ_DATE_HOUR_START, s));
+    NONULL(cJSON_AddNumberToObject(root, AQ_DATE_HOUR_END, e));
+    NONULL(cJSON_AddBoolToObject(root, AQ_IS_ON_1, switches[0]));
+    NONULL(cJSON_AddBoolToObject(root, AQ_IS_ON_2, switches[1]));
+    NONULL(cJSON_AddBoolToObject(root, AQ_IS_ON_3, switches[2]));
+    NONULL(cJSON_AddBoolToObject(root, AQ_IS_ON_4, switches[3]));
 
     time = ntp().getTimeFormatted();
-    NONULL(cJSON_AddStringToObject(root, "localTime", strlen(time) ? time : "not available yet."));
-    NONULL(cJSON_AddNumberToObject(root, "localMillis", hal_millis()));
+    NONULL(cJSON_AddStringToObject(root, AQ_LOCAL_TIME, strlen(time) ? time : AQ_LOCAL_TIME_NOT_AVAILABLE));
+    NONULL(cJSON_AddNumberToObject(root, AQ_LOCAL_MILLIS, hal_millis()));
 
     snprintf(strength, sizeof(strength), "5/%d", hal_wifi_get_strength());
-    NONULL(cJSON_AddStringToObject(root, "wifi", strength));
+    NONULL(cJSON_AddStringToObject(root, AQ_WIFI, strength));
 
     hasTemperature = hardware().getDs18b20TemperatureC(&ds18b20TempC);
-    NONULL(cJSON_AddBoolToObject(root, "temperatureAvailable", hasTemperature));
+    NONULL(cJSON_AddBoolToObject(root, AQ_TEMPERATURE_AVAILABLE, hasTemperature));
     if (hasTemperature) {
-      NONULL(cJSON_AddNumberToObject(root, "temperatureC", (double)ds18b20TempC));
+      NONULL(cJSON_AddNumberToObject(root, AQ_TEMPERATURE_C, (double)ds18b20TempC));
     } else {
-      NONULL(cJSON_AddNullToObject(root, "temperatureC"));
+      NONULL(cJSON_AddNullToObject(root, AQ_TEMPERATURE_C));
     }
 
     json = cJSON_PrintUnformatted(root);
@@ -221,7 +240,10 @@ error:
     if(root) {
       cJSON_Delete(root);
     }
-    strncpy(response, "{\"status\":\"JSON build failed\"}", sizeof(response) - 1);
+    snprintf(response, sizeof(response),
+         "{\"%s\":\"%s\"}",
+         AQ_STATUS,
+         AQ_ERROR_JSON_BUILD_FAILED);
 
     snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_STATUS, hardware().getMyHostname());
     deb("MQTT: topic:%s publish: %s", topic, response);
@@ -282,6 +304,7 @@ void MQTTClient::handleDiagnosticsPingHealth() {
 }
 
 void MQTTClient::handleMQTTClient() {
+  diagnostics.prepareBootCauseEventIfNeeded(ntp());
   diagnostics.prepareWatchdogEventIfNeeded(ntp());
 
   if(clientInitialized) {

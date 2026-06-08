@@ -6,27 +6,31 @@ This document describes the current firmware diagnostics stream and the requirem
 
 Diagnostics are implemented in [MQTTDiagnostics.cpp](MQTTDiagnostics.cpp) and triggered from [MQTTClient.cpp](MQTTClient.cpp). This is not a continuously streamed telemetry feed. The firmware publishes only events that are useful for diagnostics:
 
-1. `watchdog` after boot, but only when the previous boot was a watchdog reset.
-2. `ping_health_transition` when broker connectivity quality crosses a threshold and changes state.
+1. `boot_cause` once per boot (reset reason + optional fault snapshot).
+2. `watchdog` after boot, but only when the previous boot was a watchdog reset.
+3. `ping_health_transition` when broker connectivity quality crosses a threshold and changes state.
 
 The messages are published on hierarchical topics rooted at `diagnostics/<hostname>`, where `<hostname>` comes from `hardware.getMyHostname()`.
 
 Important:
-- messages are published with `retain=false`,
+- messages are published with `retain=true`,
 - the Raspberry Pi backend must consume and store them itself,
-- do not rely on the broker as a history store,
+- retained messages keep the newest payload per topic in the broker for late subscribers,
+- retained messages are not auto-deleted on read; clear them by publishing an empty retained payload,
 - the current firmware topic prefix in [Config.h](Config.h) is `diagnostics/`, which is a proper MQTT namespace.
 
 The important distinction is this: MQTT wildcards operate on topic levels separated by `/`. A topic like `diagnostics/<hostname>/watchdog` is fully wildcard-friendly, so a backend can subscribe to all diagnostics, to one device, or to one event type without prior knowledge of exact topic strings.
 
 For a real collector, the better design is hierarchical topics, for example:
 
+- `diagnostics/<hostname>/boot_cause`
 - `diagnostics/<hostname>/watchdog`
 - `diagnostics/<hostname>/ping_health`
 
 With that structure, a consumer can subscribe to:
 
 - `diagnostics/+`
+- `diagnostics/+/boot_cause`
 - `diagnostics/+/watchdog`
 - `diagnostics/+/ping_health`
 
@@ -54,7 +58,7 @@ Example:
 
 `diagnostics/pico-08dde4/watchdog`
 
-If you keep the firmware in sync with this document, the collector can subscribe to `diagnostics/+/#`, `diagnostics/+/watchdog`, or `diagnostics/+/ping_health`.
+If you keep the firmware in sync with this document, the collector can subscribe to `diagnostics/+/#`, `diagnostics/+/boot_cause`, `diagnostics/+/watchdog`, or `diagnostics/+/ping_health`.
 
 ### Subscription pattern
 
@@ -69,7 +73,40 @@ This gives the collector three useful routing levels:
 
 ## Event types
 
-### 1. Watchdog reboot
+### 1. Boot cause
+
+Published once per boot.
+
+Semantics:
+- the event is deduplicated on the firmware side by a one-shot `bootCauseEventPrepared` flag,
+- includes HAL reset-cause classification,
+- includes optional captured fault registers when available (`pc`, `lr`, `psr`).
+
+Key JSON fields:
+- `reason = boot_cause`
+- `build`
+- `hostname`
+- `mac`
+- `bootMillis`
+- `resetReason`
+- `resetReasonCode`
+- `watchdogResetOnBoot`
+- `brownoutSuspected`
+- `lastFaultValid`
+- `lastFaultPc`
+- `lastFaultLr`
+- `lastFaultPsr`
+- `stackGuardArmed`
+- `ds18b20TemperatureAvailable`
+- `ds18b20TemperatureC`
+- `rp2040TemperatureC`
+- `wifiStrength`
+- `wdtBootCount`
+- `phaseAtPublish`
+- `queuedEvents`
+- `droppedEvents`
+
+### 2. Watchdog reboot
 
 Published once per boot, and only when the boot was caused by the watchdog.
 
@@ -95,6 +132,10 @@ Key JSON fields:
 - `lastPhaseBeforeResetRaw`
 - `lastPhaseBeforeReset`
 - `phaseAtPublish`
+- `ds18b20TemperatureAvailable`
+- `ds18b20TemperatureC`
+- `rp2040TemperatureC`
+- `wifiStrength`
 - `queuedEvents`
 - `droppedEvents`
 
@@ -104,7 +145,7 @@ Why these fields matter:
 - `lastUptimeBeforeResetMs` shows whether the reset happened shortly after boot or after a longer runtime,
 - `queuedEvents` and `droppedEvents` show whether the backend or the MQTT link fell behind.
 
-### 2. Ping health transition
+### 3. Ping health transition
 
 This event describes MQTT broker connectivity quality from the device side. The firmware pings the broker, tracks failed attempts, and publishes only when the health state changes.
 
@@ -133,6 +174,10 @@ Key JSON fields:
 - `degradedThreshold`
 - `brokerAvailable`
 - `brokerPingMs`
+- `ds18b20TemperatureAvailable`
+- `ds18b20TemperatureC`
+- `rp2040TemperatureC`
+- `wifiStrength`
 - `queuedEvents`
 - `droppedEvents`
 
@@ -206,6 +251,7 @@ If you want basic trend analysis, add fields such as:
 - `failed_pings`
 - `broker_available`
 - `broker_ping_ms`
+- `wifiStrength`
 
 ## Exposing it over the web
 

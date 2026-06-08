@@ -42,6 +42,11 @@ public:
     WatchdogPhase currentPhase = WatchdogPhase::Unknown;
     WatchdogPhase lastPhaseBeforeReset = WatchdogPhase::Unknown;
     uint8_t lastPhaseBeforeResetRaw = static_cast<uint8_t>(WatchdogPhase::Unknown);
+    hal_reset_reason_t resetReason = HAL_RESET_REASON_UNKNOWN;
+    bool brownoutSuspected = false;
+    bool lastFaultValid = false;
+    hal_fault_info_t lastFault = {};
+    bool stackGuardArmed = false;
   };
 
   explicit NTPMachine(Logic& l) : logic(l) {}
@@ -69,6 +74,7 @@ private:
   long now_time;
   bool localTimeHasBeenSet = false;
   bool wgStarted = false;
+  bool stackGuardArmed = false;
   Watchdog watchdog;
 
   SmartTimers wifiTimeoutTimer;
