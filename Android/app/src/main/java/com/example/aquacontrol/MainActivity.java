@@ -7,6 +7,7 @@ import android.app.AlertDialog;
 import android.content.SharedPreferences;
 import android.content.pm.ActivityInfo;
 import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
@@ -16,6 +17,7 @@ import android.view.Gravity;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
+import android.view.ViewGroup;
 import android.widget.EditText;
 import android.widget.FrameLayout;
 import android.widget.LinearLayout;
@@ -25,6 +27,10 @@ import android.widget.Toast;
 import androidx.annotation.Nullable;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.appcompat.widget.Toolbar;
+import androidx.core.graphics.Insets;
+import androidx.core.view.ViewCompat;
+import androidx.core.view.WindowInsetsCompat;
+import androidx.core.view.WindowInsetsControllerCompat;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 
@@ -126,6 +132,7 @@ public class MainActivity extends AppCompatActivity implements Constants {
         setMQTTStatus(CONN_NONE);
 
         RecyclerView deviceList = findViewById(R.id.deviceList);
+        applySystemBarInsets(toolbar, deviceList);
         deviceList.addItemDecoration(
             new SubtleDividerDecoration(this, 1, Color.parseColor("#44000000"))
         );
@@ -228,6 +235,52 @@ public class MainActivity extends AppCompatActivity implements Constants {
         }
 
         initMQTTClient();
+    }
+
+    private void applySystemBarInsets(Toolbar toolbar, RecyclerView deviceList) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.VANILLA_ICE_CREAM) {
+            return;
+        }
+
+        View container = findViewById(R.id.container);
+        int toolbarBaseHeight = toolbar.getLayoutParams().height;
+        int toolbarPaddingLeft = toolbar.getPaddingLeft();
+        int toolbarPaddingTop = toolbar.getPaddingTop();
+        int toolbarPaddingRight = toolbar.getPaddingRight();
+        int toolbarPaddingBottom = toolbar.getPaddingBottom();
+        int listPaddingLeft = deviceList.getPaddingLeft();
+        int listPaddingTop = deviceList.getPaddingTop();
+        int listPaddingRight = deviceList.getPaddingRight();
+        int listPaddingBottom = deviceList.getPaddingBottom();
+
+        WindowInsetsControllerCompat insetsController =
+                new WindowInsetsControllerCompat(getWindow(), getWindow().getDecorView());
+        insetsController.setAppearanceLightStatusBars(false);
+        insetsController.setAppearanceLightNavigationBars(true);
+
+        ViewCompat.setOnApplyWindowInsetsListener(container, (view, insets) -> {
+            Insets systemBars = insets.getInsets(WindowInsetsCompat.Type.systemBars());
+
+            ViewGroup.LayoutParams toolbarParams = toolbar.getLayoutParams();
+            toolbarParams.height = toolbarBaseHeight + systemBars.top;
+            toolbar.setLayoutParams(toolbarParams);
+            toolbar.setPadding(
+                    toolbarPaddingLeft,
+                    toolbarPaddingTop + systemBars.top,
+                    toolbarPaddingRight,
+                    toolbarPaddingBottom
+            );
+
+            deviceList.setPadding(
+                    listPaddingLeft,
+                    listPaddingTop,
+                    listPaddingRight,
+                    listPaddingBottom + systemBars.bottom
+            );
+
+            return insets;
+        });
+        ViewCompat.requestApplyInsets(container);
     }
 
     @Override
