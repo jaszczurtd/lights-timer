@@ -6,7 +6,8 @@
  *
  * New policy: enable only modules that are used by the project.
  * Optional modules are OFF by default, so this file should contain only
- * HAL_ENABLE_* flags (plus optional HAL_DISABLE_ASSERTS).
+ * project entry/config flags, HAL_ENABLE_* flags, and optional
+ * HAL_DISABLE_ASSERTS.
  *
  * Dependency propagation is automatic in hal_config.h, e.g.:
  * - HAL_ENABLE_TIME      -> HAL_ENABLE_WIFI
@@ -14,6 +15,9 @@
  * - HAL_ENABLE_DS18B20   -> HAL_ENABLE_ONEWIRE
  * - HAL_ENABLE_SSD1306   -> HAL_ENABLE_DISPLAY
  */
+
+/* ── Application entry ───────────────────────────────────────────────── */
+#define HAL_PROVIDE_APP_ENTRY       /* HAL owns setup()/loop()/main()      */
 
 /* ── Connectivity ──────────────────────────────────────────────────────── */
 #define HAL_ENABLE_TIME             /* NTP/system time -> WiFi             */

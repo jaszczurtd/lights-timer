@@ -1,6 +1,29 @@
 user:piuser
 broker ip: 192.168.2.100
 
+Build model:
+- `TimerNTP.ino` was removed from the source tree.
+- Application entry now lives in `TimerNTP.cpp` and implements the JaszczurHAL
+  `app_start()` / `app_task0()` contract.
+- `hal_project_config.h` enables `HAL_PROVIDE_APP_ENTRY`, so JaszczurHAL owns
+  Arduino `setup()` / `loop()`.
+- CMake generates a temporary Arduino sketch under `.build/cmake/sketch/TimerNTP`
+  only for `arduino-cli`. Do not edit or commit files from `.build`.
+
+Build commands:
+- Configure: `./scripts/configure-cmake.sh`
+- Build firmware: `cmake --build .build/cmake --target firmware`
+- Build debug firmware: `cmake --build .build/cmake --target firmware_debug`
+- Serial upload: `./scripts/upload-serial.sh`
+- BOOTSEL UF2 upload: `./scripts/upload-uf2.sh`
+- Refresh VS Code IntelliSense: `./scripts/refresh-intellisense.sh`
+
+Build artifacts:
+- `.build/firmware.elf`
+- `.build/firmware.bin`
+- `.build/firmware.uf2`
+- `.build/firmware.map`
+
 test with broker:
 mosquitto_sub -h localhost -u piuser -P Password -t status-pico-08dde4 -v
 

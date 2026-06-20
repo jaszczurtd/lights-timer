@@ -134,8 +134,9 @@
                 "/home/jaszczurtd/development/projects_git/libraries/canDefinitions",
                 "/home/jaszczurtd/development/projects_git/libraries/mcp_can",
                 "/home/jaszczurtd/development/projects_git/lights-timer/TimerNTP",
-                "/home/jaszczurtd/development/projects_git/lights-timer/TimerNTP/.build",
-                "/home/jaszczurtd/development/projects_git/lights-timer/TimerNTP/.build/core",
+                "/home/jaszczurtd/development/projects_git/lights-timer/TimerNTP/.build/arduino",
+                "/home/jaszczurtd/development/projects_git/lights-timer/TimerNTP/.build/arduino/core",
+                "/home/jaszczurtd/development/projects_git/lights-timer/TimerNTP/.build/cmake/sketch/TimerNTP",
                 "${workspaceFolder}/**"
             ],
             "defines": [
@@ -249,7 +250,7 @@
                 "WIFICC=CYW43_COUNTRY_WORLDWIDE"
             ],
             "compilerPath": "/home/jaszczurtd/.arduino15/packages/rp2040/tools/pqt-gcc/4.1.0-1aec55e/bin/arm-none-eabi-g++",
-            "compileCommands": "/home/jaszczurtd/development/projects_git/lights-timer/TimerNTP/.build/compile_commands_patched.json",
+            "compileCommands": "/home/jaszczurtd/development/projects_git/lights-timer/TimerNTP/.build/arduino/compile_commands_patched.json",
             "cStandard": "c17",
             "cppStandard": "gnu++17",
             "intelliSenseMode": "gcc-arm-none-eabi"
