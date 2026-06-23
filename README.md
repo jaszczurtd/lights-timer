@@ -79,7 +79,7 @@ The system consists of three main components:
   - discovery responder (UDP)
   - hardware watchdog
 
-**JaszczurHAL API reference:** [JaszczurHAL_API.md](https://github.com/jaszczurtd/JaszczurHAL/blob/main/JaszczurHAL_API.md)
+**JaszczurHAL API reference:** [JaszczurHAL_API.md](https://github.com/jaszczurtd/JaszczurHAL/blob/main/doc/JaszczurHAL_API.md)
 
 ---
 
