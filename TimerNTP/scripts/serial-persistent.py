@@ -19,6 +19,7 @@ import glob
 import json
 import os
 import signal
+import subprocess
 import sys
 import time
 
@@ -213,24 +214,120 @@ def _clear_hupcl(fd: int) -> None:
         pass
 
 
-def kill_existing_monitors(port):
-    """Kill other serial-persistent.py processes that have this port open."""
+def _process_cmdline(pid):
     try:
-        output = os.popen(f"lsof {port} 2>/dev/null").read()
-        for line in output.split('\n'):
-            if 'serial-persistent.py' in line or 'python3' in line:
-                parts = line.split()
-                if len(parts) >= 2:
-                    try:
-                        pid = int(parts[1])
-                        if pid != os.getpid():
-                            os.kill(pid, signal.SIGTERM)
-                            print(f"{YELLOW}Killed existing process PID {pid} on {port}{NC}")
-                            time.sleep(0.5)
-                    except (ValueError, ProcessLookupError):
-                        pass
+        with open(f"/proc/{pid}/cmdline", "rb") as f:
+            raw = f.read().replace(b"\0", b" ").strip()
+        return raw.decode("utf-8", errors="replace")
+    except Exception:
+        return ""
+
+
+def _port_owner_pids(port):
+    pids = set()
+
+    try:
+        result = subprocess.run(
+            ["fuser", port],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        )
+        for item in result.stdout.split():
+            try:
+                pids.add(int(item))
+            except ValueError:
+                pass
     except Exception:
         pass
+
+    if pids:
+        return sorted(pids)
+
+    try:
+        result = subprocess.run(
+            ["lsof", "-t", "--", port],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.DEVNULL,
+            text=True,
+            check=False,
+        )
+        for item in result.stdout.split():
+            try:
+                pids.add(int(item))
+            except ValueError:
+                pass
+    except Exception:
+        pass
+
+    return sorted(pids)
+
+
+def _format_port_owners(port):
+    lines = []
+    for pid in _port_owner_pids(port):
+        if pid == os.getpid():
+            continue
+        cmdline = _process_cmdline(pid) or "?"
+        lines.append(f"  PID {pid}: {cmdline}")
+    return lines
+
+
+def kill_existing_monitors(port):
+    """Kill other serial-persistent.py processes that have this port open."""
+    killed = False
+
+    for pid in _port_owner_pids(port):
+        if pid == os.getpid():
+            continue
+
+        cmdline = _process_cmdline(pid)
+        if "serial-persistent.py" not in cmdline:
+            continue
+
+        try:
+            os.kill(pid, signal.SIGTERM)
+            print(f"{YELLOW}Stopped previous monitor PID {pid} on {port}{NC}")
+            killed = True
+        except ProcessLookupError:
+            pass
+        except PermissionError:
+            print(f"{YELLOW}Cannot stop monitor PID {pid} on {port}: permission denied{NC}")
+
+    if not killed:
+        return False
+
+    deadline = time.time() + 2.0
+    while time.time() < deadline:
+        remaining = [
+            pid for pid in _port_owner_pids(port)
+            if pid != os.getpid() and "serial-persistent.py" in _process_cmdline(pid)
+        ]
+        if not remaining:
+            return True
+        time.sleep(0.1)
+
+    for pid in _port_owner_pids(port):
+        if pid == os.getpid() or "serial-persistent.py" not in _process_cmdline(pid):
+            continue
+        try:
+            os.kill(pid, signal.SIGKILL)
+            print(f"{YELLOW}Killed stuck monitor PID {pid} on {port}{NC}")
+        except (ProcessLookupError, PermissionError):
+            pass
+
+    time.sleep(0.2)
+    return True
+
+
+def is_lock_error(exc):
+    text = str(exc).lower()
+    return (
+        "could not exclusively lock port" in text
+        or "resource temporarily unavailable" in text
+        or "errno 11" in text
+    )
 
 
 def open_serial(port, baud, replace_existing=False):
@@ -279,8 +376,31 @@ def monitor(port, baud, replace_existing=False):
     try:
         ser = open_serial(port, baud, replace_existing)
     except serial.SerialException as e:
-        print(f"{RED}Cannot open {port}: {e}{NC}")
-        return "error"
+        if is_lock_error(e) and not replace_existing:
+            if kill_existing_monitors(port):
+                try:
+                    ser = open_serial(port, baud, False)
+                except serial.SerialException as retry_error:
+                    print(f"{RED}Cannot open {port}: {retry_error}{NC}")
+                    owners = _format_port_owners(port)
+                    if owners:
+                        print(f"{YELLOW}Port owners:{NC}")
+                        print("\n".join(owners))
+                    return "error"
+            else:
+                print(f"{RED}Cannot open {port}: {e}{NC}")
+                owners = _format_port_owners(port)
+                if owners:
+                    print(f"{YELLOW}Port owners:{NC}")
+                    print("\n".join(owners))
+                return "error"
+        else:
+            print(f"{RED}Cannot open {port}: {e}{NC}")
+            owners = _format_port_owners(port)
+            if owners:
+                print(f"{YELLOW}Port owners:{NC}")
+                print("\n".join(owners))
+            return "error"
 
     print(f"{GREEN}Connected to {port} @ {baud}{NC}")
     print(f"{DIM}{'─' * 80}{NC}")

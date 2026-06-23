@@ -3,3 +3,5 @@
 
 # Local Codex helper file
 .codex
+
+*__pycache__*

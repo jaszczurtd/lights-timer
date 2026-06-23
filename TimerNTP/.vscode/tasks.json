@@ -162,7 +162,7 @@
             "detail": "Ctrl+Shift+3 - waits for Pico (VID:PID), connects, then reconnects after unplug",
             "type": "shell",
             "command": "python3",
-            "args": ["${workspaceFolder}/scripts/serial-persistent.py", "-m", "pico"],
+            "args": ["${workspaceFolder}/scripts/serial-persistent.py", "-m", "pico", "--replace-existing"],
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -178,7 +178,7 @@
             "detail": "Ctrl+Shift+5 - monitor for Raspberry Pi Debug Probe / Picoprobe",
             "type": "shell",
             "command": "python3",
-            "args": ["${workspaceFolder}/scripts/serial-persistent.py", "-m", "probe"],
+            "args": ["${workspaceFolder}/scripts/serial-persistent.py", "-m", "probe", "--replace-existing"],
             "presentation": {
                 "echo": true,
                 "reveal": "always",
@@ -194,7 +194,7 @@
             "detail": "Monitor any /dev/ttyACM* or /dev/ttyUSB* device",
             "type": "shell",
             "command": "python3",
-            "args": ["${workspaceFolder}/scripts/serial-persistent.py", "-m", "any"],
+            "args": ["${workspaceFolder}/scripts/serial-persistent.py", "-m", "any", "--replace-existing"],
             "presentation": {
                 "echo": true,
                 "reveal": "always",
