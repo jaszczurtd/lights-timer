@@ -4,7 +4,7 @@
 #include "NTPMachine.h"
 #include "MyHardware.h"
 #include <Credentials.h>
-#include <utils/cJSON.h>
+#include <tools.h>
 #include <cstring>
 #include <cstdio>
 

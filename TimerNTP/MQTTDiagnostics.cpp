@@ -4,7 +4,6 @@
 #include "MyHardware.h"
 
 #include <hal/hal.h>
-#include <utils/cJSON.h>
 #include <tools.h>
 
 #include <cstdio>
