@@ -1,395 +1,100 @@
 {
     "version": "2.0.0",
-    "inputs": [
-        {
-            "id": "boardChoice",
-            "description": "Select target board",
-            "type": "pickString",
-            "options": [
-                "rp2040:rp2040:rpipico:flash=2097152_524288          - Raspberry Pi Pico (FS 512KB)",
-                "rp2040:rp2040:rpipicow:flash=2097152_524288         - Raspberry Pi Pico W (FS 512KB)",
-                "rp2040:rp2040:rpipico2:flash=4194304_2097152         - Raspberry Pi Pico 2 (FS 2MB)",
-                "rp2040:rp2040:rpipico2w:flash=4194304_2097152        - Raspberry Pi Pico 2 W (FS 2MB)",
-                "rp2040:rp2040:waveshare_rp2040_zero:flash=2097152_524288 - Waveshare RP2040-Zero (FS 512KB)",
-                "rp2040:rp2040:waveshare_rp2040_plus:flash=2097152_524288 - Waveshare RP2040-Plus (FS 512KB)"
-            ],
-            "default": "rp2040:rp2040:rpipicow:flash=2097152_524288         - Raspberry Pi Pico W (FS 512KB)"
-        },
-        {
-            "id": "libraryName",
-            "description": "Library name (e.g. 'Adafruit MCP9600')",
-            "type": "promptString",
-            "default": ""
-        },
-        {
-            "id": "uploadPort",
-            "description": "Serial port (e.g. /dev/ttyACM0)",
-            "type": "promptString",
-            "default": "/dev/ttyACM0"
-        }
-    ],
     "tasks": [
         {
-            "label": "CMake: Configure",
+            "label": "Project: Build",
+            "detail": "Compile TimerNTP through JaszczurHAL VS Code entry",
             "type": "shell",
-            "command": "${workspaceFolder}/scripts/configure-cmake.sh",
-            "presentation": {
-                "echo": true,
-                "reveal": "silent",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": false
-            },
-            "problemMatcher": [],
-            "hide": true
-        },
-        {
-            "label": "Build: Build",
-            "detail": "Ctrl+Shift+1 - configure CMake and compile firmware",
-            "type": "shell",
-            "command": "cmake",
-            "args": [
-                "--build",
-                "${workspaceFolder}/.build/cmake",
-                "--target",
-                "firmware"
-            ],
-            "dependsOn": "CMake: Configure",
-            "dependsOrder": "sequence",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["build", "--project", "${workspaceFolder}"],
             "group": {
                 "kind": "build",
                 "isDefault": true
             },
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": {
-                "owner": "arduino",
-                "fileLocation": ["autoDetect", "${workspaceFolder}"],
-                "pattern": {
-                    "regexp": "^(.+):(\\d+):(\\d+):\\s+(warning|error):\\s+(.+)$",
-                    "file": 1,
-                    "line": 2,
-                    "column": 3,
-                    "severity": 4,
-                    "message": 5
-                }
-            }
+            "problemMatcher": "$gcc"
         },
         {
-            "label": "Build: Build (Debug)",
-            "detail": "Compile with debug symbols (auto-run by F5/Run)",
+            "label": "Project: Build (Debug)",
+            "detail": "Debug build TimerNTP through JaszczurHAL VS Code entry",
             "type": "shell",
-            "command": "cmake",
-            "args": [
-                "--build",
-                "${workspaceFolder}/.build/cmake",
-                "--target",
-                "firmware_debug"
-            ],
-            "dependsOn": "CMake: Configure",
-            "dependsOrder": "sequence",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["build-debug", "--project", "${workspaceFolder}"],
             "group": "build",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": {
-                "owner": "arduino",
-                "fileLocation": ["autoDetect", "${workspaceFolder}"],
-                "pattern": {
-                    "regexp": "^(.+):(\\d+):(\\d+):\\s+(warning|error):\\s+(.+)$",
-                    "file": 1,
-                    "line": 2,
-                    "column": 3,
-                    "severity": 4,
-                    "message": 5
-                }
-            }
-        },
-        {
-            "label": "Build: Upload",
-            "detail": "Ctrl+Shift+2 - start persistent monitor (if needed) + CMake upload",
-            "type": "shell",
-            "command": "${workspaceFolder}/scripts/upload-serial.sh",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": {
-                "owner": "arduino",
-                "fileLocation": ["autoDetect", "${workspaceFolder}"],
-                "pattern": {
-                    "regexp": "^(.+):(\\d+):(\\d+):\\s+(warning|error):\\s+(.+)$",
-                    "file": 1,
-                    "line": 2,
-                    "column": 3,
-                    "severity": 4,
-                    "message": 5
-                }
-            }
-        },
-        {
-            "label": "Build: Upload (UF2 / BOOTSEL)",
-            "detail": "Ctrl+Shift+4 - compile + copy UF2 to BOOTSEL drive",
-            "type": "shell",
-            "command": "${workspaceFolder}/scripts/upload-uf2.sh",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "shared",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: Monitor (persistent)",
-            "detail": "Ctrl+Shift+3 - waits for Pico (VID:PID), connects, then reconnects after unplug",
-            "type": "shell",
-            "command": "python3",
-            "args": ["${workspaceFolder}/scripts/serial-persistent.py", "-m", "pico", "--replace-existing"],
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "dedicated",
-                "showReuseMessage": false
-            },
-            "isBackground": true,
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: Monitor (Debug Probe)",
-            "detail": "Ctrl+Shift+5 - monitor for Raspberry Pi Debug Probe / Picoprobe",
-            "type": "shell",
-            "command": "python3",
-            "args": ["${workspaceFolder}/scripts/serial-persistent.py", "-m", "probe", "--replace-existing"],
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "dedicated",
-                "showReuseMessage": false
-            },
-            "isBackground": true,
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: Monitor (any port)",
-            "detail": "Monitor any /dev/ttyACM* or /dev/ttyUSB* device",
-            "type": "shell",
-            "command": "python3",
-            "args": ["${workspaceFolder}/scripts/serial-persistent.py", "-m", "any", "--replace-existing"],
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "dedicated",
-                "showReuseMessage": false
-            },
-            "isBackground": true,
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: Select board (GUI)",
-            "detail": "Ctrl+Shift+Alt+1 - quick selection from VS Code dropdown",
-            "type": "shell",
-            "command": "bash",
-            "args": [
-                "-c",
-                "SELECTION='${input:boardChoice}'; FQBN=$(echo \"$SELECTION\" | sed 's/ *-.*//'); FQBN=$(echo $FQBN | xargs); DESC=$(echo \"$SELECTION\" | sed 's/.*- *//'); echo \"Setting board: $DESC\"; echo \"FQBN: $FQBN\"; python3 -c \"import json; f='${workspaceFolder}/.vscode/settings.json'; s=json.load(open(f)); s['arduino.fqbn']='$FQBN'; s['arduino.boardDescription']='$DESC'; json.dump(s,open(f,'w'),indent=4); print('\\nOK: settings.json updated'); print('Run: Build: Refresh IntelliSense')\""
-            ],
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: Select board (interactive)",
-            "detail": "Ctrl+Shift+Alt+2 - full menu with advanced options (flash, freq, USB, debug)",
-            "type": "shell",
-            "command": "${workspaceFolder}/scripts/select-board.sh",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "shared",
-                "showReuseMessage": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: Refresh IntelliSense",
-            "detail": "Ctrl+Shift+6 - compile project and generate c_cpp_properties.json",
-            "type": "shell",
-            "command": "${workspaceFolder}/scripts/refresh-intellisense.sh",
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: Install library",
-            "detail": "Ctrl+Shift+0 - install library via arduino-cli",
-            "type": "shell",
-            "command": "${config:arduino.cliPath}",
-            "args": [
-                "lib", "install", "${input:libraryName}"
-            ],
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": true,
-                "panel": "shared",
-                "showReuseMessage": false,
-                "clear": true
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: Clean",
-            "detail": "Ctrl+Shift+7 - remove .build directory",
-            "type": "shell",
-            "command": "rm",
-            "args": ["-rf", "${workspaceFolder}/.build"],
-            "presentation": {
-                "echo": true,
-                "reveal": "silent",
-                "panel": "shared",
-                "showReuseMessage": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: List ports",
-            "detail": "Ctrl+Shift+8 - list connected Arduino devices",
-            "type": "shell",
-            "command": "${config:arduino.cliPath}",
-            "args": ["board", "list"],
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Build: Change port",
-            "detail": "Ctrl+Shift+9 - set upload port in settings.json",
-            "type": "shell",
-            "command": "python3",
-            "args": [
-                "-c",
-                "import json, sys; f = sys.argv[1]; port = sys.argv[2]; s = json.load(open(f)); s[\"arduino.uploadPort\"] = port; json.dump(s, open(f, \"w\"), indent=4); print(\"Port set to: \" + port)",
-                "${workspaceFolder}/.vscode/settings.json",
-                "${input:uploadPort}"
-            ],
-            "presentation": {
-                "echo": true,
-                "reveal": "always",
-                "focus": false,
-                "panel": "shared",
-                "showReuseMessage": false
-            },
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Build",
-            "detail": "Legacy alias for global keybindings -> Build: Build",
-            "dependsOn": "Build: Build",
-            "problemMatcher": []
+            "problemMatcher": "$gcc"
         },
         {
             "label": "Project: Upload",
-            "detail": "Legacy alias for global keybindings -> Build: Upload",
-            "dependsOn": "Build: Upload",
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Monitor (persistent)",
-            "detail": "Legacy alias for global keybindings -> Build: Monitor (persistent)",
-            "dependsOn": "Build: Monitor (persistent)",
-            "problemMatcher": []
+            "detail": "Verified serial upload; falls back to UF2 when a BOOTSEL drive is visible",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["upload", "--project", "${workspaceFolder}"],
+            "problemMatcher": "$gcc"
         },
         {
             "label": "Project: Upload (UF2 / BOOTSEL)",
-            "detail": "Legacy alias for global keybindings -> Build: Upload (UF2 / BOOTSEL)",
-            "dependsOn": "Build: Upload (UF2 / BOOTSEL)",
+            "detail": "Build TimerNTP and copy UF2 to the single visible BOOTSEL drive",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["upload-uf2", "--project", "${workspaceFolder}"],
             "problemMatcher": []
         },
         {
-            "label": "Project: Monitor (Debug Probe)",
-            "detail": "Legacy alias for global keybindings -> Build: Monitor (Debug Probe)",
-            "dependsOn": "Build: Monitor (Debug Probe)",
+            "label": "Project: Serial Monitor",
+            "detail": "Persistent TimerNTP serial monitor through JaszczurHAL VS Code entry",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["monitor", "--project", "${workspaceFolder}", "--lock-policy", "replace-own"],
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Debug Probe Monitor",
+            "detail": "Debug Probe monitor through JaszczurHAL VS Code entry",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["monitor-probe", "--project", "${workspaceFolder}", "--lock-policy", "replace-own"],
+            "isBackground": true,
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Serial Monitor (Any)",
+            "detail": "Any serial monitor through JaszczurHAL VS Code entry",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["monitor-any", "--project", "${workspaceFolder}", "--lock-policy", "wait"],
+            "isBackground": true,
             "problemMatcher": []
         },
         {
             "label": "Project: Refresh IntelliSense",
-            "detail": "Legacy alias for global keybindings -> Build: Refresh IntelliSense",
-            "dependsOn": "Build: Refresh IntelliSense",
+            "detail": "Refresh TimerNTP IntelliSense through JaszczurHAL VS Code entry",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["refresh-intellisense", "--project", "${workspaceFolder}"],
             "problemMatcher": []
         },
         {
             "label": "Project: Clean",
-            "detail": "Legacy alias for global keybindings -> Build: Clean",
-            "dependsOn": "Build: Clean",
+            "detail": "Clean TimerNTP build directory through JaszczurHAL VS Code entry",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["clean", "--project", "${workspaceFolder}"],
             "problemMatcher": []
         },
         {
-            "label": "Project: List ports",
-            "detail": "Legacy alias for global keybindings -> Build: List ports",
-            "dependsOn": "Build: List ports",
+            "label": "Project: Clear USB Identity",
+            "detail": "Flash neutral firmware after verifying the current Lights Timer identity",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["clear-identity", "--project", "${workspaceFolder}"],
             "problemMatcher": []
         },
         {
-            "label": "Project: Change port",
-            "detail": "Legacy alias for global keybindings -> Build: Change port",
-            "dependsOn": "Build: Change port",
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Install library",
-            "detail": "Legacy alias for global keybindings -> Build: Install library",
-            "dependsOn": "Build: Install library",
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Select board (GUI)",
-            "detail": "Legacy alias for global keybindings -> Build: Select board (GUI)",
-            "dependsOn": "Build: Select board (GUI)",
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Select board (interactive)",
-            "detail": "Legacy alias for global keybindings -> Build: Select board (interactive)",
-            "dependsOn": "Build: Select board (interactive)",
+            "label": "Project: Config Dump",
+            "detail": "Show resolved JaszczurHAL VS Code configuration",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["config-dump", "--project", "${workspaceFolder}"],
             "problemMatcher": []
         }
     ]

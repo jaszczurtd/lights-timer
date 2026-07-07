@@ -1,0 +1,27 @@
+{
+    "$schema": "../../../libraries/JaszczurHAL/vscode/schema/jh_vscode_project.schema.json",
+    "project": "lights-timer",
+    "module": "TimerNTP",
+    "toolchain": "cmake",
+    "fqbn": "rp2040:rp2040:rpipicow:flash=2097152_524288",
+    "buildDir": "${project}/.build",
+    "cmakeBuildDir": "${project}/.build/cmake",
+    "cmake": {
+        "cache": {
+            "CREDENTIALS_ROOT": "${project}/../../libraries/Credentials"
+        }
+    },
+    "identity": {
+        "enabled": true,
+        "usbManufacturer": "Jaszczur",
+        "usbProduct": "Lights Timer",
+        "byIdHint": "Lights_Timer"
+    },
+    "upload": {
+        "strategy": "serial"
+    },
+    "artifacts": {
+        "elf": "${buildDir}/firmware.elf",
+        "uf2": "${buildDir}/firmware.uf2"
+    }
+}

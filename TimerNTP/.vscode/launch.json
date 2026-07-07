@@ -27,7 +27,7 @@
                 "break app_start",
                 "continue"
             ],
-            "preLaunchTask": "Build: Build (Debug)",
+            "preLaunchTask": "Project: Build (Debug)",
             "showDevDebugOutput": "parsed",
             "liveWatch": {
                 "enabled": true,
@@ -56,7 +56,7 @@
                 "adapter speed 2000"
             ],
             "runToEntryPoint": "app_start",
-            "preLaunchTask": "Build: Build (Debug)",
+            "preLaunchTask": "Project: Build (Debug)",
             "showDevDebugOutput": "parsed",
             "liveWatch": {
                 "enabled": true,

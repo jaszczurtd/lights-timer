@@ -9,9 +9,16 @@ set(ARDUINO_SKETCHBOOK "" CACHE PATH "Arduino sketchbook path")
 set(ARDUINO_UPLOAD_PORT "" CACHE STRING "Arduino upload port")
 set(ARDUINO_VERBOSE OFF CACHE BOOL "Enable verbose Arduino CLI output")
 set(JH_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/JaszczurHAL" CACHE PATH "JaszczurHAL library root")
+set(CREDENTIALS_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/Credentials" CACHE PATH "Credentials library root")
+set(JH_USB_MANUFACTURER "" CACHE STRING "USB manufacturer descriptor")
+set(JH_USB_PRODUCT "" CACHE STRING "USB product descriptor")
 
 if(NOT EXISTS "${JH_ROOT}/library.properties")
     message(FATAL_ERROR "JaszczurHAL not found at JH_ROOT='${JH_ROOT}'")
+endif()
+
+if(NOT EXISTS "${CREDENTIALS_ROOT}/Credentials.h")
+    message(FATAL_ERROR "Credentials library not found at CREDENTIALS_ROOT='${CREDENTIALS_ROOT}'")
 endif()
 
 set(SKETCH_DIR "${CMAKE_BINARY_DIR}/sketch/${APP_NAME}")
@@ -63,6 +70,8 @@ if(NOT _jh_in_sketchbook)
     list(APPEND ARDUINO_LIBRARY_ARGS --library "${JH_ROOT}")
 endif()
 
+list(APPEND ARDUINO_LIBRARY_ARGS --library "${CREDENTIALS_ROOT}")
+
 set(ARDUINO_COMMON_ARGS
     compile
     --fqbn "${ARDUINO_FQBN}"
@@ -72,6 +81,13 @@ set(ARDUINO_COMMON_ARGS
     --build-property "compiler.c.extra_flags=-I${SKETCH_DIR} -I${CMAKE_CURRENT_SOURCE_DIR}"
     --warnings all
 )
+
+if(JH_USB_MANUFACTURER AND JH_USB_PRODUCT)
+    list(APPEND ARDUINO_COMMON_ARGS
+        --build-property "build.usb_manufacturer=\"${JH_USB_MANUFACTURER}\""
+        --build-property "build.usb_product=\"${JH_USB_PRODUCT}\""
+    )
+endif()
 
 if(ARDUINO_VERBOSE)
     list(APPEND ARDUINO_COMMON_ARGS --verbose)
@@ -130,3 +146,4 @@ add_arduino_compile_target(firmware_compile_db COMPILE_DB)
 message(STATUS "Arduino FQBN: ${ARDUINO_FQBN}")
 message(STATUS "Generated sketch: ${SKETCH_DIR}")
 message(STATUS "Arduino build dir: ${ARDUINO_BUILD_DIR}")
+message(STATUS "Credentials library: ${CREDENTIALS_ROOT}")

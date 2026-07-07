@@ -1,6 +1,11 @@
 user:piuser
 broker ip: 192.168.2.100
 
+Credentials:
+- Firmware uses the shared `../../libraries/Credentials` Arduino library.
+- `../libraries/Credentials` under `lights-timer/` is only a template/example
+  and is not part of the active TimerNTP build.
+
 Build model:
 - `TimerNTP.ino` was removed from the source tree.
 - Application entry now lives in `TimerNTP.cpp` and implements the JaszczurHAL
@@ -11,12 +16,12 @@ Build model:
   only for `arduino-cli`. Do not edit or commit files from `.build`.
 
 Build commands:
-- Configure: `./scripts/configure-cmake.sh`
-- Build firmware: `cmake --build .build/cmake --target firmware`
-- Build debug firmware: `cmake --build .build/cmake --target firmware_debug`
-- Serial upload: `./scripts/upload-serial.sh`
-- BOOTSEL UF2 upload: `./scripts/upload-uf2.sh`
-- Refresh VS Code IntelliSense: `./scripts/refresh-intellisense.sh`
+- Config dump: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode config-dump --project .`
+- Build firmware: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode build --project .`
+- Build debug firmware: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode build-debug --project .`
+- Serial upload: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload --project .`
+- BOOTSEL UF2 upload: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-uf2 --project .`
+- Refresh VS Code IntelliSense: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode refresh-intellisense --project .`
 
 Build artifacts:
 - `.build/firmware.elf`

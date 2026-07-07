@@ -271,26 +271,26 @@ WantedBy=multi-user.target
 
 ### 4) Pico W Firmware
 
-- The current firmware workflow is **VS Code-first**. Build/upload is driven by project tasks and scripts from `.vscode/` and `scripts/` in `TimerNTP`.
+- The current firmware workflow is **VS Code-first**. Build/upload is driven by the shared JaszczurHAL `jh-vscode` entrypoint through project tasks in `TimerNTP/.vscode/`.
 - Arduino IDE build/upload is currently **not** a maintained workflow for this repository.
 - Open `TimerNTP` as your workspace folder in VS Code.
 - Prerequisites:
   - `arduino-cli` available in PATH
   - Earlephilhower RP2040 core installed for `arduino-cli`
-  - Python 3 (used by monitor/upload helper scripts)
+- Python 3 (used by the shared monitor/upload tooling)
 - Use provided VS Code tasks (Command Palette -> Tasks: Run Task):
-  - `Build: Select board (GUI)` or `Build: Select board (interactive)`
-  - `Build: Build`
-  - `Build: Upload` (serial)
-  - `Build: Upload (UF2 / BOOTSEL)`
-  - `Build: Monitor (persistent)`
-  - `Build: Refresh IntelliSense`
-- Available helper scripts are in `TimerNTP/scripts` (for example `select-board.sh`, `upload-uf2.sh`, `refresh-intellisense.sh`, `serial-persistent.py`).
+  - `Project: Build`
+  - `Project: Upload` (serial)
+  - `Project: Upload (UF2 / BOOTSEL)`
+  - `Project: Serial Monitor`
+  - `Project: Refresh IntelliSense`
+  - `Project: Clear USB Identity`
+- VS Code workflow goes through `libraries/JaszczurHAL/vscode/entry/jh-vscode`.
 
 #### Credentials Module (Anonymized Template)
 
 - This repository includes a ready-to-fill Credentials library template in `libraries/Credentials`.
-- For firmware builds, the library must be available in your Arduino sketchbook path (`arduino.sketchbookPath`) as `libraries/Credentials`.
+- For firmware builds, the included `libraries/Credentials` template is added by the CMake workflow when it is not already available in your Arduino sketchbook.
 - Fill these files before first upload:
   - `libraries/Credentials/Credentials.h`: Wi‑Fi, MQTT, WireGuard, NTP and OTA constants
   - `libraries/Credentials/MacHostMapping.cpp`: per-device MAC mapping (hostname, relay count, WireGuard local IP, private key)
