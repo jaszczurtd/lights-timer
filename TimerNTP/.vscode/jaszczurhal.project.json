@@ -7,8 +7,10 @@
     "buildDir": "${project}/.build",
     "cmakeBuildDir": "${project}/.build/cmake",
     "cmake": {
+        "sourceDir": "${project}/../../libraries/JaszczurHAL/cmake/jh_firmware_project",
         "cache": {
-            "CREDENTIALS_ROOT": "${project}/../../libraries/Credentials"
+            "JH_PROJECT_DIR": "${project}",
+            "ARDUINO_LIBRARIES": "${project}/../../libraries"
         }
     },
     "identity": {

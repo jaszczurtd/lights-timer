@@ -1,5 +1,19 @@
 {
     "version": "2.0.0",
+    "inputs": [
+        {
+            "id": "boardSelection",
+            "description": "Target/board",
+            "type": "pickString",
+            "options": [
+                "rp2040:pico - Raspberry Pi Pico (RP2040)",
+                "rp2040:picow - Raspberry Pi Pico W (RP2040)",
+                "rp2040:pico2 - Raspberry Pi Pico 2 (RP2350)",
+                "rp2040:pico2w - Raspberry Pi Pico 2 W (RP2350)"
+            ],
+            "default": "rp2040:picow - Raspberry Pi Pico W (RP2040)"
+        }
+    ],
     "tasks": [
         {
             "label": "Project: Build",
@@ -95,6 +109,34 @@
             "type": "shell",
             "command": "${config:jaszczurhal.vscodeEntry}",
             "args": ["config-dump", "--project", "${workspaceFolder}"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: List ports",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["list-ports", "--project", "${workspaceFolder}"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Change port",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["change-port", "--project", "${workspaceFolder}"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Select board",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["select-board", "--project", "${workspaceFolder}", "--interactive"],
+            "problemMatcher": []
+        },
+        {
+            "label": "Project: Select board (GUI)",
+            "type": "shell",
+            "command": "${config:jaszczurhal.vscodeEntry}",
+            "args": ["select-board", "--project", "${workspaceFolder}", "--selection", "${input:boardSelection}"],
             "problemMatcher": []
         }
     ]
