@@ -4,6 +4,7 @@
 #include "NTPMachine.h"
 #include "MyHardware.h"
 #include <Credentials.h>
+#include "CredentialValues.h"
 #include <tools.h>
 #include <cstring>
 #include <cstdio>
@@ -263,7 +264,10 @@ bool MQTTClient::reconnect() {
     const char *hostName = hardware().getMyHostname();
     hal_watchdog_feed();
 
-    if(hal_mqtt_connect_auth(hostName, MQTT_USER, MQTT_PASSWORD)) {
+    if(hal_mqtt_connect_auth(
+           hostName,
+           credentialValue(CR_MQTT_USER),
+           credentialValue(CR_MQTT_PASSWORD))) {
       hal_watchdog_feed();
 
       snprintf(topic, sizeof(topic), "%s%s", MQTT_TOPIC_STATUS, hostName);

@@ -4,6 +4,7 @@
 #include "Logic.h"
 #include "MyHardware.h"
 #include "MQTTClient.h"
+#include "CredentialValues.h"
 
 MyHardware& NTPMachine::hardware() { return logic.hardwareObj(); }
 MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
@@ -79,7 +80,8 @@ void NTPMachine::stateMachine(void) {
   switch(getNTPState()) {
     case STATE_NOT_CONNECTED: {
       setWatchdogPhase(WatchdogPhase::StateNotConnected);
-      deb("Not connected to WiFi. Trying to reconnect to %s...", WIFI_SSID);
+      deb("Not connected to WiFi. Trying to reconnect to %s...",
+          credentialValue(CR_WIFI_SSID));
 
       memset(buffer, 0, sizeof(buffer));
       hardware().drawCenteredText("CONNECTING...");
@@ -95,7 +97,7 @@ void NTPMachine::stateMachine(void) {
       setWatchdogPhase(WatchdogPhase::StateConnecting);
 
       if (wifiTimeoutTimer.available()) {
-        deb("\n%s: WiFi connection timeout!", WIFI_SSID);
+        deb("\n%s: WiFi connection timeout!", credentialValue(CR_WIFI_SSID));
         wifiTimeoutTimer.abort();
         reconnect();
         break;
@@ -110,8 +112,9 @@ void NTPMachine::stateMachine(void) {
             snprintf(dns_ip, sizeof(dns_ip), "%s", "0.0.0.0");
           }
 
-          deb("Connected to WiFi %s. Local IP address: %s", WIFI_SSID, hardware().getMyIP());
-          deb("ping target: %s", MQTT_BROKER_WIREGUARD);
+          deb("Connected to WiFi %s. Local IP address: %s",
+              credentialValue(CR_WIFI_SSID), hardware().getMyIP());
+          deb("ping target: %s", credentialValue(CR_MQTT_BROKER_WIREGUARD));
           deb("DNS IP:%s", dns_ip);
 
           hal_watchdog_feed();
@@ -119,7 +122,7 @@ void NTPMachine::stateMachine(void) {
 
           setWatchdogPhase(WatchdogPhase::NtpSyncStart);
           hal_time_set_timezone("CET-1CEST,M3.5.0/2,M10.5.0/3");
-          hal_time_sync_ntp(ntpServer0, nullptr);
+          hal_time_sync_ntp(credentialValue(CR_NTPSERVER0), nullptr);
 
           ntpTimeoutTimer.begin(nullptr, NTP_TIMEOUT_MS);
           setNTPState(STATE_NTP_SYNCHRO);
@@ -143,11 +146,11 @@ void NTPMachine::stateMachine(void) {
           if (!hal_wireguard_begin_advanced_text(
               getWireguardLocalIP(hardware().getMyMAC()),
               getWireguardPrivateKey(hardware().getMyMAC()),
-              WG_ENDPOINT,
-              WG_SERVER_PUBLIC_KEY,
-              WG_ENDPOINT_PORT,
-              WG_ALLOWED_IP,
-              WG_ALLOWED_MASK)) {
+              credentialValue(CR_WG_ENDPOINT),
+              credentialValue(CR_WG_SERVER_PUBLIC_KEY),
+              credentialIntValue(CR_WG_ENDPOINT_PORT),
+              credentialValue(CR_WG_ALLOWED_IP),
+              credentialValue(CR_WG_ALLOWED_MASK))) {
             hal_watchdog_feed();
             deb("WireGuard initialization failed.");
             reconnect();
@@ -204,7 +207,9 @@ void NTPMachine::stateMachine(void) {
         setNTPState(STATE_CONNECTED);
 
         setWatchdogPhase(WatchdogPhase::MqttStart);
-        mqtt().start(MQTT_BROKER_WIREGUARD, MQTT_BROKER_PORT);
+        mqtt().start(
+            credentialValue(CR_MQTT_BROKER_WIREGUARD),
+            credentialIntValue(CR_MQTT_BROKER_PORT));
         hal_watchdog_feed();
         hardware().clearDisplay();
         hal_watchdog_feed();
@@ -226,7 +231,7 @@ void NTPMachine::stateMachine(void) {
 
         if (ntpReSyncTimer.available()) {
           ntpReSyncTimer.restart();
-          hal_time_sync_ntp(ntpServer0, nullptr);
+          hal_time_sync_ntp(credentialValue(CR_NTPSERVER0), nullptr);
         }
 
         setWatchdogPhase(WatchdogPhase::ConnectedPing);

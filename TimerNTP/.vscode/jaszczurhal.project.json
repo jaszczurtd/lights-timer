@@ -13,6 +13,19 @@
             "ARDUINO_LIBRARIES": "${project}/../../libraries"
         }
     },
+    "targetProfiles": {
+        "stm32g474": {
+            "cmake": {
+                "cache": {
+                    "JH_EXTRA_INCLUDES": "${project}/../../libraries/Credentials/src",
+                    "JH_LINK_LIBRARIES": "${project}/../../libraries/Credentials/build/stm32g474/libCredentials.a"
+                }
+            },
+            "upload": {
+                "strategy": "openocd"
+            }
+        }
+    },
     "identity": {
         "enabled": true,
         "usbManufacturer": "Jaszczur",

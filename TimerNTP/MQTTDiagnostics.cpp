@@ -2,6 +2,7 @@
 
 #include "NTPMachine.h"
 #include "MyHardware.h"
+#include "CredentialValues.h"
 
 #include <hal/hal.h>
 #include <tools.h>
@@ -238,7 +239,8 @@ void MQTTDiagnostics::processPingHealthProbe() {
   pingTimer.restart();
 
   const unsigned long pingStartedAt = hal_millis();
-  const int pingResult = hal_wifi_ping_ex(MQTT_BROKER_WIREGUARD, PING_TIMEOUT_MS);
+  const int pingResult = hal_wifi_ping_ex(
+      credentialValue(CR_MQTT_BROKER_WIREGUARD), PING_TIMEOUT_MS);
   brokerPingMs = hal_millis() - pingStartedAt;
   hal_watchdog_feed();
 

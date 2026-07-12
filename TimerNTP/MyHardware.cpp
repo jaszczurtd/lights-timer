@@ -1,4 +1,5 @@
 #include "Credentials.h"
+#include "CredentialValues.h"
 
 #include <hal/hal.h>
 #include "MyHardware.h"
@@ -84,7 +85,10 @@ void MyHardware::restartWiFi(void) {
   if (!hal_wifi_set_mode(HAL_WIFI_MODE_STA)) {
     derr("hal_wifi_set_mode(STA) failed");
   }
-  if (!hal_wifi_begin_station(WIFI_SSID, WIFI_PASSWORD, true)) {
+  if (!hal_wifi_begin_station(
+          credentialValue(CR_WIFI_SSID),
+          credentialValue(CR_WIFI_PASSWORD),
+          true)) {
     derr("hal_wifi_begin_station failed");
   }
   if (!hal_wifi_set_timeout_ms(MAX_TIMEOUT)) {

@@ -287,20 +287,42 @@ WantedBy=multi-user.target
   - `Project: Clear USB Identity`
 - VS Code workflow goes through `libraries/JaszczurHAL/vscode/entry/jh-vscode`.
 
-#### Credentials Module (Anonymized Template)
+#### Credentials setup
 
-- This repository includes a ready-to-fill Credentials library template in `libraries/Credentials`.
-- For firmware builds, the included `libraries/Credentials` template is added by the CMake workflow when it is not already available in your Arduino sketchbook.
-- Fill these files before first upload:
-  - `libraries/Credentials/Credentials.h`: Wi‑Fi, MQTT, WireGuard, NTP and OTA constants
-  - `libraries/Credentials/MacHostMapping.cpp`: per-device MAC mapping (hostname, relay count, WireGuard local IP, private key)
-  - `libraries/Credentials/ca_cert.c`: CA certificate (PEM)
-- Keep real secrets outside version control (do not commit production credentials/keys).
+Firmware links the external precompiled library at
+`../libraries/Credentials/src/cortex-m0plus/libCredentials.a`. The author's
+library is private and is not distributed in this repository. The tracked
+`libraries/Credentials` directory is a complete replacement template with the
+same API, but without author secrets or private encoding code.
+
+If `../libraries/Credentials` already exists, it is used unchanged. For a fresh
+checkout, run from the `lights-timer` directory:
+
+```bash
+./scripts/setup-credentials.sh
+```
+
+The script refuses to overwrite an existing library. It creates private files:
+
+```text
+../libraries/Credentials/config/CredentialsData.local.h
+../libraries/Credentials/config/MacHostMapping.local.cpp
+```
+
+Replace all placeholders, set `CREDENTIALS_LOCAL_CONFIGURED` to `1`, then run:
+
+```bash
+../libraries/Credentials/scripts/build.sh rp2040
+```
+
+The `*.local.*` files and generated archives are ignored by Git. Detailed
+instructions are in `libraries/Credentials/README.md`.
 
 #### MAC Readout (for MacHostMapping)
 
 - A helper sketch is provided at `TimerNTP/tools/ReadPicoMac/ReadPicoMac.ino`.
-- Purpose: print board MAC over serial so you can add/update entries in `libraries/Credentials/MacHostMapping.cpp`.
+- Purpose: print board MAC over serial so you can add/update entries in
+  `../libraries/Credentials/config/MacHostMapping.local.cpp`.
 - Quick usage:
   - connect Pico/Pico W over USB
   - compile/upload the helper sketch ising Arduino IDE and Earlephilhower RP2040 core

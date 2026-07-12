@@ -17,8 +17,10 @@ if(NOT EXISTS "${JH_ROOT}/library.properties")
     message(FATAL_ERROR "JaszczurHAL not found at JH_ROOT='${JH_ROOT}'")
 endif()
 
-if(NOT EXISTS "${CREDENTIALS_ROOT}/Credentials.h")
-    message(FATAL_ERROR "Credentials library not found at CREDENTIALS_ROOT='${CREDENTIALS_ROOT}'")
+if(NOT EXISTS "${CREDENTIALS_ROOT}/src/cortex-m0plus/libCredentials.a")
+    message(FATAL_ERROR
+        "Precompiled RP2040 Credentials library not found. Run "
+        "'${CREDENTIALS_ROOT}/scripts/build.sh rp2040' first.")
 endif()
 
 set(SKETCH_DIR "${CMAKE_BINARY_DIR}/sketch/${APP_NAME}")
@@ -146,4 +148,4 @@ add_arduino_compile_target(firmware_compile_db COMPILE_DB)
 message(STATUS "Arduino FQBN: ${ARDUINO_FQBN}")
 message(STATUS "Generated sketch: ${SKETCH_DIR}")
 message(STATUS "Arduino build dir: ${ARDUINO_BUILD_DIR}")
-message(STATUS "Credentials library: ${CREDENTIALS_ROOT}")
+message(STATUS "Precompiled Credentials library: ${CREDENTIALS_ROOT}/src/cortex-m0plus/libCredentials.a")

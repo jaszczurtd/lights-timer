@@ -2,9 +2,14 @@ user:piuser
 broker ip: 192.168.2.100
 
 Credentials:
-- Firmware uses the shared `../../libraries/Credentials` Arduino library.
-- `../libraries/Credentials` under `lights-timer/` is only a template/example
-  and is not part of the active TimerNTP build.
+- Firmware links the shared precompiled
+  `../../libraries/Credentials/src/cortex-m0plus/libCredentials.a` library.
+- An existing private library is used unchanged. For a fresh checkout, run
+  `../scripts/setup-credentials.sh` from this directory, fill the generated
+  `../../libraries/Credentials/config/*.local.*` files, then build it with
+  `../../libraries/Credentials/scripts/build.sh rp2040`.
+- `../libraries/Credentials` under `lights-timer/` is a complete, secret-free
+  bootstrap template and is not part of the active TimerNTP build.
 
 Build model:
 - `TimerNTP.ino` was removed from the source tree.

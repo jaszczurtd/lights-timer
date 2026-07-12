@@ -1,65 +1,100 @@
 #include "Credentials.h"
+#include "MacHostMapping.h"
+#include "config/CredentialsData.local.h"
+
 #include <ctype.h>
-#include <string.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
-static const char *not_found = "not_found";
+#if !defined(CREDENTIALS_LOCAL_CONFIGURED) || CREDENTIALS_LOCAL_CONFIGURED != 1
+#error "Configure config/CredentialsData.local.h and set CREDENTIALS_LOCAL_CONFIGURED to 1"
+#endif
 
-static void normalize_mac(const char* input, char* output, size_t output_len) {
-    size_t j = 0;
-    for (size_t i = 0; input[i] != '\0' && j < output_len - 1; i++) {
-        unsigned char c = (unsigned char)input[i];
-        if (c == ':' || c == '-' || c == ' ' || c == '\t' || c == '\r' || c == '\n') continue;
-        output[j++] = (char)tolower(c);
+static char *duplicateString(const char *value) {
+    if (value == NULL) {
+        return NULL;
+    }
+    const size_t size = strlen(value) + 1u;
+    char *copy = (char *)malloc(size);
+    if (copy != NULL) {
+        memcpy(copy, value, size);
+    }
+    return copy;
+}
+
+static void normalizeMac(const char *input, char *output, size_t output_size) {
+    if (input == NULL || output == NULL || output_size == 0u) {
+        return;
+    }
+    size_t j = 0u;
+    for (size_t i = 0u; input[i] != '\0' && j + 1u < output_size; ++i) {
+        const unsigned char c = (unsigned char)input[i];
+        if (c != ':' && c != '-' && !isspace(c)) {
+            output[j++] = (char)tolower(c);
+        }
     }
     output[j] = '\0';
 }
 
-static const MacEntry* findByMac(const char* mac) {
-    char normalized[20] = {0};
-    normalize_mac(mac, normalized, sizeof(normalized));
-
-    for (size_t i = 0; i < mac_table_size; i++) {
-        char entry_normalized[20] = {0};
-        normalize_mac(mac_table[i].mac, entry_normalized, sizeof(entry_normalized));
-        if (strcmp(entry_normalized, normalized) == 0) {
+static const MacEntry *findByMac(const char *mac) {
+    char normalized[20] = {};
+    normalizeMac(mac, normalized, sizeof(normalized));
+    for (size_t i = 0u; i < mac_table_size; ++i) {
+        char candidate[20] = {};
+        normalizeMac(mac_table[i].mac, candidate, sizeof(candidate));
+        if (strcmp(candidate, normalized) == 0) {
             return &mac_table[i];
         }
     }
     return NULL;
 }
 
-const char* getFriendlyHostname(const char* mac) {
-    static char hostname[32];
+void initCredentials(void) {}
 
-    if (const MacEntry* e = findByMac(mac)) {
-        return e->hostname;
+char *getCredential(Cred cred) {
+    if (cred < 0 || cred >= CR_LAST) {
+        return NULL;
+    }
+    return duplicateString(CREDENTIAL_VALUES[cred]);
+}
+
+int getCredentialInt(Cred cred) {
+    char *value = getCredential(cred);
+    if (value == NULL) {
+        return -1;
+    }
+    const int result = atoi(value);
+    free(value);
+    return result;
+}
+
+const char *getFriendlyHostname(const char *mac) {
+    static char fallback[32];
+    const MacEntry *entry = findByMac(mac);
+    if (entry != NULL) {
+        return entry->hostname;
     }
 
-    char normalized[20] = {0};
-    normalize_mac(mac, normalized, sizeof(normalized));
-
-    size_t len = strlen(normalized);
-    if (len >= 6) {
-        snprintf(hostname, sizeof(hostname), "pico-%s", &normalized[len - 6]);
-    } else {
-        snprintf(hostname, sizeof(hostname), "pico-%s", normalized);
-    }
-
-    return hostname;
+    char normalized[20] = {};
+    normalizeMac(mac, normalized, sizeof(normalized));
+    const size_t length = strlen(normalized);
+    const char *suffix = length >= 6u ? &normalized[length - 6u] : normalized;
+    snprintf(fallback, sizeof(fallback), "pico-%s", suffix);
+    return fallback;
 }
 
-int getSwitchesNumber(const char* mac) {
-    if (const MacEntry* e = findByMac(mac)) return e->switches;
-    return 0;
+const char *getWireguardPrivateKey(const char *mac) {
+    const MacEntry *entry = findByMac(mac);
+    return entry != NULL ? duplicateString(entry->wireguard_private_key) : NULL;
 }
 
-const char* getWireguardPrivateKey(const char* mac) {
-    if (const MacEntry* e = findByMac(mac)) return e->wireguard_private_key;
-    return not_found;
+const char *getWireguardLocalIP(const char *mac) {
+    const MacEntry *entry = findByMac(mac);
+    return entry != NULL ? entry->wireguard_local_ip : NULL;
 }
 
-const char* getWireguardLocalIP(const char* mac) {
-    if (const MacEntry* e = findByMac(mac)) return e->wireguard_local_ip;
-    return not_found;
+int getSwitchesNumber(const char *mac) {
+    const MacEntry *entry = findByMac(mac);
+    return entry != NULL ? entry->switches : 0;
 }

@@ -1,6 +1,7 @@
 #include "OTAUpdates.h"
 
 #include <Credentials.h>
+#include "CredentialValues.h"
 
 #include <hal/hal.h>
 #include <tools.h>
@@ -88,7 +89,8 @@ void OTAUpdates::configureIfNeeded(const char *hostname) {
     return;
   }
 
-  if (!hal_ota_set_port(OTA_UPDATE_PORT)) {
+  const int otaPort = credentialIntValue(CR_OTA_UPDATE_PORT);
+  if (!hal_ota_set_port(otaPort)) {
     derr("OTA set port failed. OTA retry in %lu ms", (unsigned long)OTA_INIT_RETRY_MS);
     scheduleRetry();
     return;
@@ -110,7 +112,7 @@ void OTAUpdates::configureIfNeeded(const char *hostname) {
     return;
   }
 
-  if (!hal_ota_set_password(OTA_UPDATE_PASSWORD)) {
+  if (!hal_ota_set_password(credentialValue(CR_OTA_UPDATE_PASSWORD))) {
     derr("OTA set password failed. OTA retry in %lu ms", (unsigned long)OTA_INIT_RETRY_MS);
     scheduleRetry();
     return;
@@ -124,7 +126,7 @@ void OTAUpdates::configureIfNeeded(const char *hostname) {
 
   active = true;
   retryAtMs = 0;
-  deb("OTA ready: host=%s port=%d", hostname_ascii, OTA_UPDATE_PORT);
+  deb("OTA ready: host=%s port=%d", hostname_ascii, otaPort);
 }
 
 void OTAUpdates::handle(bool wifiConnected, const char *hostname) {
