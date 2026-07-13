@@ -75,9 +75,23 @@ void OTAUpdates::configureIfNeeded(const char *hostname) {
   };
 
   if (!hal_littlefs_begin()) {
-    deb("LittleFS mount failed. OTA retry in %lu ms", (unsigned long)OTA_INIT_RETRY_MS);
-    scheduleRetry();
-    return;
+    if (!littlefsRecoveryAttempted) {
+      littlefsRecoveryAttempted = true;
+      deb("LittleFS mount failed; formatting filesystem");
+      if (hal_littlefs_format() && hal_littlefs_begin()) {
+        deb("LittleFS recovery succeeded");
+      } else {
+        derr("LittleFS recovery failed. OTA retry in %lu ms",
+             (unsigned long)OTA_INIT_RETRY_MS);
+        scheduleRetry();
+        return;
+      }
+    } else {
+      derr("LittleFS mount failed. OTA retry in %lu ms",
+           (unsigned long)OTA_INIT_RETRY_MS);
+      scheduleRetry();
+      return;
+    }
   }
 
   if (!hal_ota_on_start(ota_on_start, this) ||

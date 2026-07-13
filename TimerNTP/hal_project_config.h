@@ -17,7 +17,9 @@
  */
 
 /* ── Application entry ───────────────────────────────────────────────── */
+#ifndef HAL_PROVIDE_APP_ENTRY
 #define HAL_PROVIDE_APP_ENTRY       /* HAL owns setup()/loop()/main()      */
+#endif
 
 /* ── Connectivity ──────────────────────────────────────────────────────── */
 #define HAL_ENABLE_TIME             /* NTP/system time -> WiFi             */

@@ -9,5 +9,6 @@ public:
 
 private:
   bool active = false;
+  bool littlefsRecoveryAttempted = false;
   uint32_t retryAtMs = 0;
 };

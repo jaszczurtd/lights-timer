@@ -14,6 +14,13 @@
         }
     },
     "targetProfiles": {
+        "rp2040": {
+            "cmake": {
+                "cache": {
+                    "ARDUINO_FQBN": "rp2040:rp2040:rpipicow:flash=2097152_524288"
+                }
+            }
+        },
         "stm32g474": {
             "cmake": {
                 "cache": {
