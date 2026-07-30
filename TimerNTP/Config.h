@@ -7,7 +7,6 @@
 #define WATCHDOG_TIME (8000)
 #define CORE_OPERATION_DELAY 1
 
-#define PING_TIMEOUT_MS   (SECOND * 3) 
 #define WIFI_TIMEOUT_MS    (SECOND * 30)
 #define NTP_TIMEOUT_MS     (SECOND * 30)
 #define PRINT_INTERVAL_MS  (SECOND * 10)
@@ -30,17 +29,10 @@
 #define MQTT_TOPIC_UPDATE "update-"
 #define MQTT_TOPIC_TIME_SET "time-"
 #define MQTT_TOPIC_SWITCH_SET "switch-"
-#define MQTT_TOPIC_DIAGNOSTICS "diagnostics"
-#define MQTT_TOPIC_DIAGNOSTICS_BOOT_CAUSE "boot_cause"
-#define MQTT_TOPIC_DIAGNOSTICS_WATCHDOG "watchdog"
-#define MQTT_TOPIC_DIAGNOSTICS_PING_HEALTH "ping_health"
 
 #define MAX_TIMEOUT (SECOND * 5)
 #define MQTT_SOCKET_MAX_TIMEOUT 2
 #define MQTT_KEEP_ALIVE 15
-
-#define MAX_FAILED_PINGS 7
-#define NEXT_PING_TIME (SECOND * 5)
 
 // Stack guard is currently opt-in. Some RP2040 core/build combinations may
 // report false positives and trigger reboot loops when checked each loop.

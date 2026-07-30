@@ -3,34 +3,20 @@
     "project": "lights-timer",
     "module": "TimerNTP",
     "toolchain": "cmake",
-    "fqbn": "rp2040:rp2040:rpipicow:flash=2097152_524288",
+    "target": "rp2040",
+    "board": "picow",
     "buildDir": "${project}/.build",
     "cmakeBuildDir": "${project}/.build/cmake",
     "cmake": {
         "sourceDir": "${project}/../../libraries/JaszczurHAL/cmake/jh_firmware_project",
         "cache": {
             "JH_PROJECT_DIR": "${project}",
-            "ARDUINO_LIBRARIES": "${project}/../../libraries"
-        }
-    },
-    "targetProfiles": {
-        "rp2040": {
-            "cmake": {
-                "cache": {
-                    "ARDUINO_FQBN": "rp2040:rp2040:rpipicow:flash=2097152_524288"
-                }
-            }
-        },
-        "stm32g474": {
-            "cmake": {
-                "cache": {
-                    "JH_EXTRA_INCLUDES": "${project}/../../libraries/Credentials/src",
-                    "JH_LINK_LIBRARIES": "${project}/../../libraries/Credentials/build/stm32g474/libCredentials.a"
-                }
-            },
-            "upload": {
-                "strategy": "openocd"
-            }
+            "JH_MODULE_NAME": "TimerNTP",
+            "JH_EXTRA_DEFINES": "HAL_ENABLE_OTA;HAL_ENABLE_KV;HAL_ENABLE_LITTLEFS",
+            "JH_OTA_GENERATION": 1,
+            "JH_OTA_VERSION": "lights-timer",
+            "JH_EXTRA_INCLUDES": "${project}/../../libraries/Credentials/src",
+            "JH_LINK_LIBRARIES": "${project}/../../libraries/Credentials/src/cortex-m0plus/libCredentials.a"
         }
     },
     "identity": {
@@ -42,8 +28,17 @@
     "upload": {
         "strategy": "serial"
     },
+    "ota": {
+        "port": 8266,
+        "listenPort": 8266,
+        "broadcast": "192.168.2.255",
+        "host": "192.168.2.171",
+        "passwordEnv": "TIMER_NTP_OTA_PASSWORD"
+    },
     "artifacts": {
         "elf": "${buildDir}/firmware.elf",
-        "uf2": "${buildDir}/firmware.uf2"
+        "uf2": "${buildDir}/firmware.uf2",
+        "ota": "${buildDir}/firmware.ota",
+        "compileCommands": "${buildDir}/compile_commands_patched.json"
     }
 }

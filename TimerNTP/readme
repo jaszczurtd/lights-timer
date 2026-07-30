@@ -26,45 +26,31 @@ Build commands:
 - Build debug firmware: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode build-debug --project .`
 - Serial upload: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload --project .`
 - BOOTSEL UF2 upload: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-uf2 --project .`
+- OTA discovery: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode ota-discover --project .`
+- OTA upload: set `TIMER_NTP_OTA_PASSWORD`, then run
+  `../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-ota --project .`
 - Refresh VS Code IntelliSense: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode refresh-intellisense --project .`
 
 Build artifacts:
 - `.build/firmware.elf`
 - `.build/firmware.bin`
 - `.build/firmware.uf2`
+- `.build/firmware.ota`
 - `.build/firmware.map`
+
+OTA trial policy:
+- The OTA service starts after WiFi is available, preserving a network recovery
+  path while the rest of product startup is still running.
+- Discovery uses the LAN-directed `192.168.2.255` broadcast because the build
+  host also has a WireGuard interface and limited broadcast was unreliable.
+- Upload targets the board's reserved `192.168.2.171` address directly; this
+  avoids ambiguity when other OTA-capable devices are online.
+- Device UDP and host TCP callback ports are both pinned to `8266`; the LAN and
+  host firewall must permit the device to initiate that TCP connection.
+- A trial image is confirmed only after TimerNTP reaches `STATE_CONNECTED`,
+  which means WiFi, NTP, WireGuard and MQTT startup checks have completed.
+- If those checks never complete, the image remains unconfirmed and the native
+  OTA boot applier can roll it back after the configured retry limit.
 
 test with broker:
 mosquitto_sub -h localhost -u piuser -P Password -t status-pico-08dde4 -v
-
-MQTT watchdog reboot diagnostics:
-- Firmware publishes a diagnostic message after a hard reboot caused by watchdog.
-- Current firmware topic format: `diagnostics/<hostname>/watchdog` (for example `diagnostics/pico-08dde4/watchdog`).
-- The message is sent only once per boot, and only if the reboot was watchdog-related.
-- Publish uses `retain=false` (the message is not retained by the broker).
-
-Example JSON fields:
-- `reason` (always `watchdog`)
-- `build`
-- `hostname`
-- `mac`
-- `bootMillis`
-- `watchdogTimeoutMs`
-- `freeHeap`
-- `wdtBootCount`
-- `lastStateBeforeReset`
-- `lastStateBeforeResetName`
-- `lastUptimeBeforeResetMs`
-- `lastPhaseBeforeReset`
-- `phaseAtPublish`
-
-Reading on Raspberry Pi (local broker):
-1. Subscribe to all event messages:
-   mosquitto_sub -h localhost -u piuser -P Password -t 'diagnostics/+/#' -v
-2. Subscribe to a single device:
-   mosquitto_sub -h localhost -u piuser -P Password -t 'diagnostics/pico-08dde4/#' -v
-3. Version with JSON preview:
-   mosquitto_sub -h localhost -u piuser -P Password -t 'diagnostics/+/#' | jq .
-
-Note:
-- If the device did not reboot due to watchdog, no `diagnostics/...` message is sent.

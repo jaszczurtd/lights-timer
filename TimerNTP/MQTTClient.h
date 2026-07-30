@@ -4,7 +4,6 @@
 #pragma once
 
 #include "Config.h"
-#include "MQTTDiagnostics.h"
 
 #include <time.h>
 #include <tools.h>
@@ -22,7 +21,6 @@ public:
   void start(const char *brokerIP, const int port);
   void stop(); 
   void handleMQTTClient();
-  void handleDiagnosticsPingHealth();
   void publish();
   void requestPublish() { publishPending = true; }
   void handleMessage(const char* topic, const uint8_t* payload, uint16_t length);
@@ -40,8 +38,6 @@ private:
   char msg[MQTT_MAX_BUFFER_LENGTH];
   char topic[MQTT_MAX_TOPIC_LENGTH];
   char response[MQTT_MAX_BUFFER_LENGTH];
-
-  MQTTDiagnostics diagnostics;
 
   bool reconnect();
 };

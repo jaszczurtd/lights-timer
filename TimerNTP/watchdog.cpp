@@ -36,8 +36,6 @@ WatchdogPhase phaseFromStorage(uint8_t raw) {
       return WatchdogPhase::MqttStart;
     case static_cast<uint8_t>(WatchdogPhase::StateConnected):
       return WatchdogPhase::StateConnected;
-    case static_cast<uint8_t>(WatchdogPhase::ConnectedPing):
-      return WatchdogPhase::ConnectedPing;
     case static_cast<uint8_t>(WatchdogPhase::ConnectedMqttHandle):
       return WatchdogPhase::ConnectedMqttHandle;
     case static_cast<uint8_t>(WatchdogPhase::ConnectedDisplayUpdate):
@@ -66,7 +64,6 @@ void Watchdog::start(int initialState, WatchdogStateNameResolver stateNameResolv
   watchdogResetOnBoot = hal_watchdog_caused_reboot();
   lastStateBeforeReset = -1;
   lastUptimeBeforeResetMs = 0;
-  bootCount = 0;
   currentPhase = WatchdogPhase::Boot;
   lastPhaseBeforeReset = WatchdogPhase::Unknown;
   lastPhaseBeforeResetRaw = static_cast<uint8_t>(WatchdogPhase::Unknown);
@@ -90,7 +87,7 @@ void Watchdog::start(int initialState, WatchdogStateNameResolver stateNameResolv
   g_lastUptimeBeforeResetMs = 0;
   g_lastPhaseBeforeReset = static_cast<uint8_t>(WatchdogPhase::BootStartup);
 
-  // Mark boot phase immediately so diagnostics always include a meaningful
+  // Mark the boot phase immediately so a watchdog reboot has a meaningful
   // first breadcrumb from early startup.
   setPhase(WatchdogPhase::BootStartup, initialState);
 }
@@ -109,36 +106,8 @@ void Watchdog::saveNTPState(int currentState) {
   g_lastPhaseBeforeReset = static_cast<uint8_t>(currentPhase);
 }
 
-void Watchdog::setBootCount(uint32_t count) {
-  bootCount = count;
-}
-
 bool Watchdog::wasResetOnBoot() const {
   return watchdogResetOnBoot;
-}
-
-int Watchdog::getLastStateBeforeReset() const {
-  return lastStateBeforeReset;
-}
-
-uint32_t Watchdog::getLastUptimeBeforeResetMs() const {
-  return lastUptimeBeforeResetMs;
-}
-
-uint32_t Watchdog::getBootCount() const {
-  return bootCount;
-}
-
-WatchdogPhase Watchdog::getCurrentPhase() const {
-  return currentPhase;
-}
-
-WatchdogPhase Watchdog::getLastPhaseBeforeReset() const {
-  return lastPhaseBeforeReset;
-}
-
-uint8_t Watchdog::getLastPhaseBeforeResetRaw() const {
-  return lastPhaseBeforeResetRaw;
 }
 
 const char* Watchdog::phaseToString(WatchdogPhase phase) {
@@ -169,8 +138,6 @@ const char* Watchdog::phaseToString(WatchdogPhase phase) {
       return "mqtt_start";
     case WatchdogPhase::StateConnected:
       return "state_connected";
-    case WatchdogPhase::ConnectedPing:
-      return "connected_ping";
     case WatchdogPhase::ConnectedMqttHandle:
       return "connected_mqtt_handle";
     case WatchdogPhase::ConnectedDisplayUpdate:

@@ -63,8 +63,6 @@ public:
   void handleOTAUpdates(void);
   void wakeDisplayForEvent(void);
   bool getDs18b20TemperatureC(float *temperatureC) const;
-  uint32_t markWatchdogBootAndGetCount(bool watchdogBoot);
-  uint32_t getWdtBootCount() const;
 
 private:
   Logic& logic;
@@ -108,7 +106,6 @@ private:
   bool lastStates[MAX_AMOUNT_OF_RELAYS];
 
   bool lastLights = false;
-  uint32_t wdtBootCount = 0;
   OTAUpdates otaUpdates;
 
   hal_ds18b20_t ds18b20 = nullptr;

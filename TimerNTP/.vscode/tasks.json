@@ -1,143 +1,253 @@
 {
-    "version": "2.0.0",
-    "inputs": [
-        {
-            "id": "boardSelection",
-            "description": "Target/board",
-            "type": "pickString",
-            "options": [
-                "rp2040:pico - Raspberry Pi Pico (RP2040)",
-                "rp2040:picow - Raspberry Pi Pico W (RP2040)",
-                "rp2040:pico2 - Raspberry Pi Pico 2 (RP2350)",
-                "rp2040:pico2w - Raspberry Pi Pico 2 W (RP2350)"
-            ],
-            "default": "rp2040:picow - Raspberry Pi Pico W (RP2040)"
+  "version": "2.0.0",
+  "inputs": [
+    {
+      "id": "boardSelection",
+      "description": "Target/board",
+      "type": "pickString",
+      "options": [
+        "rp2040:pico - Raspberry Pi Pico (RP2040)",
+        "rp2040:picow - Raspberry Pi Pico W (RP2040)",
+        "rp2040:rp2040-zero - Waveshare RP2040-Zero",
+        "rp2040:rp2040-plus-4mb - Waveshare RP2040-Plus 4 MB",
+        "rp2040:pico-rm2 - Raspberry Pi Pico RM2",
+        "rp2350-arm:pico2 - Raspberry Pi Pico 2 (RP2350 Arm)",
+        "rp2350-arm:pico2w - Raspberry Pi Pico 2 W (RP2350 Arm)",
+        "rp2350-riscv:pico2 - Raspberry Pi Pico 2 (RP2350 RISC-V)",
+        "stm32g474:nucleo-g474re - NUCLEO-G474RE (512 KB flash / 128 KB RAM)"
+      ],
+      "default": "rp2040:picow - Raspberry Pi Pico W (RP2040)"
+    },
+    {
+      "id": "otaPassword",
+      "description": "TimerNTP OTA password",
+      "type": "promptString",
+      "password": true
+    }
+  ],
+  "tasks": [
+    {
+      "label": "Project: Build",
+      "detail": "Compile TimerNTP through JaszczurHAL VS Code entry",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "build",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Project: Build (Debug)",
+      "detail": "Debug build TimerNTP through JaszczurHAL VS Code entry",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "build-debug",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "group": "build",
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Project: Upload",
+      "detail": "Verified serial upload; falls back to UF2 when a BOOTSEL drive is visible",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "upload",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": "$gcc"
+    },
+    {
+      "label": "Project: Upload (UF2 / BOOTSEL)",
+      "detail": "Build TimerNTP and copy UF2 to the single visible BOOTSEL drive",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "upload-uf2",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Upload (OTA)",
+      "detail": "Build, authenticate, and upload TimerNTP to the configured native RP device",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "upload-ota",
+        "--project",
+        "${workspaceFolder}",
+        "--interactive"
+      ],
+      "options": {
+        "env": {
+          "TIMER_NTP_OTA_PASSWORD": "${input:otaPassword}"
         }
-    ],
-    "tasks": [
-        {
-            "label": "Project: Build",
-            "detail": "Compile TimerNTP through JaszczurHAL VS Code entry",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["build", "--project", "${workspaceFolder}"],
-            "group": {
-                "kind": "build",
-                "isDefault": true
-            },
-            "problemMatcher": "$gcc"
-        },
-        {
-            "label": "Project: Build (Debug)",
-            "detail": "Debug build TimerNTP through JaszczurHAL VS Code entry",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["build-debug", "--project", "${workspaceFolder}"],
-            "group": "build",
-            "problemMatcher": "$gcc"
-        },
-        {
-            "label": "Project: Upload",
-            "detail": "Verified serial upload; falls back to UF2 when a BOOTSEL drive is visible",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["upload", "--project", "${workspaceFolder}"],
-            "problemMatcher": "$gcc"
-        },
-        {
-            "label": "Project: Upload (UF2 / BOOTSEL)",
-            "detail": "Build TimerNTP and copy UF2 to the single visible BOOTSEL drive",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["upload-uf2", "--project", "${workspaceFolder}"],
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Serial Monitor",
-            "detail": "Persistent TimerNTP serial monitor through JaszczurHAL VS Code entry",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["monitor", "--project", "${workspaceFolder}", "--lock-policy", "replace-own"],
-            "isBackground": true,
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Debug Probe Monitor",
-            "detail": "Debug Probe monitor through JaszczurHAL VS Code entry",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["monitor-probe", "--project", "${workspaceFolder}", "--lock-policy", "replace-own"],
-            "isBackground": true,
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Serial Monitor (Any)",
-            "detail": "Any serial monitor through JaszczurHAL VS Code entry",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["monitor-any", "--project", "${workspaceFolder}", "--lock-policy", "wait"],
-            "isBackground": true,
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Refresh IntelliSense",
-            "detail": "Refresh TimerNTP IntelliSense through JaszczurHAL VS Code entry",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["refresh-intellisense", "--project", "${workspaceFolder}"],
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Clean",
-            "detail": "Clean TimerNTP build directory through JaszczurHAL VS Code entry",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["clean", "--project", "${workspaceFolder}"],
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Clear USB Identity",
-            "detail": "Flash neutral firmware after verifying the current Lights Timer identity",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["clear-identity", "--project", "${workspaceFolder}"],
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Config Dump",
-            "detail": "Show resolved JaszczurHAL VS Code configuration",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["config-dump", "--project", "${workspaceFolder}"],
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: List ports",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["list-ports", "--project", "${workspaceFolder}"],
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Change port",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["change-port", "--project", "${workspaceFolder}"],
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Select board",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["select-board", "--project", "${workspaceFolder}", "--interactive"],
-            "problemMatcher": []
-        },
-        {
-            "label": "Project: Select board (GUI)",
-            "type": "shell",
-            "command": "${config:jaszczurhal.vscodeEntry}",
-            "args": ["select-board", "--project", "${workspaceFolder}", "--selection", "${input:boardSelection}"],
-            "problemMatcher": []
-        }
-    ]
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Discover OTA devices",
+      "detail": "List JaszczurHAL devices advertising native OTA",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "ota-discover",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Serial Monitor",
+      "detail": "Persistent TimerNTP serial monitor through JaszczurHAL VS Code entry",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "monitor",
+        "--project",
+        "${workspaceFolder}",
+        "--lock-policy",
+        "replace-own"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Debug Probe Monitor",
+      "detail": "Debug Probe monitor through JaszczurHAL VS Code entry",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "monitor-probe",
+        "--project",
+        "${workspaceFolder}",
+        "--lock-policy",
+        "replace-own"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Serial Monitor (Any)",
+      "detail": "Any serial monitor through JaszczurHAL VS Code entry",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "monitor-any",
+        "--project",
+        "${workspaceFolder}",
+        "--lock-policy",
+        "wait"
+      ],
+      "isBackground": true,
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Refresh IntelliSense",
+      "detail": "Refresh TimerNTP IntelliSense through JaszczurHAL VS Code entry",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "refresh-intellisense",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Clean",
+      "detail": "Clean TimerNTP build directory through JaszczurHAL VS Code entry",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "clean",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Clear USB Identity",
+      "detail": "Flash neutral firmware after verifying the current Lights Timer identity",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "clear-identity",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Config Dump",
+      "detail": "Show resolved JaszczurHAL VS Code configuration",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "config-dump",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: List ports",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "list-ports",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Change port",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "change-port",
+        "--project",
+        "${workspaceFolder}"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Select board",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "select-board",
+        "--project",
+        "${workspaceFolder}",
+        "--interactive"
+      ],
+      "problemMatcher": []
+    },
+    {
+      "label": "Project: Select board (GUI)",
+      "type": "shell",
+      "command": "${config:jaszczurhal.vscodeEntry}",
+      "args": [
+        "select-board",
+        "--project",
+        "${workspaceFolder}",
+        "--selection",
+        "${input:boardSelection}"
+      ],
+      "problemMatcher": []
+    }
+  ]
 }

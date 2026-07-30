@@ -5,7 +5,8 @@
 const char *credentialValue(Cred credential) {
   static char *values[CR_LAST] = {};
 
-  if (credential < 0 || credential >= CR_LAST) {
+  if (static_cast<unsigned int>(credential) >=
+      static_cast<unsigned int>(CR_LAST)) {
     return "";
   }
 

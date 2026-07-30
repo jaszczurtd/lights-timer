@@ -13,7 +13,6 @@ namespace {
 constexpr uint16_t KV_KEY_START_MIN = 1;
 constexpr uint16_t KV_KEY_END_MIN = 2;
 constexpr uint16_t KV_KEY_SWITCHES = 3;
-constexpr uint16_t KV_KEY_WDT_BOOT_COUNT = 4;
 constexpr uint32_t DS18B20_REQUEST_INTERVAL_MS = (SECOND * 10);
 constexpr uint32_t DS18B20_INIT_RETRY_INTERVAL_MS = (SECOND * 5);
 constexpr float DS18B20_PUBLISH_DELTA_C = 0.1f;
@@ -31,12 +30,6 @@ void MyHardware::start() {
   hal_eeprom_init(HAL_EEPROM_RP2040, 512, 0);
   if (!hal_kv_init(0, 512)) {
     derr("hal_kv_init failed");
-  }
-  uint32_t loadedWdtBootCount = 0;
-  if (hal_kv_get_u32(KV_KEY_WDT_BOOT_COUNT, &loadedWdtBootCount)) {
-    wdtBootCount = loadedWdtBootCount;
-  } else {
-    wdtBootCount = 0;
   }
 
   hal_i2c_init(PIN_SDA, PIN_SCL, 400000);
@@ -79,11 +72,11 @@ void MyHardware::restartWiFi(void) {
     derr("hal_wifi_disconnect failed");
   }
   hal_delay_ms(50);
-  if (!hal_wifi_set_hostname(getMyHostname())) {
-    derr("hal_wifi_set_hostname failed");
-  }
   if (!hal_wifi_set_mode(HAL_WIFI_MODE_STA)) {
     derr("hal_wifi_set_mode(STA) failed");
+  }
+  if (!hal_wifi_set_hostname(getMyHostname())) {
+    derr("hal_wifi_set_hostname failed");
   }
   if (!hal_wifi_begin_station(
           credentialValue(CR_WIFI_SSID),
@@ -525,7 +518,10 @@ void MyHardware::resetDisplayCache(void) {
 }
 
 void MyHardware::handleOTAUpdates(void) {
-  otaUpdates.handle(hal_wifi_is_connected(), getMyHostname());
+  otaUpdates.handle(
+      hal_wifi_is_connected(),
+      ntp().getNTPState() == STATE_CONNECTED,
+      getMyHostname());
 }
 
 bool MyHardware::getDs18b20TemperatureC(float *temperatureC) const {
@@ -535,24 +531,4 @@ bool MyHardware::getDs18b20TemperatureC(float *temperatureC) const {
 
   *temperatureC = ds18b20TemperatureC;
   return true;
-}
-
-uint32_t MyHardware::markWatchdogBootAndGetCount(bool watchdogBoot) {
-  if (!watchdogBoot) {
-    return wdtBootCount;
-  }
-
-  if (wdtBootCount != UINT32_MAX) {
-    wdtBootCount++;
-  }
-
-  if (!hal_kv_set_u32(KV_KEY_WDT_BOOT_COUNT, wdtBootCount)) {
-    derr("KV save failed for watchdog boot count=%lu", (unsigned long)wdtBootCount);
-  }
-
-  return wdtBootCount;
-}
-
-uint32_t MyHardware::getWdtBootCount() const {
-  return wdtBootCount;
 }

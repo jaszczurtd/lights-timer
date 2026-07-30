@@ -10,6 +10,7 @@
 
 namespace {
 constexpr uint32_t OTA_INIT_RETRY_MS = 5000;
+constexpr uint32_t OTA_CONFIRM_RETRY_MS = 5000;
 constexpr const char *OTA_FALLBACK_HOSTNAME = "timerntp";
 
 void ota_on_start(hal_ota_command_t command, void *user) {
@@ -57,6 +58,52 @@ void ota_on_error(hal_ota_error_t error, void *user) {
       break;
   }
 }
+}
+
+void OTAUpdates::confirmBootIfHealthy(bool startupHealthy) {
+  if (bootStateChecked || !startupHealthy) {
+    return;
+  }
+
+  const uint32_t now = hal_millis();
+  if ((int32_t)(now - bootConfirmRetryAtMs) < 0) {
+    return;
+  }
+
+  hal_ota_boot_info_t bootInfo = {};
+  const hal_status_t stateStatus = hal_ota_get_boot_info_ex(&bootInfo);
+  if (stateStatus == HAL_ENOENT) {
+    bootStateChecked = true;
+    deb("OTA factory boot: no persisted update state");
+    return;
+  }
+  if (stateStatus != HAL_OK) {
+    derr("OTA boot state read failed: %s (%d). Retry in %lu ms",
+         hal_status_to_string(stateStatus), (int)stateStatus,
+         (unsigned long)OTA_CONFIRM_RETRY_MS);
+    bootConfirmRetryAtMs = now + OTA_CONFIRM_RETRY_MS;
+    return;
+  }
+
+  if (bootInfo.mode != HAL_OTA_BOOT_TRIAL) {
+    bootStateChecked = true;
+    deb("OTA boot stable: generation=%lu version=%s",
+        (unsigned long)bootInfo.program_generation, bootInfo.program_version);
+    return;
+  }
+
+  const hal_status_t confirmStatus = hal_ota_confirm_boot_ex();
+  if (confirmStatus != HAL_OK) {
+    derr("OTA trial confirmation failed: %s (%d). Retry in %lu ms",
+         hal_status_to_string(confirmStatus), (int)confirmStatus,
+         (unsigned long)OTA_CONFIRM_RETRY_MS);
+    bootConfirmRetryAtMs = now + OTA_CONFIRM_RETRY_MS;
+    return;
+  }
+
+  bootStateChecked = true;
+  deb("OTA trial confirmed: generation=%lu version=%s",
+      (unsigned long)bootInfo.program_generation, bootInfo.program_version);
 }
 
 void OTAUpdates::configureIfNeeded(const char *hostname) {
@@ -143,11 +190,13 @@ void OTAUpdates::configureIfNeeded(const char *hostname) {
   deb("OTA ready: host=%s port=%d", hostname_ascii, otaPort);
 }
 
-void OTAUpdates::handle(bool wifiConnected, const char *hostname) {
+void OTAUpdates::handle(bool wifiConnected, bool startupHealthy,
+                        const char *hostname) {
   if (!wifiConnected) {
-    active = false;
     return;
   }
+
+  confirmBootIfHealthy(startupHealthy);
 
   if (!active) {
     configureIfNeeded(hostname);

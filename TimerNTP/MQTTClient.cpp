@@ -42,7 +42,7 @@ void halMqttCallback(const char *topic, const uint8_t *payload, uint16_t length,
 NTPMachine& MQTTClient::ntp() { return logic.ntpObj(); }
 MyHardware& MQTTClient::hardware() { return logic.hardwareObj(); }
 
-MQTTClient::MQTTClient(Logic& l) : logic(l), diagnostics(BuildDateTime) { }
+MQTTClient::MQTTClient(Logic& l) : logic(l) { }
 
 void MQTTClient::handleMessage(const char* topicArrived, const uint8_t* payload, uint16_t length) {
   if(!topicArrived) {
@@ -162,7 +162,6 @@ void MQTTClient::start(const char *brokerIP, const int port) {
 
   reconnectTimer.begin(nullptr, MQTT_RECONNECT_TIME);
   clientInitialized = true;
-  diagnostics.onMqttSessionStart();
   reconnect();
 }
 
@@ -170,7 +169,6 @@ void MQTTClient::stop() {
   if (!clientInitialized) {
     return;
   }
-  diagnostics.onMqttSessionStop();
   publishPending = false;
   clientInitialized = false;
   hal_mqtt_disconnect();
@@ -300,28 +298,14 @@ bool MQTTClient::reconnect() {
   return false;
 }
 
-void MQTTClient::handleDiagnosticsPingHealth() {
-  if (!clientInitialized) {
-    return;
-  }
-  diagnostics.processPingHealthProbe();
-}
-
 void MQTTClient::handleMQTTClient() {
-  diagnostics.prepareBootCauseEventIfNeeded(ntp());
-  diagnostics.prepareWatchdogEventIfNeeded(ntp());
-
   if(clientInitialized) {
     if(!hal_mqtt_connected()) {
       if (reconnectTimer.available()) {
         reconnectTimer.restart();
-        if (diagnostics.isBrokerAvailable()) {
-          hal_watchdog_feed();
-          reconnect();
-          hal_watchdog_feed();
-        } else {
-          deb("MQTT: reconnect delayed (broker unavailable by ping diagnostics)");
-        }
+        hal_watchdog_feed();
+        reconnect();
+        hal_watchdog_feed();
       }
     } else {
       hal_watchdog_feed();
@@ -332,8 +316,6 @@ void MQTTClient::handleMQTTClient() {
         publishPending = false;
         publish();
       }
-
-      diagnostics.publishPendingIfConnected(ntp(), hardware());
     }
   }
 }

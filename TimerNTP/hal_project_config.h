@@ -25,12 +25,18 @@
 #define HAL_ENABLE_TIME             /* NTP/system time -> WiFi             */
 #define HAL_ENABLE_MQTT             /* MQTT (PubSubClient) -> WiFi         */
 #define HAL_ENABLE_UDP              /* UDP wrapper (WiFiUDP) -> WiFi       */
-#define HAL_ENABLE_OTA              /* ArduinoOTA wrapper -> WiFi          */
+#ifndef HAL_ENABLE_OTA
+#define HAL_ENABLE_OTA              /* Native authenticated OTA -> WiFi    */
+#endif
 #define HAL_ENABLE_WIREGUARD        /* WireGuard wrapper -> WiFi           */
 
 /* ── Storage ───────────────────────────────────────────────────────────── */
+#ifndef HAL_ENABLE_KV
 #define HAL_ENABLE_KV               /* KV store -> EEPROM                  */
+#endif
+#ifndef HAL_ENABLE_LITTLEFS
 #define HAL_ENABLE_LITTLEFS         /* LittleFS helpers                    */
+#endif
 
 /* ── Buses ─────────────────────────────────────────────────────────────── */
 #define HAL_ENABLE_I2C              /* required by hal_i2c_init() usage    */

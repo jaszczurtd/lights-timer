@@ -10,23 +10,23 @@ MyHardware& NTPMachine::hardware() { return logic.hardwareObj(); }
 MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
 
 void NTPMachine::start() {
-  watchdog.start(STATE_NOT_CONNECTED, stateNameForTelemetry);
+  watchdog.start(STATE_NOT_CONNECTED, stateName);
   setNTPState(STATE_NOT_CONNECTED);
 
 #if ENABLE_STACK_GUARD
-  stackGuardArmed = hal_stack_guard_init();
-  if (stackGuardArmed) {
+  if (hal_stack_guard_init()) {
     deb("Stack guard initialized");
   } else {
     deb("Stack guard unavailable on this target");
   }
 #else
-  stackGuardArmed = false;
   deb("Stack guard disabled by config");
 #endif
 
+  // Native RP WiFi exposes the factory MAC only after STA hardware
+  // initialization. Device I/O configuration depends on that MAC.
+  hardware().restartWiFi();
   hardware().start();
-  watchdog.setBootCount(hardware().markWatchdogBootAndGetCount(watchdog.wasResetOnBoot()));
 
   long s = 0, e = 0;
   hardware().loadStartEnd(&s, &e);
@@ -35,7 +35,6 @@ void NTPMachine::start() {
   // Keep cold-boot fail-safe, but after watchdog reboot restore relays from
   // persisted switch state to avoid unexpected OFF transition.
   hardware().applyRelays(watchdog.wasResetOnBoot());
-  hardware().restartWiFi();
 
   evaluateRelayTimer.begin(nullptr, EVALUATE_TIME_FOR_RELAY_MS);
   loopLogTimer.begin(nullptr, PRINT_INTERVAL_MS);
@@ -234,9 +233,6 @@ void NTPMachine::stateMachine(void) {
           hal_time_sync_ntp(credentialValue(CR_NTPSERVER0), nullptr);
         }
 
-        setWatchdogPhase(WatchdogPhase::ConnectedPing);
-        mqtt().handleDiagnosticsPingHealth();
-
         setWatchdogPhase(WatchdogPhase::ConnectedMqttHandle);
         mqtt().handleMQTTClient();
         setWatchdogPhase(WatchdogPhase::ConnectedDisplayUpdate);
@@ -294,7 +290,7 @@ void NTPMachine::evaluateTimeCondition() {
 
   now_time = timeinfo.tm_hour * 60 + timeinfo.tm_min;
 
-  deb("now_time:%ld buffer:%s ", now_time, buffer);
+  deb("now_time:%ld buffer:%s", now_time, buffer);
 
   hardware().checkConditionsForStartEnAction(now_time);
 }
@@ -303,28 +299,12 @@ long NTPMachine::getTimeNow(void) {
   return now_time;
 }
 
-NTPMachine::WatchdogTelemetry NTPMachine::getWatchdogTelemetry() const {
-  WatchdogTelemetry telemetry = {};
-  telemetry.watchdogResetOnBoot = watchdog.wasResetOnBoot();
-  telemetry.lastStateBeforeReset = watchdog.getLastStateBeforeReset();
-  telemetry.lastUptimeBeforeResetMs = watchdog.getLastUptimeBeforeResetMs();
-  telemetry.wdtBootCount = watchdog.getBootCount();
-  telemetry.currentPhase = watchdog.getCurrentPhase();
-  telemetry.lastPhaseBeforeReset = watchdog.getLastPhaseBeforeReset();
-  telemetry.lastPhaseBeforeResetRaw = watchdog.getLastPhaseBeforeResetRaw();
-  telemetry.resetReason = hal_get_reset_reason();
-  telemetry.brownoutSuspected = hal_last_boot_was_brownout();
-  telemetry.lastFaultValid = hal_get_last_fault(&telemetry.lastFault);
-  telemetry.stackGuardArmed = stackGuardArmed;
-  return telemetry;
-}
-
 void NTPMachine::setWatchdogPhase(WatchdogPhase phase) {
   hal_watchdog_feed();
   watchdog.setPhase(phase, currentState);
 }
 
-const char* NTPMachine::stateNameForTelemetry(int state) {
+const char* NTPMachine::stateName(int state) {
   switch (state) {
     case STATE_NOT_CONNECTED:
       return "not_connected";

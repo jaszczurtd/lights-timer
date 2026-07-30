@@ -34,21 +34,6 @@ class Logic;
 
 class NTPMachine {
 public:
-  struct WatchdogTelemetry {
-    bool watchdogResetOnBoot = false;
-    int lastStateBeforeReset = -1;
-    uint32_t lastUptimeBeforeResetMs = 0;
-    uint32_t wdtBootCount = 0;
-    WatchdogPhase currentPhase = WatchdogPhase::Unknown;
-    WatchdogPhase lastPhaseBeforeReset = WatchdogPhase::Unknown;
-    uint8_t lastPhaseBeforeResetRaw = static_cast<uint8_t>(WatchdogPhase::Unknown);
-    hal_reset_reason_t resetReason = HAL_RESET_REASON_UNKNOWN;
-    bool brownoutSuspected = false;
-    bool lastFaultValid = false;
-    hal_fault_info_t lastFault = {};
-    bool stackGuardArmed = false;
-  };
-
   explicit NTPMachine(Logic& l) : logic(l) {}
   void start();
   int getNTPState(void);
@@ -56,7 +41,6 @@ public:
   const char *getTimeFormatted(void);
   long getTimeNow(void);
   void evaluateTimeCondition();
-  WatchdogTelemetry getWatchdogTelemetry() const;
 
 private:
   Logic& logic;
@@ -67,14 +51,13 @@ private:
   void reconnect(void);
   void setNTPState(NTPState state);
   void setWatchdogPhase(WatchdogPhase phase);
-  static const char* stateNameForTelemetry(int state);
+  static const char* stateName(int state);
 
   NTPState currentState = STATE_NOT_CONNECTED;
   char buffer[NTP_BUFFER];
   long now_time;
   bool localTimeHasBeenSet = false;
   bool wgStarted = false;
-  bool stackGuardArmed = false;
   Watchdog watchdog;
 
   SmartTimers wifiTimeoutTimer;
