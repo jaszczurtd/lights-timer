@@ -1,56 +1,92 @@
-user:piuser
-broker ip: 192.168.2.100
+# TimerNTP firmware notes
 
-Credentials:
-- Firmware links the shared precompiled
-  `../../libraries/Credentials/src/cortex-m0plus/libCredentials.a` library.
+## Target and build model
+
+- The tracked firmware target is `rp2040` with the `picow` board profile.
+- The build uses JaszczurHAL's native RP dispatcher and the official Pico SDK.
+- `TimerNTP.cpp` implements the portable `app_start()` / `app_task0()`
+  contract; JaszczurHAL supplies the target entry point.
+- `hal_project_config.h` enables Wi-Fi, time, MQTT, UDP, WireGuard, native OTA,
+  KV/EEPROM, LittleFS, I2C, SSD1306, DS18B20, cJSON, and the application entry.
+- `.vscode/jaszczurhal.project.json` owns stable target, board, OTA, artifact,
+  USB identity, and CMake settings. Local target/board choices belong in the
+  ignored `.vscode/jaszczurhal.local.json`.
+
+## Credentials
+
+- Firmware links
+  `../../libraries/Credentials/src/cortex-m0plus/libCredentials.a`.
 - An existing private library is used unchanged. For a fresh checkout, run
   `../scripts/setup-credentials.sh` from this directory, fill the generated
-  `../../libraries/Credentials/config/*.local.*` files, then build it with
-  `../../libraries/Credentials/scripts/build.sh rp2040`.
-- `../libraries/Credentials` under `lights-timer/` is a complete, secret-free
-  bootstrap template and is not part of the active TimerNTP build.
+  `../../libraries/Credentials/config/*.local.*` files, then build the archive
+  with `../../libraries/Credentials/scripts/build.sh rp2040`.
+- `../libraries/Credentials` under this repository is the tracked, secret-free
+  bootstrap template and is not linked directly by TimerNTP.
 
-Build model:
-- `TimerNTP.ino` was removed from the source tree.
-- Application entry now lives in `TimerNTP.cpp` and implements the JaszczurHAL
-  `app_start()` / `app_task0()` contract.
-- `hal_project_config.h` enables `HAL_PROVIDE_APP_ENTRY`, so JaszczurHAL owns
-  Arduino `setup()` / `loop()`.
-- CMake generates a temporary Arduino sketch under `.build/cmake/sketch/TimerNTP`
-  only for `arduino-cli`. Do not edit or commit files from `.build`.
+## Commands
 
-Build commands:
-- Config dump: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode config-dump --project .`
-- Build firmware: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode build --project .`
-- Build debug firmware: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode build-debug --project .`
-- Serial upload: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload --project .`
-- BOOTSEL UF2 upload: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-uf2 --project .`
-- OTA discovery: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode ota-discover --project .`
-- OTA upload: set `TIMER_NTP_OTA_PASSWORD`, then run
-  `../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-ota --project .`
-- Refresh VS Code IntelliSense: `../../libraries/JaszczurHAL/vscode/entry/jh-vscode refresh-intellisense --project .`
+Run these commands from `TimerNTP`:
 
-Build artifacts:
-- `.build/firmware.elf`
-- `.build/firmware.bin`
-- `.build/firmware.uf2`
-- `.build/firmware.ota`
-- `.build/firmware.map`
+```bash
+# Inspect resolved target, board, paths, and artifacts.
+../../libraries/JaszczurHAL/vscode/entry/jh-vscode config-dump --project .
 
-OTA trial policy:
-- The OTA service starts after WiFi is available, preserving a network recovery
-  path while the rest of product startup is still running.
-- Discovery uses the LAN-directed `192.168.2.255` broadcast because the build
-  host also has a WireGuard interface and limited broadcast was unreliable.
-- Upload targets the board's reserved `192.168.2.171` address directly; this
-  avoids ambiguity when other OTA-capable devices are online.
-- Device UDP and host TCP callback ports are both pinned to `8266`; the LAN and
-  host firewall must permit the device to initiate that TCP connection.
+# Build release or debug firmware.
+../../libraries/JaszczurHAL/vscode/entry/jh-vscode build --project .
+../../libraries/JaszczurHAL/vscode/entry/jh-vscode build-debug --project .
+
+# Upload through the selected serial device or a BOOTSEL volume.
+../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload --project .
+../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-uf2 --project .
+
+# Discover devices and upload an authenticated OTA image.
+../../libraries/JaszczurHAL/vscode/entry/jh-vscode ota-discover --project .
+TIMER_NTP_OTA_PASSWORD='replace-me' \
+  ../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-ota --project .
+
+# Refresh editor compile commands.
+../../libraries/JaszczurHAL/vscode/entry/jh-vscode refresh-intellisense --project .
+```
+
+Main artifacts are copied to `.build/`:
+
+- `firmware.elf`
+- `firmware.bin`
+- `firmware.uf2`
+- `firmware.ota`
+- `firmware.signed.ota` after signing
+- `compile_commands_patched.json`
+
+Detailed linker output, including `firmware.elf.map`, remains in the resolved
+target/board directory below `.build/cmake/`.
+
+## Runtime startup
+
+TimerNTP connects Wi-Fi, synchronizes time over NTP, establishes WireGuard,
+starts MQTT, then enters `STATE_CONNECTED`. The main loop also services UDP
+discovery, the SSD1306 display, relay buttons and schedule evaluation, KV
+persistence, DS18B20 conversion, watchdog diagnostics, and OTA.
+
+## OTA trial policy
+
+- The OTA service starts when Wi-Fi is available, preserving a network
+  recovery path while product startup continues.
+- Discovery uses the configured LAN-directed `192.168.2.255` broadcast.
+- The tracked manifest targets `192.168.2.171`; override the host for another
+  device rather than editing firmware sources.
+- Device UDP and host TCP callback ports are both `8266`. The LAN and host
+  firewall must permit the device to initiate that TCP connection.
 - A trial image is confirmed only after TimerNTP reaches `STATE_CONNECTED`,
-  which means WiFi, NTP, WireGuard and MQTT startup checks have completed.
-- If those checks never complete, the image remains unconfirmed and the native
-  OTA boot applier can roll it back after the configured retry limit.
+  meaning Wi-Fi, NTP, WireGuard, and MQTT startup checks completed.
+- An image that never reaches the healthy state remains unconfirmed and can be
+  rolled back by the native OTA boot applier after the configured retry limit.
 
-test with broker:
-mosquitto_sub -h localhost -u piuser -P Password -t status-pico-08dde4 -v
+## MQTT smoke test
+
+Use environment variables or an interactive shell so credentials are not
+stored in documentation or shell history:
+
+```bash
+mosquitto_sub -h "$MQTT_HOST" -u "$MQTT_USER" -P "$MQTT_PASSWORD" \
+  -t 'status-<hostname>' -v
+```

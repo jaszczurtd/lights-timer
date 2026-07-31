@@ -23,7 +23,13 @@ The system consists of three main components:
 - Over that uplink, Pico W devices establish a **WireGuard tunnel** to the Pi 5 (`10.8.0.0/24`).
 - Pico W devices publish/subscribe MQTT via **`10.8.0.1:1883`** (inside WireGuard).
 
-> Design note: WireGuard is not strictly required for Pico W in theory. A direct TLS path using `PubSubClient` + `WiFiSecure` could be used. In the current codebase, this path is not available because JaszczurHAL does not yet support `WiFiSecure` for this stack. WireGuard was selected here because the maintainer's home infrastructure is already WireGuard-based and this project is also a practical testbed for WireGuard implementation on Pico W.
+> Design note: JaszczurHAL supports MQTTS through its HAL MQTT and BearSSL
+> transport, so a direct TLS device path is technically available. TimerNTP
+> intentionally uses WireGuard because the deployment infrastructure is
+> WireGuard-based and the firmware serves as a practical testbed for the
+> JaszczurHAL tunnel implementation. Moving the device path to MQTTS would also
+> require corresponding credential, broker-routing, and firmware configuration
+> changes.
 
 ### Android (no WireGuard required)
 - The Android app connects to Mosquitto via **MQTT over TLS on `8883`**.
@@ -61,18 +67,22 @@ The system consists of three main components:
 
 ## Raspberry Pi Pico W
 
-- Firmware: **C++** (Arduino).
+- Firmware: **C++** using the portable JaszczurHAL `app_start()` / `app_task0()`
+  contract.
 - **Current firmware dependency (required):** [JaszczurHAL](https://github.com/jaszczurtd/JaszczurHAL)
+- Native build/runtime: official Pico SDK with CYW43/lwIP, selected through the
+  JaszczurHAL `rp2040` target and `picow` board profile.
 - In this project, JaszczurHAL covers:
   - WireGuard client/tunnel
-  - MQTT transport (`PubSubClient` backend)
+  - MQTT transport over the HAL TCP stack
   - NTP/time synchronization
-  - OLED display (`Adafruit_SSD1306` backend)
+  - SSD1306 OLED display over HAL I2C
   - EEPROM/KV persistence (`hal_eeprom` / `hal_kv`)
-  - OTA wrapper (`ArduinoOTA` backend, optional)
+  - authenticated native OTA with trial confirmation and rollback
   - UDP discovery primitives and watchdog/common hardware APIs
+  - DS18B20 temperature acquisition
 - Key features:
-  - Wi‑Fi uplink (Earlephilhower RP2040 core)
+  - Wi-Fi uplink through the native CYW43/lwIP stack
   - `cJSON`-based status/config payloads
   - state machine
   - relay control + schedule window logic
@@ -271,21 +281,38 @@ WantedBy=multi-user.target
 
 ### 4) Pico W Firmware
 
-- The current firmware workflow is **VS Code-first**. Build/upload is driven by the shared JaszczurHAL `jh-vscode` entrypoint through project tasks in `TimerNTP/.vscode/`.
-- Arduino IDE build/upload is currently **not** a maintained workflow for this repository.
+- The firmware workflow is **VS Code-first**. Build and upload are driven by
+  JaszczurHAL's shared `jh-vscode` entrypoint through project tasks in
+  `TimerNTP/.vscode/`.
 - Open `TimerNTP` as your workspace folder in VS Code.
 - Prerequisites:
-  - `arduino-cli` available in PATH
-  - Earlephilhower RP2040 core installed for `arduino-cli`
-- Python 3 (used by the shared monitor/upload tooling)
+  - [JaszczurHAL](https://github.com/jaszczurtd/JaszczurHAL) checked out at
+    `../libraries/JaszczurHAL` relative to this repository
+  - JaszczurHAL setup completed with `./runmefirst.sh`; it prepares the pinned
+    Pico SDK, RP toolchain, picotool, and remaining managed dependencies
+  - Python 3 for the shared monitor and upload tooling
+- The tracked manifest selects target `rp2040` and board `picow`. Target/board
+  overrides are stored locally in `TimerNTP/.vscode/jaszczurhal.local.json`.
 - Use provided VS Code tasks (Command Palette -> Tasks: Run Task):
   - `Project: Build`
+  - `Project: Build (Debug)`
   - `Project: Upload` (serial)
   - `Project: Upload (UF2 / BOOTSEL)`
+  - `Project: Upload (OTA)`
+  - `Project: Discover OTA devices`
   - `Project: Serial Monitor`
   - `Project: Refresh IntelliSense`
   - `Project: Clear USB Identity`
-- VS Code workflow goes through `libraries/JaszczurHAL/vscode/entry/jh-vscode`.
+- From the `TimerNTP` directory, the equivalent command-line build is:
+
+  ```bash
+  ../../libraries/JaszczurHAL/vscode/entry/jh-vscode build --project .
+  ```
+
+- Main artifacts are copied to `TimerNTP/.build/`: `firmware.elf`,
+  `firmware.bin`, `firmware.uf2`, and `firmware.ota`. The signed OTA container
+  is generated when the OTA upload workflow receives
+  `TIMER_NTP_OTA_PASSWORD`.
 
 #### Credentials setup
 
@@ -320,15 +347,22 @@ instructions are in `libraries/Credentials/README.md`.
 
 #### MAC Readout (for MacHostMapping)
 
-- A helper sketch is provided at `TimerNTP/tools/ReadPicoMac/ReadPicoMac.ino`.
-- Purpose: print board MAC over serial so you can add/update entries in
-  `../libraries/Credentials/config/MacHostMapping.local.cpp`.
-- Quick usage:
-  - connect Pico/Pico W over USB
-  - compile/upload the helper sketch ising Arduino IDE and Earlephilhower RP2040 core
-  - open serial monitor at `115200`
-  - copy the value printed as `Pico MAC: XX:XX:XX:XX:XX:XX` (of course without Pico MAC: at the begining)
-  - paste it into a new row in `mac_table`
+Each device entry in
+`../libraries/Credentials/config/MacHostMapping.local.cpp` needs the Pico W
+factory MAC, hostname, relay count, WireGuard address, and private key.
+
+Obtain the MAC from the Wi-Fi access point's client/DHCP table after the board
+starts its station connection, or use a small native JaszczurHAL diagnostic
+that calls:
+
+```cpp
+char mac[18] = {};
+hal_wifi_get_mac(mac, sizeof(mac));
+```
+
+The JaszczurHAL `15_wifi` example provides a ready native Wi-Fi diagnostic.
+MAC matching in the Credentials template ignores separators and letter case.
+After adding the entry, rebuild the Credentials archive and TimerNTP firmware.
 
 ---
 

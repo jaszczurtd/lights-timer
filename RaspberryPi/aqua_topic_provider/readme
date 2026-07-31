@@ -1,4 +1,48 @@
-sudo apt update
-sudo apt install libmosquitto-dev libmosquitto1 mosquitto-clients
-sudo apt-get install libcjson-dev
+# Raspberry Pi device provider
 
+The provider broadcasts `AQUA_DISCOVER` on UDP port `12345`, collects
+`AQUA_FOUND` responses from TimerNTP nodes, tracks the active device list, and
+publishes retained JSON to MQTT topic `discovered/devices`.
+
+## Dependencies and build
+
+```bash
+sudo apt update
+sudo apt install -y build-essential libmosquitto-dev libmosquitto1 \
+  mosquitto-clients libcjson-dev
+
+make
+```
+
+Network and MQTT defaults are compile-time constants in `provider.h`, including
+the directed broadcast address, WireGuard broker address, MQTT port, discovery
+interval, and topic. Review them before deployment.
+
+## MQTT credentials
+
+On first interactive start, the provider asks for the MQTT username and
+password and stores them in `~/.mqtt_provider_auth` with mode `0600`. Run the
+binary once as the same account configured in the service before enabling
+unattended startup:
+
+```bash
+./provider
+```
+
+Stop it with `Ctrl+C` after the credentials file has been created.
+
+## systemd service
+
+Edit `mqtt-devices-provider.service` so `ExecStart`, `WorkingDirectory`, and
+`User` match the installation. Then install and start it:
+
+```bash
+sudo cp mqtt-devices-provider.service /etc/systemd/system/
+sudo systemctl daemon-reload
+sudo systemctl enable --now mqtt-devices-provider.service
+sudo systemctl status mqtt-devices-provider.service
+```
+
+The service is ordered after both `network-online.target` and
+`wg-quick@wg0.service`, because its default broker address is reached through
+WireGuard.
