@@ -31,6 +31,9 @@
       "detail": "Compile TimerNTP through JaszczurHAL VS Code entry",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "build",
         "--project",
@@ -47,6 +50,9 @@
       "detail": "Debug build TimerNTP through JaszczurHAL VS Code entry",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "build-debug",
         "--project",
@@ -60,6 +66,9 @@
       "detail": "Verified serial upload; falls back to UF2 when a BOOTSEL drive is visible",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "upload",
         "--project",
@@ -72,6 +81,9 @@
       "detail": "Build TimerNTP and copy UF2 to the single visible BOOTSEL drive",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "upload-uf2",
         "--project",
@@ -84,6 +96,9 @@
       "detail": "Build, authenticate, and upload TimerNTP to the configured native RP device",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "upload-ota",
         "--project",
@@ -102,6 +117,9 @@
       "detail": "List JaszczurHAL devices advertising native OTA",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "ota-discover",
         "--project",
@@ -114,6 +132,9 @@
       "detail": "Persistent TimerNTP serial monitor through JaszczurHAL VS Code entry",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "monitor",
         "--project",
@@ -129,6 +150,9 @@
       "detail": "Debug Probe monitor through JaszczurHAL VS Code entry",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "monitor-probe",
         "--project",
@@ -144,6 +168,9 @@
       "detail": "Any serial monitor through JaszczurHAL VS Code entry",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "monitor-any",
         "--project",
@@ -159,6 +186,9 @@
       "detail": "Refresh TimerNTP IntelliSense through JaszczurHAL VS Code entry",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "refresh-intellisense",
         "--project",
@@ -171,6 +201,9 @@
       "detail": "Clean TimerNTP build directory through JaszczurHAL VS Code entry",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "clean",
         "--project",
@@ -183,6 +216,9 @@
       "detail": "Flash neutral firmware after verifying the current Lights Timer identity",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "clear-identity",
         "--project",
@@ -195,6 +231,9 @@
       "detail": "Show resolved JaszczurHAL VS Code configuration",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "config-dump",
         "--project",
@@ -206,6 +245,9 @@
       "label": "Project: List ports",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "list-ports",
         "--project",
@@ -217,6 +259,9 @@
       "label": "Project: Change port",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "change-port",
         "--project",
@@ -228,6 +273,9 @@
       "label": "Project: Select board",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "select-board",
         "--project",
@@ -240,6 +288,9 @@
       "label": "Project: Select board (GUI)",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "select-board",
         "--project",
@@ -254,6 +305,9 @@
       "detail": "Refresh target/board options from the JaszczurHAL registry",
       "type": "shell",
       "command": "${config:jaszczurhal.vscodeEntry}",
+      "windows": {
+        "command": "${config:jaszczurhal.vscodeEntryWindows}"
+      },
       "args": [
         "sync-board-picker",
         "--project",
