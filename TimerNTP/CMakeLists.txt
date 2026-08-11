@@ -11,9 +11,6 @@ set(JH_TARGET "rp2040" CACHE STRING "JaszczurHAL target")
 set(JH_BOARD "picow" CACHE STRING "JaszczurHAL board profile")
 set(PICO_SDK_PATH "${JH_ROOT}/third_party/pico-sdk"
     CACHE PATH "Pico SDK path")
-set(JH_EXTRA_DEFINES
-    "HAL_ENABLE_OTA;HAL_ENABLE_KV;HAL_ENABLE_LITTLEFS"
-    CACHE STRING "Flash-layout feature definitions")
 set(JH_OTA_GENERATION 1 CACHE STRING "OTA generation")
 set(JH_OTA_VERSION "lights-timer" CACHE STRING "OTA version")
 set(JH_EXTRA_INCLUDES

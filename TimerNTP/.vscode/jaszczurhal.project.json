@@ -12,7 +12,6 @@
         "cache": {
             "JH_PROJECT_DIR": "${project}",
             "JH_MODULE_NAME": "TimerNTP",
-            "JH_EXTRA_DEFINES": "HAL_ENABLE_OTA;HAL_ENABLE_KV;HAL_ENABLE_LITTLEFS",
             "JH_OTA_GENERATION": 1,
             "JH_OTA_VERSION": "lights-timer",
             "JH_EXTRA_INCLUDES": "${project}/../../libraries/Credentials/src",
