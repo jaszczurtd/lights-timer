@@ -21,6 +21,10 @@
 #define HAL_PROVIDE_APP_ENTRY       /* HAL owns setup()/loop()/main()      */
 #endif
 
+/* ── Native RP stacks ──────────────────────────────────────────────────── */
+#define HAL_RP_CORE0_STACK_SIZE 4096u
+#define HAL_RP_CORE1_STACK_SIZE 4096u
+
 /* ── Connectivity ──────────────────────────────────────────────────────── */
 #define HAL_ENABLE_TIME             /* NTP/system time -> WiFi             */
 #define HAL_ENABLE_MQTT             /* MQTT (PubSubClient) -> WiFi         */

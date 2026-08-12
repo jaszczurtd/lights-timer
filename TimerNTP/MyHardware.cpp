@@ -27,7 +27,7 @@ MyHardware::MyHardware(Logic& l) : logic(l), oledFlow(OLED_ACTIVE_WINDOW_MS) { }
 
 void MyHardware::start() {
 
-  hal_eeprom_init(HAL_EEPROM_RP2040, 512, 0);
+  hal_eeprom_init(HAL_EEPROM_FLASH, 512, 0);
   if (!hal_kv_init(0, 512)) {
     derr("hal_kv_init failed");
   }
