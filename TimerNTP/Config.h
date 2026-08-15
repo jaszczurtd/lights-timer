@@ -40,6 +40,6 @@
 
 // Fault diagnostics hooks are opt-in during stabilization. Disable by default
 // to avoid regressions on boards/core builds with backend incompatibilities.
-#define ENABLE_FAULT_DIAGNOSTICS 0
+#define ENABLE_FAULT_DIAGNOSTICS 1
 
 #endif

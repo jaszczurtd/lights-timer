@@ -4,9 +4,19 @@
 
 void Logic::logicSetup(void) {
 #if ENABLE_FAULT_DIAGNOSTICS
+hal_reset_reason_t reason;
+const char *reason_str;
+
   // Initialize retained fault/reset diagnostics before touching watchdog.
   hal_fault_subsystem_init();
+  if(hal_watchdog_caused_reboot()) {
+    reason = hal_get_reset_reason();
+    reason_str = hal_reset_reason_str(reason);
+
+    deb("Watchdog caused last reset. Reason: %s (%d)", reason_str, reason);
+  }
 #endif
+
   hal_watchdog_enable(WATCHDOG_TIME, false);
 
   ntp.start();
