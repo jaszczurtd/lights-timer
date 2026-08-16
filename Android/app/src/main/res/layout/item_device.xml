@@ -119,6 +119,7 @@
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/isOn1"
+                        android:textSize="12sp"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/switch_off" />
@@ -143,6 +144,7 @@
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/isOn2"
+                        android:textSize="12sp"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/switch_off" />
@@ -174,6 +176,7 @@
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/isOn3"
+                        android:textSize="12sp"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/switch_off" />
@@ -197,6 +200,7 @@
 
                     <androidx.appcompat.widget.SwitchCompat
                         android:id="@+id/isOn4"
+                        android:textSize="12sp"
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:text="@string/switch_off" />
