@@ -46,6 +46,7 @@
 #define HAL_ENABLE_I2C              /* required by hal_i2c_init() usage    */
 
 /* ── Sensors ───────────────────────────────────────────────────────────── */
+#define HAL_ENABLE_INTERNAL_RTC    /* RP AON RTC; restored/written by TIME */
 #define HAL_ENABLE_DS18B20          /* DS18B20 support -> ONEWIRE          */
 
 /* ── Display ───────────────────────────────────────────────────────────── */

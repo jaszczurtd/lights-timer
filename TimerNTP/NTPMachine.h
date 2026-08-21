@@ -49,6 +49,7 @@ private:
   MQTTClient& mqtt();
 
   void reconnect(void);
+  void initializeRtc(void);
   void setNTPState(NTPState state);
   void setWatchdogPhase(WatchdogPhase phase);
   static const char* stateName(int state);
@@ -58,6 +59,7 @@ private:
   long now_time;
   bool localTimeHasBeenSet = false;
   bool wgStarted = false;
+  hal_rtc_t rtc = nullptr;
   Watchdog watchdog;
 
   SmartTimers wifiTimeoutTimer;

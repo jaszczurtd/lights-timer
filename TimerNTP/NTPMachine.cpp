@@ -9,6 +9,49 @@
 MyHardware& NTPMachine::hardware() { return logic.hardwareObj(); }
 MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
 
+namespace {
+
+constexpr uint64_t kMinimumValidUnix = UINT64_C(24) * UINT64_C(3600) * 2u;
+
+bool ntpSyncComplete(const hal_time_status_t &status) {
+  return status.valid && status.source == HAL_TIME_SOURCE_NTP &&
+         status.ntp_state == HAL_TIME_NTP_SYNCHRONIZED &&
+         status.unix_time >= kMinimumValidUnix;
+}
+
+} // namespace
+
+void NTPMachine::initializeRtc(void) {
+  hal_rtc_config_t config = {};
+  config.chip = HAL_RTC_CHIP_INTERNAL;
+  config.bus.internal.clock_source = HAL_RTC_CLOCK_SOURCE_AUTO;
+
+  hal_status_t status = hal_rtc_init_ex(&config, &rtc);
+  if (status != HAL_OK) {
+    deb("Internal RTC unavailable: %s", hal_status_to_string(status));
+    rtc = nullptr;
+    return;
+  }
+
+  status = hal_time_attach_rtc_ex(rtc, HAL_TIME_RTC_RESTORE_IF_VALID |
+                                           HAL_TIME_RTC_WRITE_AFTER_NTP);
+  if (status != HAL_OK) {
+    deb("Internal RTC attach failed: %s", hal_status_to_string(status));
+    hal_rtc_deinit(rtc);
+    rtc = nullptr;
+    return;
+  }
+
+  hal_time_status_t timeStatus = {};
+  if (hal_time_get_status_ex(&timeStatus) == HAL_OK && timeStatus.valid) {
+    localTimeHasBeenSet = timeStatus.unix_time >= kMinimumValidUnix;
+    deb("Runtime clock restored from RTC: unix=%llu",
+        (unsigned long long)timeStatus.unix_time);
+  } else {
+    deb("Internal RTC is waiting for the first NTP synchronization");
+  }
+}
+
 void NTPMachine::start() {
   watchdog.start(STATE_NOT_CONNECTED, stateName);
   setNTPState(STATE_NOT_CONNECTED);
@@ -22,6 +65,12 @@ void NTPMachine::start() {
 #else
   deb("Stack guard disabled by config");
 #endif
+
+  if (!hal_time_set_timezone("CET-1CEST,M3.5.0/2,M10.5.0/3")) {
+    derr("Failed to configure CET/CEST timezone");
+  }
+
+  initializeRtc();
 
   // Native RP WiFi exposes the factory MAC only after STA hardware
   // initialization. Device I/O configuration depends on that MAC.
@@ -120,8 +169,13 @@ void NTPMachine::stateMachine(void) {
           hardware().drawCenteredText("CONNECTED");
 
           setWatchdogPhase(WatchdogPhase::NtpSyncStart);
-          hal_time_set_timezone("CET-1CEST,M3.5.0/2,M10.5.0/3");
-          hal_time_sync_ntp(credentialValue(CR_NTPSERVER0), nullptr);
+          const hal_status_t ntpStatus =
+              hal_time_sync_ntp_ex(credentialValue(CR_NTPSERVER0), nullptr);
+          if (ntpStatus != HAL_OK) {
+            derr("NTP request failed: %s", hal_status_to_string(ntpStatus));
+            reconnect();
+            break;
+          }
 
           ntpTimeoutTimer.begin(nullptr, NTP_TIMEOUT_MS);
           setNTPState(STATE_NTP_SYNCHRO);
@@ -135,7 +189,15 @@ void NTPMachine::stateMachine(void) {
       if (hal_wifi_is_connected()) {
         hardware().drawCenteredText("NTP SYNCHRO");
 
-        if (hal_time_is_synced(24UL * 3600UL * 2UL)) {
+        hal_time_status_t timeStatus = {};
+        const hal_status_t status = hal_time_get_status_ex(&timeStatus);
+        if (status != HAL_OK) {
+          derr("Time status failed: %s", hal_status_to_string(status));
+          reconnect();
+          break;
+        }
+
+        if (ntpSyncComplete(timeStatus)) {
           ntpTimeoutTimer.abort();
           setNTPState(STATE_WIREGUARD_CONNECT);
           localTimeHasBeenSet = true;
@@ -158,6 +220,14 @@ void NTPMachine::stateMachine(void) {
           wgStarted = true;
           hal_watchdog_feed();
           wgHandshakeTimer.begin(nullptr, 500);
+          break;
+        }
+
+        if (timeStatus.ntp_state == HAL_TIME_NTP_FAILED) {
+          derr("NTP synchro error: %s",
+               hal_status_to_string(timeStatus.last_ntp_status));
+          ntpTimeoutTimer.abort();
+          reconnect();
           break;
         }
 
@@ -230,7 +300,11 @@ void NTPMachine::stateMachine(void) {
 
         if (ntpReSyncTimer.available()) {
           ntpReSyncTimer.restart();
-          hal_time_sync_ntp(credentialValue(CR_NTPSERVER0), nullptr);
+          const hal_status_t status =
+              hal_time_sync_ntp_ex(credentialValue(CR_NTPSERVER0), nullptr);
+          if (status != HAL_OK) {
+            derr("NTP resync request failed: %s", hal_status_to_string(status));
+          }
         }
 
         setWatchdogPhase(WatchdogPhase::ConnectedMqttHandle);

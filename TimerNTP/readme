@@ -7,7 +7,8 @@
 - `TimerNTP.cpp` implements the portable `app_start()` / `app_task0()`
   contract; JaszczurHAL supplies the target entry point.
 - `hal_project_config.h` enables Wi-Fi, time, MQTT, UDP, WireGuard, native OTA,
-  KV/EEPROM, LittleFS, I2C, SSD1306, DS18B20, cJSON, and the application entry.
+  KV/EEPROM, LittleFS, I2C, the RP AON RTC, SSD1306, DS18B20, cJSON, and the
+  application entry.
 - `.vscode/jaszczurhal.project.json` owns stable target, board, OTA, artifact,
   USB identity, and CMake settings. Local target/board choices belong in the
   ignored `.vscode/jaszczurhal.local.json`.
@@ -62,8 +63,11 @@ target/board directory below `.build/cmake/`.
 
 ## Runtime startup
 
-TimerNTP connects Wi-Fi, synchronizes time over NTP, establishes WireGuard,
-starts MQTT, then enters `STATE_CONNECTED`. The main loop also services UDP
+TimerNTP first restores a retained RP AON clock when available, then connects
+Wi-Fi and requires a fresh successful NTP result before establishing WireGuard.
+Each validated NTP result is written back to AON; this survives warm resets
+while the board remains powered but is not battery backed. The application
+then starts MQTT and enters `STATE_CONNECTED`. The main loop also services UDP
 discovery, the SSD1306 display, relay buttons and schedule evaluation, KV
 persistence, DS18B20 conversion, watchdog diagnostics, and OTA.
 
