@@ -1,7 +1,8 @@
 #include "watchdog.h"
 
 #include <hal/hal.h>
-#include <tools.h>
+#include <hal/serial/hal_serial.h>
+#include <utils/tools_common_defs.h>
 
 namespace {
 NOINIT int g_lastStateBeforeReset = 0;

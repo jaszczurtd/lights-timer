@@ -7,9 +7,9 @@
 #include "watchdog.h"
 
 #include <hal/hal.h>
+#include <hal/timers/smart_timers/SmartTimers.h>
 #include <time.h>
 #include <Credentials.h>
-#include <tools.h>
 #include <string.h>
 #include <stdint.h>
 

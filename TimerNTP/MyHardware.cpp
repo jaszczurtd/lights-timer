@@ -7,6 +7,7 @@
 #include "MQTTClient.h"
 #include "Logic.h"
 
+#include <stdio.h>
 #include <string.h>
 
 namespace {
@@ -148,8 +149,8 @@ void MyHardware::updateBuildInLed(void) {
 }
 
 void MyHardware::extractTime(long start, long end) {
-  extract_time(start, &startHour, &startMinute);
-  extract_time(end, &endHour, &endMinute);
+  hal_time_extract_minutes(start, &startHour, &startMinute);
+  hal_time_extract_minutes(end, &endHour, &endMinute);
 
   deb("set start: %02d:%02d", startHour, startMinute);
   deb("set end: %02d:%02d", endHour, endMinute);
@@ -240,7 +241,7 @@ void MyHardware::checkConditionsForStartEnAction(long timeNow) {
   long start = startHour * 60 + startMinute;
   long end = endHour * 60 + endMinute;
 
-  const bool desiredLightsState = is_time_in_range(timeNow, start, end);
+  const bool desiredLightsState = hal_time_is_in_range(timeNow, start, end);
 
   // Scheduler has lower priority than user actions:
   // apply only on schedule edge transitions (enter/leave window), not continuously.

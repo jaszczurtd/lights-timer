@@ -4,7 +4,7 @@
 #include "Config.h"
 
 #include <Credentials.h>
-#include <tools.h>
+#include <hal/timers/smart_timers/SmartTimers.h>
 #include <stdint.h>
 
 #include "OledDisplayFlow.h"

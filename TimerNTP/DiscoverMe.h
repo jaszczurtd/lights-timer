@@ -6,7 +6,6 @@
 #include "Config.h"
 
 #include <Credentials.h>
-#include <tools.h>
 #include <string.h>
 
 class NTPMachine;

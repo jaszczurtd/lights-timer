@@ -4,7 +4,7 @@
 #include "CredentialValues.h"
 
 #include <hal/hal.h>
-#include <tools.h>
+#include <hal/serial/hal_serial.h>
 
 #include <stdio.h>
 
@@ -162,7 +162,11 @@ void OTAUpdates::configureIfNeeded(const char *hostname) {
   if (!source_hostname || source_hostname[0] == '\0') {
     source_hostname = OTA_FALLBACK_HOSTNAME;
   }
-  remove_non_ascii(source_hostname, hostname_ascii, sizeof(hostname_ascii));
+  if (hal_text_transliterate_ascii_ex(source_hostname, hostname_ascii,
+                                      sizeof(hostname_ascii)) != HAL_OK) {
+    snprintf(hostname_ascii, sizeof(hostname_ascii), "%s",
+             OTA_FALLBACK_HOSTNAME);
+  }
   if (hostname_ascii[0] == '\0') {
     snprintf(hostname_ascii, sizeof(hostname_ascii), "%s", OTA_FALLBACK_HOSTNAME);
   }

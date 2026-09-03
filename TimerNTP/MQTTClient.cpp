@@ -5,7 +5,9 @@
 #include "MyHardware.h"
 #include <Credentials.h>
 #include "CredentialValues.h"
-#include <tools.h>
+#include <hal/codecs/cjson/cJSON.h>
+#include <hal/serial/hal_serial.h>
+#include <hal/system/hal_system.h>
 #include <cstring>
 #include <cstdio>
 

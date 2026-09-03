@@ -6,7 +6,6 @@
 #include "Config.h"
 
 #include <JaszczurHAL.h>
-#include <tools.h>
 
 #include "NTPMachine.h"
 #include "MQTTClient.h"

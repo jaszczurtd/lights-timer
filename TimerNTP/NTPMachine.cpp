@@ -6,6 +6,8 @@
 #include "MQTTClient.h"
 #include "CredentialValues.h"
 
+#include <stdio.h>
+
 MyHardware& NTPMachine::hardware() { return logic.hardwareObj(); }
 MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
 

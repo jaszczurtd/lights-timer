@@ -3,10 +3,10 @@
         {
             "name": "TimerNTP",
             "compileCommands": "/home/jaszczurtd/development/projects_git/lights-timer/TimerNTP/.build/compile_commands_patched.json",
-            "intelliSenseMode": "gcc-arm",
             "compilerPath": "",
             "cStandard": "c11",
-            "cppStandard": "gnu++17"
+            "cppStandard": "gnu++17",
+            "intelliSenseMode": "gcc-arm"
         }
     ],
     "version": 4

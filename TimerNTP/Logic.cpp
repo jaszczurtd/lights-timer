@@ -51,7 +51,6 @@ void Logic::logicLoop(void) {
   hal_watchdog_feed();
   hal_debug_loop();
   
-  m_delay(CORE_OPERATION_DELAY);  
+  hal_delay_ms(CORE_OPERATION_DELAY);
   hal_idle();
 }
-

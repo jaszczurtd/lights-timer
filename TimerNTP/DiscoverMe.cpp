@@ -1,6 +1,7 @@
 
 #include <hal/hal.h>
 #include <cstdlib>
+#include <stdio.h>
 #include "DiscoverMe.h"
 #include "Logic.h"
 #include "NTPMachine.h"
