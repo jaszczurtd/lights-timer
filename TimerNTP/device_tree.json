@@ -1,0 +1,56 @@
+{
+  "$schema": "../../libraries/JaszczurHAL/config/hardware/device_tree.schema.json",
+  "schemaVersion": 1,
+  "nodes": {
+    "oled": { "compatible": "jaszczurhal,i2c-device" },
+    "relay1": { "compatible": "jaszczurhal,gpio-output" },
+    "relay2": { "compatible": "jaszczurhal,gpio-output" },
+    "relay3": { "compatible": "jaszczurhal,gpio-output" },
+    "relay4": { "compatible": "jaszczurhal,gpio-output" },
+    "button1": {
+      "compatible": "jaszczurhal,gpio-input",
+      "properties": { "activeLow": true, "pull": "up" }
+    },
+    "button2": {
+      "compatible": "jaszczurhal,gpio-input",
+      "properties": { "activeLow": true, "pull": "up" }
+    },
+    "button3": {
+      "compatible": "jaszczurhal,gpio-input",
+      "properties": { "activeLow": true, "pull": "up" }
+    },
+    "button4": {
+      "compatible": "jaszczurhal,gpio-input",
+      "properties": { "activeLow": true, "pull": "up" }
+    },
+    "thermometer": { "compatible": "jaszczurhal,onewire-device" }
+  },
+  "assemblies": {
+    "picow": {
+      "target": "rp2040",
+      "board": "picow",
+      "clock": { "tree": "default" },
+      "statusLed": { "node": "board.statusLed" },
+      "buses": {
+        "i2c": {
+          "kind": "i2c",
+          "index": 0,
+          "frequencyHz": 400000,
+          "pins": { "sda": 20, "scl": 21 }
+        }
+      },
+      "nodes": {
+        "oled": { "present": true, "bus": "i2c", "address": 60 },
+        "relay1": { "present": true, "pins": { "out": 0 } },
+        "relay2": { "present": true, "pins": { "out": 1 } },
+        "relay3": { "present": true, "pins": { "out": 2 } },
+        "relay4": { "present": true, "pins": { "out": 3 } },
+        "button1": { "present": true, "pins": { "in": 4 } },
+        "button2": { "present": true, "pins": { "in": 5 } },
+        "button3": { "present": true, "pins": { "in": 6 } },
+        "button4": { "present": true, "pins": { "in": 7 } },
+        "thermometer": { "present": true, "pins": { "data": 15 } }
+      }
+    }
+  }
+}

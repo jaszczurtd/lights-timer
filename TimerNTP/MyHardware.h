@@ -12,20 +12,12 @@
 
 #pragma once
 
-#define PIN_SDA 20
-#define PIN_SCL 21
-#define I2C_ADDR 0x3C
-
-#define PIN_RELAY_1 0
-#define PIN_RELAY_2 1
-#define PIN_RELAY_3 2
-#define PIN_RELAY_4 3
-
-#define PIN_BUTTON_1 4
-#define PIN_BUTTON_2 5
-#define PIN_BUTTON_3 6
-#define PIN_BUTTON_4 7
-#define PIN_DS18B20 15
+// Pins, bus and address come from the picow assembly of device_tree.json
+// through the JH_HW_* macros of the generated jh_hardware.h.
+// hal_i2c_init() and the SSD1306 driver use the default bus 0.
+#if JH_HW_BUS_I2C_INDEX != 0
+#error "TimerNTP drives the OLED on I2C bus 0"
+#endif
 
 #define SCREEN_WIDTH 128
 #define SCREEN_HEIGHT 32
@@ -101,8 +93,12 @@ private:
   SmartTimers ds18b20InitRetryTimer;
   OledDisplayFlow oledFlow;
 
-  int relaysPins[MAX_AMOUNT_OF_RELAYS] = {PIN_RELAY_1, PIN_RELAY_2, PIN_RELAY_3, PIN_RELAY_4};
-  int buttonPins[MAX_AMOUNT_OF_RELAYS] = {PIN_BUTTON_1, PIN_BUTTON_2, PIN_BUTTON_3, PIN_BUTTON_4};
+  int relaysPins[MAX_AMOUNT_OF_RELAYS] = {
+      JH_HW_NODE_RELAY1_PIN_OUT, JH_HW_NODE_RELAY2_PIN_OUT,
+      JH_HW_NODE_RELAY3_PIN_OUT, JH_HW_NODE_RELAY4_PIN_OUT};
+  int buttonPins[MAX_AMOUNT_OF_RELAYS] = {
+      JH_HW_NODE_BUTTON1_PIN_IN, JH_HW_NODE_BUTTON2_PIN_IN,
+      JH_HW_NODE_BUTTON3_PIN_IN, JH_HW_NODE_BUTTON4_PIN_IN};
   bool lastStates[MAX_AMOUNT_OF_RELAYS];
 
   bool lastLights = false;

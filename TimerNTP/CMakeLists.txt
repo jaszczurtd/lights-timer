@@ -7,8 +7,7 @@ set(JH_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/JaszczurHAL"
 set(JH_PROJECT_DIR "${CMAKE_CURRENT_SOURCE_DIR}"
     CACHE PATH "Firmware project directory")
 set(JH_MODULE_NAME "TimerNTP" CACHE STRING "Firmware module name")
-set(JH_TARGET "rp2040" CACHE STRING "JaszczurHAL target")
-set(JH_BOARD "picow" CACHE STRING "JaszczurHAL board profile")
+set(JH_ASSEMBLY "picow" CACHE STRING "Assembly of device_tree.json")
 set(PICO_SDK_PATH "${JH_ROOT}/third_party/pico-sdk"
     CACHE PATH "Pico SDK path")
 set(JH_OTA_GENERATION 1 CACHE STRING "OTA generation")

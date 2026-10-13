@@ -33,7 +33,8 @@ void MyHardware::start() {
     derr("hal_kv_init failed");
   }
 
-  hal_i2c_init(PIN_SDA, PIN_SCL, 400000);
+  hal_i2c_init(JH_HW_BUS_I2C_PIN_SDA, JH_HW_BUS_I2C_PIN_SCL,
+               JH_HW_BUS_I2C_FREQUENCY_HZ);
 
   hal_gpio_set_mode(LED_BUILTIN, HAL_GPIO_OUTPUT);
   hal_gpio_write(LED_BUILTIN, false);
@@ -41,12 +42,12 @@ void MyHardware::start() {
   bool displayReady = hal_display_init_ssd1306_i2c(
       SCREEN_WIDTH,
       SCREEN_HEIGHT,
-      I2C_ADDR,
+      JH_HW_NODE_OLED_ADDRESS,
       -1,
       HAL_DISPLAY_VCC_SWITCHCAP,
       false);
   if (!displayReady) {
-    derr("SSD1306 init failed at addr 0x%02X", I2C_ADDR);
+    derr("SSD1306 init failed at addr 0x%02X", JH_HW_NODE_OLED_ADDRESS);
   }
   clearDisplay();
   drawCenteredText("NO CONNECTION");
@@ -380,21 +381,22 @@ void MyHardware::initDs18b20(void) {
   }
 
   hal_ds18b20_config_t cfg = {};
-  cfg.data_pin = PIN_DS18B20;
+  cfg.data_pin = JH_HW_NODE_THERMOMETER_PIN_DATA;
   cfg.use_rom = false;
   cfg.resolution_hint = HAL_DS18B20_RES_12_BIT;
 
   ds18b20 = hal_ds18b20_init(&cfg);
   if (!ds18b20) {
-    derr("DS18B20 init failed on GPIO %d", PIN_DS18B20);
+    derr("DS18B20 init failed on GPIO %u", JH_HW_NODE_THERMOMETER_PIN_DATA);
     return;
   }
 
-  deb("DS18B20 initialized on GPIO %d", PIN_DS18B20);
+  deb("DS18B20 initialized on GPIO %u", JH_HW_NODE_THERMOMETER_PIN_DATA);
 
   ds18b20RequestTimer.begin(nullptr, DS18B20_REQUEST_INTERVAL_MS);
   if (!hal_ds18b20_request(ds18b20)) {
-    derr("DS18B20 first request failed on GPIO %d", PIN_DS18B20);
+    derr("DS18B20 first request failed on GPIO %u",
+         JH_HW_NODE_THERMOMETER_PIN_DATA);
   }
 }
 
@@ -433,7 +435,8 @@ void MyHardware::serviceDs18b20(void) {
   if (ds18b20RequestTimer.available()) {
     ds18b20RequestTimer.restart();
     if (!hal_ds18b20_is_busy(ds18b20) && !hal_ds18b20_request(ds18b20)) {
-      deb("DS18B20 request skipped/failed on GPIO %d", PIN_DS18B20);
+      deb("DS18B20 request skipped/failed on GPIO %u",
+          JH_HW_NODE_THERMOMETER_PIN_DATA);
     }
   }
 }

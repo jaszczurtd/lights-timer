@@ -3,8 +3,7 @@
     "project": "lights-timer",
     "module": "TimerNTP",
     "toolchain": "cmake",
-    "target": "rp2040",
-    "board": "picow",
+    "assembly": "picow",
     "buildDir": "${project}/.build",
     "cmakeBuildDir": "${project}/.build/cmake",
     "cmake": {
