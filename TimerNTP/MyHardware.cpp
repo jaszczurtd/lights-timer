@@ -28,9 +28,20 @@ MyHardware::MyHardware(Logic& l) : logic(l), oledFlow(OLED_ACTIVE_WINDOW_MS) { }
 
 void MyHardware::start() {
 
-  hal_eeprom_init(HAL_EEPROM_FLASH, 512, 0);
-  if (!hal_kv_init(0, 512)) {
-    derr("hal_kv_init failed");
+  // Let HAL supply the flash region sized for two independently erasable banks.
+  uint16_t storageSize = 0;
+  hal_status_t status = hal_eeprom_init(HAL_EEPROM_FLASH, 0, 0);
+  if (status == HAL_OK) {
+    status = hal_eeprom_size_ex(&storageSize);
+  }
+  if (status == HAL_OK) {
+    status = hal_kv_init_ex(0, storageSize);
+  }
+  if (hal_status_is_error(status)) {
+    derr("KV init failed (size=%u): %s", (unsigned)storageSize,
+         hal_status_to_string(status));
+  } else {
+    deb("KV ready: %u bytes", (unsigned)storageSize);
   }
 
   hal_i2c_init(JH_HW_BUS_I2C_PIN_SDA, JH_HW_BUS_I2C_PIN_SCL,
@@ -170,16 +181,20 @@ void MyHardware::setTimeRange(long start, long end) {
 }
 
 void MyHardware::saveStartEnd(long start, long end) {
-  // Coalesce both KV writes into a single flash commit (one sector erase
-  // instead of two) to reduce flash wear and shorten the IRQ-off window.
+  // Commit both schedule endpoints in one batch.
   hal_kv_set_auto_commit(false);
-  if (!hal_kv_set_u32(KV_KEY_START_MIN, (uint32_t)start)) {
-    derr("KV save failed for start=%ld", start);
+  hal_status_t status = hal_kv_set_u32_ex(KV_KEY_START_MIN, (uint32_t)start);
+  if (hal_status_is_error(status)) {
+    derr("KV save failed for start=%ld: %s", start, hal_status_to_string(status));
   }
-  if (!hal_kv_set_u32(KV_KEY_END_MIN, (uint32_t)end)) {
-    derr("KV save failed for end=%ld", end);
+  status = hal_kv_set_u32_ex(KV_KEY_END_MIN, (uint32_t)end);
+  if (hal_status_is_error(status)) {
+    derr("KV save failed for end=%ld: %s", end, hal_status_to_string(status));
   }
-  hal_kv_commit();
+  status = hal_kv_commit_ex();
+  if (hal_status_is_error(status)) {
+    derr("KV schedule commit failed: %s", hal_status_to_string(status));
+  }
   hal_kv_set_auto_commit(true);
 }
 
