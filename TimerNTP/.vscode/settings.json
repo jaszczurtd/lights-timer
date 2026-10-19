@@ -2,14 +2,12 @@
     "jaszczurhal.uploadPort": "",
     "jaszczurhal.buildDir": "${workspaceFolder}/.build",
     "jaszczurhal.verbose": true,
-    "jaszczurhal.root": "../../libraries/JaszczurHAL",
-    "jaszczurhal.vscodeEntry": "../../libraries/JaszczurHAL/vscode/entry/jh-vscode",
-    "jaszczurhal.vscodeEntryWindows": "../../libraries/JaszczurHAL/vscode/entry/jh-vscode.cmd",
+    "jaszczurhal.root": "../../JaszczurHAL",
+    "jaszczurhal.vscodeEntry": "../../JaszczurHAL/vscode/entry/jh-vscode",
+    "jaszczurhal.vscodeEntryWindows": "../../JaszczurHAL/vscode/entry/jh-vscode.cmd",
     "C_Cpp.default.configurationProvider": "",
     "C_Cpp.default.compileCommands": "${workspaceFolder}/.build/compile_commands_patched.json",
     "C_Cpp.errorSquiggles": "enabled",
-    "cmake.sourceDirectory": "${workspaceFolder}",
-    "cmake.buildDirectory": "${workspaceFolder}/.build/cmake",
     "search.exclude": {
         "**/.build": true
     },

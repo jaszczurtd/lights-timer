@@ -1,5 +1,5 @@
 {
-  "$schema": "../../libraries/JaszczurHAL/config/hardware/device_tree.schema.json",
+  "$schema": "../../JaszczurHAL/config/hardware/device_tree.schema.json",
   "schemaVersion": 1,
   "nodes": {
     "oled": { "compatible": "jaszczurhal,i2c-device" },

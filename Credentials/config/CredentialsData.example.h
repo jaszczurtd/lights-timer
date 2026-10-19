@@ -25,5 +25,6 @@ static const char *const CREDENTIAL_VALUES[CR_LAST] = {
     "pool.ntp.org",                         // CR_NTPSERVER0
     "time.google.com",                      // CR_NTPSERVER1
     "europe.pool.ntp.org",                  // CR_NTPSERVER2
-    "YOUR_CA_CERTIFICATE_PEM"               // CR_CA_CERT
+    "YOUR_CA_CERTIFICATE_PEM",              // CR_CA_CERT
+    "YOUR_SIM_PIN"                          // CR_SIM_PIN
 };

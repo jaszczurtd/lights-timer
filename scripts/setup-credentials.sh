@@ -2,8 +2,8 @@
 set -euo pipefail
 
 PROJECT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-SOURCE_DIR="${PROJECT_DIR}/libraries/Credentials"
-DESTINATION=${1:-"${PROJECT_DIR}/../libraries/Credentials"}
+SOURCE_DIR="${PROJECT_DIR}/Credentials"
+DESTINATION=${1:-"${PROJECT_DIR}/../Credentials"}
 
 if [[ -e "${DESTINATION}" ]]; then
     echo "error: refusing to overwrite existing Credentials: ${DESTINATION}" >&2

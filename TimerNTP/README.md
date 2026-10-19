@@ -10,26 +10,25 @@ formats and schedule behavior.
 Keep this checkout layout:
 
 ```text
-projects_git/
+<workspace>/
   lights-timer/
     TimerNTP/
-  libraries/
-    JaszczurHAL/
-    Credentials/
+  JaszczurHAL/
+  Credentials/
 ```
 
 Clone [JaszczurHAL](https://github.com/jaszczurtd/JaszczurHAL) into the indicated
 directory. From the **lights-timer repository root**, prepare its dependencies:
 
 ```bash
-(cd ../libraries/JaszczurHAL && ./runmefirst.sh)
+(cd ../JaszczurHAL && ./runmefirst.sh)
 ```
 
 This prepares the Pico SDK, Arm toolchain, upload tools and host dependencies.
 Python 3 is required by `jh-vscode`. Then follow the
-[Credentials guide](../libraries/Credentials/README.md), including the explicit
-`RP2040_TOOLCHAIN_BIN` setting for the template. Before building TimerNTP, the
-external `libraries/Credentials/src/cortex-m0plus/libCredentials.a` must exist.
+[Credentials guide](../Credentials/README.md). Before building TimerNTP, the
+external `Credentials/build/<target>/libCredentials.a` must exist for the
+target of the selected assembly (`rp2040` for `picow`).
 
 ## Hardware and configuration
 
@@ -80,9 +79,9 @@ Run the following CLI commands from **TimerNTP**. The explicit assembly also
 avoids ambiguity from old local target/board settings:
 
 ```bash
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode config-dump --project . --assembly picow
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode check-hardware --project .
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode build --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode config-dump --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode check-hardware --project .
+../../JaszczurHAL/vscode/entry/jh-vscode build --project . --assembly picow
 ```
 
 Expect target `rp2040`, board and assembly `picow`, no hardware configuration
@@ -95,16 +94,16 @@ For the first installation, connect the Pico W by USB while holding BOOTSEL,
 then upload the UF2 image:
 
 ```bash
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-uf2 --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode upload-uf2 --project . --assembly picow
 ```
 
 For a controller already running compatible firmware, use the selected serial
 port. List ports and select yours with `Project: Change port` if needed:
 
 ```bash
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode list-ports --project . --assembly picow
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload --project . --assembly picow
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode monitor --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode list-ports --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode upload --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode monitor --project . --assembly picow
 ```
 
 Use `build-debug` in place of `build` for a debug build, and
@@ -163,11 +162,11 @@ From **TimerNTP**, use the device's LAN address and enter the same password as
 
 ```bash
 read -r -p 'Device LAN IP: ' OTA_HOST
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode ota-discover --project . --assembly picow --host "$OTA_HOST"
+../../JaszczurHAL/vscode/entry/jh-vscode ota-discover --project . --assembly picow --host "$OTA_HOST"
 read -r -s -p 'OTA password: ' TIMER_NTP_OTA_PASSWORD
 echo
 export TIMER_NTP_OTA_PASSWORD
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-ota --project . --assembly picow --host "$OTA_HOST"
+../../JaszczurHAL/vscode/entry/jh-vscode upload-ota --project . --assembly picow --host "$OTA_HOST"
 unset TIMER_NTP_OTA_PASSWORD
 ```
 
@@ -187,8 +186,8 @@ If network recovery is unavailable, use USB/BOOTSEL.
 On Linux with GCC or Clang, run from the **repository root**:
 
 ```bash
-cmake -S ../libraries/JaszczurHAL -B ../libraries/JaszczurHAL/.build/lights-timer-kv
-cmake --build ../libraries/JaszczurHAL/.build/lights-timer-kv --target hal_mock -j4
+cmake -S ../JaszczurHAL -B ../JaszczurHAL/.build/lights-timer-kv
+cmake --build ../JaszczurHAL/.build/lights-timer-kv --target hal_mock -j4
 cmake -S tests -B .build/tests
 cmake --build .build/tests -j4
 ctest --test-dir .build/tests --output-on-failure

@@ -24,7 +24,7 @@ Follow the guides in this order:
 1. Prepare [the network and MQTT broker](doc/en/network.md).
 2. Build and configure [the device provider](RaspberryPi/aqua_topic_provider/README.md).
 3. Prepare and upload [the Pico W firmware](TimerNTP/README.md); that guide
-   includes workstation preparation and [Credentials setup](libraries/Credentials/README.md).
+   includes workstation preparation and [Credentials setup](Credentials/README.md).
 4. Configure and run [the Android app](Android/README.md).
 
 Firmware uses [JaszczurHAL](https://github.com/jaszczurtd/JaszczurHAL) and the

@@ -26,7 +26,7 @@ Wykonaj instrukcje w tej kolejności:
 1. Przygotuj [sieć i broker MQTT](doc/pl/network.md).
 2. Skompiluj i skonfiguruj [provider urządzeń](RaspberryPi/aqua_topic_provider/README.pl.md).
 3. Przygotuj i wgraj [firmware Pico W](TimerNTP/README.pl.md); ta instrukcja
-   obejmuje przygotowanie komputera i [Credentials](libraries/Credentials/README.pl.md).
+   obejmuje przygotowanie komputera i [Credentials](Credentials/README.pl.md).
 4. Skonfiguruj i uruchom [aplikację Android](Android/README.pl.md).
 
 Firmware korzysta z [JaszczurHAL](https://github.com/jaszczurtd/JaszczurHAL)

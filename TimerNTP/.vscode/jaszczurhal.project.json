@@ -1,5 +1,5 @@
 {
-    "$schema": "../../../libraries/JaszczurHAL/vscode/schema/jh_vscode_project.schema.json",
+    "$schema": "../../../JaszczurHAL/vscode/schema/jh_vscode_project.schema.json",
     "project": "lights-timer",
     "module": "TimerNTP",
     "toolchain": "cmake",
@@ -7,14 +7,14 @@
     "buildDir": "${project}/.build",
     "cmakeBuildDir": "${project}/.build/cmake",
     "cmake": {
-        "sourceDir": "${project}/../../libraries/JaszczurHAL/cmake/jh_firmware_project",
+        "sourceDir": "${jhRoot}/cmake/jh_firmware_project",
         "cache": {
             "JH_PROJECT_DIR": "${project}",
             "JH_MODULE_NAME": "TimerNTP",
             "JH_OTA_GENERATION": 1,
             "JH_OTA_VERSION": "lights-timer",
-            "JH_EXTRA_INCLUDES": "${project}/../../libraries/Credentials/src",
-            "JH_LINK_LIBRARIES": "${project}/../../libraries/Credentials/src/cortex-m0plus/libCredentials.a"
+            "JH_EXTRA_INCLUDES": "${project}/../../Credentials/src",
+            "JH_LINK_LIBRARIES": "${project}/../../Credentials/build/${target}/libCredentials.a"
         }
     },
     "identity": {

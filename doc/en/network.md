@@ -16,7 +16,7 @@ Prepare these before starting the broker:
 - A working WireGuard server interface `wg0`, with address `10.8.0.1/24` for
   this example. Configure a peer for each controller with its public key and
   unique tunnel address. Match these to the
-  [Credentials settings](../../libraries/Credentials/README.md). The
+  [Credentials settings](../../Credentials/README.md). The
   [WireGuard quick start](https://www.wireguard.com/quickstart/) describes key
   generation and interface configuration.
 - Working LAN access between the provider and controllers, including UDP

@@ -17,7 +17,7 @@ Przed uruchomieniem brokera przygotuj:
 - Działający interfejs serwera WireGuard `wg0`, w tym przykładzie z adresem
   `10.8.0.1/24`. Dla każdego sterownika skonfiguruj peera z kluczem publicznym
   i unikalnym adresem tunelu, zgodnymi z
-  [ustawieniami Credentials](../../libraries/Credentials/README.pl.md).
+  [ustawieniami Credentials](../../Credentials/README.pl.md).
   [Instrukcja WireGuard](https://www.wireguard.com/quickstart/) opisuje
   generowanie kluczy i konfigurację interfejsu.
 - Łączność LAN między providerem a sterownikami, w tym rozgłoszenia UDP.

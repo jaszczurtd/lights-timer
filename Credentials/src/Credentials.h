@@ -31,6 +31,9 @@ typedef enum Cred {
     CR_NTPSERVER1,
     CR_NTPSERVER2,
     CR_CA_CERT,
+    CR_TELEGRAM_TOKEN,
+    CR_TELEGRAM_CHAT_ID,
+    CR_SIM_PIN,
     CR_LAST
 } Cred;
 

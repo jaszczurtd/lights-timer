@@ -10,26 +10,25 @@ przez MQTT. Formaty wiadomości i działanie harmonogramu opisuje
 Zachowaj taki układ katalogów:
 
 ```text
-projects_git/
+<katalog-roboczy>/
   lights-timer/
     TimerNTP/
-  libraries/
-    JaszczurHAL/
-    Credentials/
+  JaszczurHAL/
+  Credentials/
 ```
 
 Sklonuj [JaszczurHAL](https://github.com/jaszczurtd/JaszczurHAL) do wskazanego
 katalogu. Z **katalogu głównego lights-timer** przygotuj jego zależności:
 
 ```bash
-(cd ../libraries/JaszczurHAL && ./runmefirst.sh)
+(cd ../JaszczurHAL && ./runmefirst.sh)
 ```
 
 Skrypt przygotowuje Pico SDK, toolchain Arm, narzędzia wgrywania i zależności
 komputera. `jh-vscode` wymaga Pythona 3. Następnie wykonaj
-[instrukcję Credentials](../libraries/Credentials/README.pl.md), w tym jawne
-ustawienie `RP2040_TOOLCHAIN_BIN` dla szablonu. Przed kompilacją TimerNTP musi
-istnieć zewnętrzne `libraries/Credentials/src/cortex-m0plus/libCredentials.a`.
+[instrukcję Credentials](../Credentials/README.pl.md). Przed kompilacją
+TimerNTP musi istnieć zewnętrzne `Credentials/build/<target>/libCredentials.a`
+dla targetu wybranego montażu (`rp2040` dla `picow`).
 
 ## Sprzęt i konfiguracja
 
@@ -82,9 +81,9 @@ Poniższe polecenia wykonuj z **TimerNTP**. Jawny wybór montażu pozwala równi
 uniknąć niejednoznaczności spowodowanej starymi lokalnymi ustawieniami target/board:
 
 ```bash
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode config-dump --project . --assembly picow
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode check-hardware --project .
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode build --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode config-dump --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode check-hardware --project .
+../../JaszczurHAL/vscode/entry/jh-vscode build --project . --assembly picow
 ```
 
 Oczekiwany wynik to target `rp2040`, płytka i montaż `picow`, brak błędów
@@ -97,16 +96,16 @@ Przy pierwszej instalacji podłącz Pico W przez USB, trzymając BOOTSEL,
 a następnie wgraj obraz UF2:
 
 ```bash
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-uf2 --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode upload-uf2 --project . --assembly picow
 ```
 
 Jeśli sterownik ma już zgodny firmware, użyj wybranego portu szeregowego.
 W razie potrzeby wypisz porty i wybierz właściwy przez `Project: Change port`:
 
 ```bash
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode list-ports --project . --assembly picow
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload --project . --assembly picow
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode monitor --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode list-ports --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode upload --project . --assembly picow
+../../JaszczurHAL/vscode/entry/jh-vscode monitor --project . --assembly picow
 ```
 
 Dla kompilacji debug użyj `build-debug` zamiast `build`, a do odświeżenia bazy
@@ -166,11 +165,11 @@ Z **TimerNTP** podaj adres LAN urządzenia i takie samo hasło jak
 
 ```bash
 read -r -p 'Device LAN IP: ' OTA_HOST
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode ota-discover --project . --assembly picow --host "$OTA_HOST"
+../../JaszczurHAL/vscode/entry/jh-vscode ota-discover --project . --assembly picow --host "$OTA_HOST"
 read -r -s -p 'OTA password: ' TIMER_NTP_OTA_PASSWORD
 echo
 export TIMER_NTP_OTA_PASSWORD
-../../libraries/JaszczurHAL/vscode/entry/jh-vscode upload-ota --project . --assembly picow --host "$OTA_HOST"
+../../JaszczurHAL/vscode/entry/jh-vscode upload-ota --project . --assembly picow --host "$OTA_HOST"
 unset TIMER_NTP_OTA_PASSWORD
 ```
 
@@ -190,8 +189,8 @@ Jeśli odzyskanie dostępu przez sieć jest niemożliwe, użyj USB/BOOTSEL.
 Na Linuksie z GCC lub Clang uruchom z **katalogu głównego repozytorium**:
 
 ```bash
-cmake -S ../libraries/JaszczurHAL -B ../libraries/JaszczurHAL/.build/lights-timer-kv
-cmake --build ../libraries/JaszczurHAL/.build/lights-timer-kv --target hal_mock -j4
+cmake -S ../JaszczurHAL -B ../JaszczurHAL/.build/lights-timer-kv
+cmake --build ../JaszczurHAL/.build/lights-timer-kv --target hal_mock -j4
 cmake -S tests -B .build/tests
 cmake --build .build/tests -j4
 ctest --test-dir .build/tests --output-on-failure

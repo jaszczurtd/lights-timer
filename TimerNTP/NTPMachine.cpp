@@ -7,6 +7,7 @@
 #include "CredentialValues.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 MyHardware& NTPMachine::hardware() { return logic.hardwareObj(); }
 MQTTClient& NTPMachine::mqtt() { return logic.mqttObj(); }
@@ -19,6 +20,19 @@ bool ntpSyncComplete(const hal_time_status_t &status) {
   return status.valid && status.source == HAL_TIME_SOURCE_NTP &&
          status.ntp_state == HAL_TIME_NTP_SYNCHRONIZED &&
          status.unix_time >= kMinimumValidUnix;
+}
+
+static void clearAndFreeSecret(char *secret) {
+  if (secret == nullptr) {
+    return;
+  }
+
+  volatile char *bytes = secret;
+  const size_t length = strlen(secret);
+  for (size_t i = 0; i < length; ++i) {
+    bytes[i] = '\0';
+  }
+  free(secret);
 }
 
 } // namespace
@@ -206,19 +220,28 @@ void NTPMachine::stateMachine(void) {
 
           setWatchdogPhase(WatchdogPhase::WireguardBegin);
 
+          char *wgkey = (char*)getWireguardPrivateKey(hardware().getMyMAC());
+          if(!wgkey) {
+            hal_watchdog_feed();
+            derr("Credentials: memory allocation failure");
+            reconnect();
+            break;
+          }
+
           if (!hal_wireguard_begin_advanced_text(
               getWireguardLocalIP(hardware().getMyMAC()),
-              getWireguardPrivateKey(hardware().getMyMAC()),
+              wgkey,
               credentialValue(CR_WG_ENDPOINT),
               credentialValue(CR_WG_SERVER_PUBLIC_KEY),
               credentialIntValue(CR_WG_ENDPOINT_PORT),
               credentialValue(CR_WG_ALLOWED_IP),
               credentialValue(CR_WG_ALLOWED_MASK))) {
             hal_watchdog_feed();
-            deb("WireGuard initialization failed.");
+            derr("WireGuard initialization failed.");
             reconnect();
             break;
           }
+          clearAndFreeSecret(wgkey);
           wgStarted = true;
           hal_watchdog_feed();
           wgHandshakeTimer.begin(nullptr, 500);

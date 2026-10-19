@@ -3,7 +3,7 @@ project(lights_timer_tests LANGUAGES CXX)
 enable_testing()
 set(CMAKE_CXX_STANDARD 17)
 
-set(JH_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../libraries/JaszczurHAL"
+set(JH_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/../../JaszczurHAL"
     CACHE PATH "JaszczurHAL source tree")
 set(JH_HOST_BUILD "${JH_ROOT}/.build/lights-timer-kv"
     CACHE PATH "Host build containing hal_mock and jh_bearssl_host")
@@ -57,7 +57,7 @@ foreach(case default alternate)
         $<TARGET_OBJECTS:rp_storage>)
     add_dependencies(${target} ${target}_hardware)
     target_include_directories(${target} PRIVATE
-        "${APP}" "${CMAKE_CURRENT_SOURCE_DIR}/../libraries/Credentials/src"
+        "${APP}" "${CMAKE_CURRENT_SOURCE_DIR}/../Credentials/src"
         "${JH_ROOT}/src" "${JH_ROOT}/third_party/cJSON"
         "${JH_ROOT}/tests/fixtures/rp_flash")
     target_compile_definitions(${target} PRIVATE
