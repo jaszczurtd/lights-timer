@@ -19,6 +19,27 @@ constexpr uint32_t DS18B20_INIT_RETRY_INTERVAL_MS = (SECOND * 5);
 constexpr float DS18B20_PUBLISH_DELTA_C = 0.1f;
 constexpr float DS18B20_MIN_VALID_C = -55.0f;
 constexpr float DS18B20_MAX_VALID_C = 125.0f;
+struct RelayPin {
+  uint8_t pin;
+  bool activeLow;
+};
+struct ButtonPin {
+  uint8_t pin;
+  bool activeLow;
+  hal_gpio_mode_t mode;
+};
+constexpr RelayPin relayPins[MAX_AMOUNT_OF_RELAYS] = {
+    {JH_HW_NODE_RELAY1_PIN_OUT, JH_HW_NODE_RELAY1_PROP_ACTIVE_LOW},
+    {JH_HW_NODE_RELAY2_PIN_OUT, JH_HW_NODE_RELAY2_PROP_ACTIVE_LOW},
+    {JH_HW_NODE_RELAY3_PIN_OUT, JH_HW_NODE_RELAY3_PROP_ACTIVE_LOW},
+    {JH_HW_NODE_RELAY4_PIN_OUT, JH_HW_NODE_RELAY4_PROP_ACTIVE_LOW},
+};
+constexpr ButtonPin buttonPins[MAX_AMOUNT_OF_RELAYS] = {
+    {JH_HW_NODE_BUTTON1_PIN_IN, JH_HW_NODE_BUTTON1_PROP_ACTIVE_LOW, JH_HW_NODE_BUTTON1_INPUT_MODE},
+    {JH_HW_NODE_BUTTON2_PIN_IN, JH_HW_NODE_BUTTON2_PROP_ACTIVE_LOW, JH_HW_NODE_BUTTON2_INPUT_MODE},
+    {JH_HW_NODE_BUTTON3_PIN_IN, JH_HW_NODE_BUTTON3_PROP_ACTIVE_LOW, JH_HW_NODE_BUTTON3_INPUT_MODE},
+    {JH_HW_NODE_BUTTON4_PIN_IN, JH_HW_NODE_BUTTON4_PROP_ACTIVE_LOW, JH_HW_NODE_BUTTON4_INPUT_MODE},
+};
 }
 
 NTPMachine& MyHardware::ntp() { return logic.ntpObj(); }
@@ -64,11 +85,10 @@ void MyHardware::start() {
   drawCenteredText("NO CONNECTION");
 
   for(int a = 0; a < getSwitchesNumber(getMyMAC()); a++) {
-    //relays
-    hal_gpio_set_mode(relaysPins[a], HAL_GPIO_OUTPUT);
-    //buttons
-    hal_gpio_set_mode(buttonPins[a], HAL_GPIO_INPUT_PULLUP);
-    lastStates[a] = true;
+    hal_gpio_set_mode(relayPins[a].pin, relayPins[a].activeLow
+        ? HAL_GPIO_OUTPUT_HIGH : HAL_GPIO_OUTPUT_LOW);
+    hal_gpio_set_mode(buttonPins[a].pin, buttonPins[a].mode);
+    lastStates[a] = false;
   }
 
   displayTimer.begin(nullptr, 500);
@@ -290,7 +310,7 @@ bool MyHardware::setRelayTo(int index, bool state) {
   switches[index] = state;
   deb("got order to set the relay %d to %s! changed=%s",
       index, state ? "on" : "off", changed ? "true" : "false");
-  hal_gpio_write(relaysPins[index], switches[index]);
+  hal_gpio_write(relayPins[index].pin, switches[index] != relayPins[index].activeLow);
 
   if (changed) {
     wakeDisplayForEvent();
@@ -315,7 +335,7 @@ void MyHardware::applyRelays(bool allowSchedulerRelayRestore) {
   }
 
   for(int a = 0; a < relaysCount; a++) {
-    hal_gpio_write(relaysPins[a], switches[a]);
+    hal_gpio_write(relayPins[a].pin, switches[a] != relayPins[a].activeLow);
     deb("apply relay %d as %s", a, switches[a] ? "on" : "off");
   }
 
@@ -380,9 +400,9 @@ void MyHardware::hardwareLoop(void) {
   serviceDs18b20();
 
   for (int i = 0; i < getSwitchesNumber(getMyMAC()); i++) {
-    bool currentState = hal_gpio_read(buttonPins[i]);
+    bool currentState = hal_gpio_read(buttonPins[i].pin) != buttonPins[i].activeLow;
 
-    if (lastStates[i] == false && currentState == true) {
+    if (lastStates[i] && !currentState) {
       handleButtonRelease(i);
     }
 

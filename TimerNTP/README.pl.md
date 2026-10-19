@@ -40,11 +40,13 @@ Podłączając sprzęt, korzystaj z wartości w `assemblies.picow`:
 - Podłącz OLED SSD1306 128×32 do pinów SDA/SCL magistrali `i2c`, zgodnie
   z ustawionym adresem. Ta aplikacja wymaga magistrali I2C o indeksie 0.
 - Podłącz wejścia sterujące przekaźników do `relay1`–`relay4`, właściwość
-  `pins.out`. Firmware ustawia wysoki poziom GPIO dla włączonego przekaźnika;
-  dobierz zgodny interfejs przekaźników. Liczba używanych przekaźników pochodzi
-  z wpisu urządzenia w Credentials.
+  `pins.out`. Ustaw `activeLow` zgodnie z interfejsem przekaźnika; dostarczony
+  montaż używa przekaźników aktywnych stanem wysokim. Wyjścia startują
+  w stanie nieaktywnym. Liczba używanych przekaźników pochodzi z Credentials.
 - Podłącz każdy przycisk między wejście `button1`–`button4` a masę. Wejścia
-  mają pull-up i są aktywne stanem niskim.
+  w dostarczonym montażu mają `pull: up` i `activeLow: true`; firmware czyta
+  te właściwości dla każdego przycisku. Inny obwód wejściowy wymaga
+  odpowiednich ustawień.
 - Podłącz linię danych DS18B20 do `thermometer.pins.data`, z rezystorem pull-up
   wymaganym przez obwód czujnika. Zasilanie i poziomy sygnałów dobierz według
   specyfikacji modułów; połącz ich masę z masą sterownika.
@@ -183,7 +185,7 @@ i może spowodować rollback po wyczerpaniu limitu prób startu. Po wgraniu spra
 logi startu; samo zakończenie transferu nie potwierdza poprawnego uruchomienia.
 Jeśli odzyskanie dostępu przez sieć jest niemożliwe, użyj USB/BOOTSEL.
 
-## Hostowy test zapisu ustawień
+## Hostowe testy zapisu ustawień i GPIO
 
 Na Linuksie z GCC lub Clang uruchom z **katalogu głównego repozytorium**:
 
@@ -201,6 +203,10 @@ publikowany status, odczyt po ponownej inicjalizacji oraz zapis stanów
 przekaźników. Korzysta z przykładowych danych Credentials i mocków peryferiów;
 nie wymaga płytki ani brokera. Nie sprawdza czasu zapisu fizycznej pamięci flash
 ani aplikacji mobilnej.
+
+Ten sam kod działa w teście z dostarczonym montażem i ze zmienionymi
+właściwościami GPIO. Sprawdzane są podciąganie wejść, zwolnienie przycisku,
+polaryzacja przekaźników i odtwarzanie ich stanu po starcie.
 
 ## Szczegóły implementacji
 

@@ -87,6 +87,56 @@ static void updateSchedule(Logic &logic, long start, long end) {
   expectSchedule(logic, start, end);
 }
 
+static void checkGpio(MyHardware &hardware) {
+  const uint8_t relays[] = {JH_HW_NODE_RELAY1_PIN_OUT, JH_HW_NODE_RELAY2_PIN_OUT,
+                           JH_HW_NODE_RELAY3_PIN_OUT, JH_HW_NODE_RELAY4_PIN_OUT};
+  const bool relayLow[] = {JH_HW_NODE_RELAY1_PROP_ACTIVE_LOW, JH_HW_NODE_RELAY2_PROP_ACTIVE_LOW,
+                          JH_HW_NODE_RELAY3_PROP_ACTIVE_LOW, JH_HW_NODE_RELAY4_PROP_ACTIVE_LOW};
+  const uint8_t buttons[] = {JH_HW_NODE_BUTTON1_PIN_IN, JH_HW_NODE_BUTTON2_PIN_IN,
+                            JH_HW_NODE_BUTTON3_PIN_IN, JH_HW_NODE_BUTTON4_PIN_IN};
+  const bool buttonLow[] = {JH_HW_NODE_BUTTON1_PROP_ACTIVE_LOW, JH_HW_NODE_BUTTON2_PROP_ACTIVE_LOW,
+                           JH_HW_NODE_BUTTON3_PROP_ACTIVE_LOW, JH_HW_NODE_BUTTON4_PROP_ACTIVE_LOW};
+  const hal_gpio_mode_t modes[] = {JH_HW_NODE_BUTTON1_INPUT_MODE, JH_HW_NODE_BUTTON2_INPUT_MODE,
+                                  JH_HW_NODE_BUTTON3_INPUT_MODE, JH_HW_NODE_BUTTON4_INPUT_MODE};
+  for (size_t i = 0; i < COUNTOF(relays); ++i) {
+    const hal_gpio_mode_t mode = hal_mock_gpio_get_mode(relays[i]);
+    check(relayLow[i] ? mode == HAL_GPIO_OUTPUT_HIGH
+                     : (mode == HAL_GPIO_OUTPUT_LOW || mode == HAL_GPIO_OUTPUT),
+          "relay starts inactive");
+    check(hal_mock_gpio_get_state(relays[i]) == relayLow[i], "initial relay level");
+    check(hal_mock_gpio_get_mode(buttons[i]) == modes[i], "button pull mode");
+    hal_gpio_write(buttons[i], buttonLow[i]);
+  }
+  hardware.hardwareLoop();
+  for (size_t i = 0; i < COUNTOF(buttons); ++i) {
+    check(!hardware.getSwitchesStates()[i], "idle button keeps relay off");
+    hal_gpio_write(buttons[i], !buttonLow[i]);
+    hardware.hardwareLoop();
+    check(!hardware.getSwitchesStates()[i], "press waits for release");
+    hal_gpio_write(buttons[i], buttonLow[i]);
+    hardware.hardwareLoop();
+    check(hardware.getSwitchesStates()[i], "release enables relay");
+    check(hal_mock_gpio_get_state(relays[i]) != relayLow[i], "active relay level");
+    hardware.hardwareLoop();
+    check(hardware.getSwitchesStates()[i], "one action per release");
+    hardware.setRelayTo(static_cast<int>(i), false);
+    check(hal_mock_gpio_get_state(relays[i]) == relayLow[i], "inactive relay level");
+  }
+  hardware.saveSwitches();
+  hardware.setRelayTo(0, true);
+  hardware.setRelayTo(1, true);
+  hardware.saveSwitches();
+  hardware.start();
+  hardware.loadSwitches();
+  hardware.applyRelays(false);
+  check(!hardware.getSwitchesStates()[0], "boot suppresses scheduler relay");
+  check(hal_mock_gpio_get_state(relays[0]) == relayLow[0], "suppressed relay electrical level");
+  check(hardware.getSwitchesStates()[1], "boot restores manual relay");
+  check(hal_mock_gpio_get_state(relays[1]) != relayLow[1], "restored relay electrical level");
+  hardware.setRelayTo(1, false);
+  hardware.saveSwitches();
+}
+
 int main() {
   std::memset(test_rp_flash, 0xff, sizeof(test_rp_flash));
   check(jh_rp_flash_storage_partition(JH_RP_FLASH_PARTITION_EEPROM, &partition) ==
@@ -101,6 +151,7 @@ int main() {
   // TimerNTP.cpp also keeps the application in static storage.
   static Logic logic;
   logic.hardwareObj().start();
+  checkGpio(logic.hardwareObj());
   logic.hardwareObj().loadSwitches();
   expectSchedule(logic, 0, 0);
   updateSchedule(logic, 1316, 1436);

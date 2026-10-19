@@ -93,12 +93,6 @@ private:
   SmartTimers ds18b20InitRetryTimer;
   OledDisplayFlow oledFlow;
 
-  int relaysPins[MAX_AMOUNT_OF_RELAYS] = {
-      JH_HW_NODE_RELAY1_PIN_OUT, JH_HW_NODE_RELAY2_PIN_OUT,
-      JH_HW_NODE_RELAY3_PIN_OUT, JH_HW_NODE_RELAY4_PIN_OUT};
-  int buttonPins[MAX_AMOUNT_OF_RELAYS] = {
-      JH_HW_NODE_BUTTON1_PIN_IN, JH_HW_NODE_BUTTON2_PIN_IN,
-      JH_HW_NODE_BUTTON3_PIN_IN, JH_HW_NODE_BUTTON4_PIN_IN};
   bool lastStates[MAX_AMOUNT_OF_RELAYS];
 
   bool lastLights = false;

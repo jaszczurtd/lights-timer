@@ -40,10 +40,12 @@ under `assemblies.picow` when wiring:
 - Connect the SSD1306 128×32 OLED to the SDA/SCL pins of bus `i2c`, using its
   configured address. This application requires I2C bus index 0.
 - Connect relay control inputs to `relay1` through `relay4`, property `pins.out`.
-  Firmware writes a high GPIO level for an enabled relay; select a compatible
-  relay interface. The active relay count comes from the device's Credentials entry.
+  Set `activeLow` to match the relay interface; the supplied assembly uses
+  active-high relays. Outputs start inactive. The active relay count comes
+  from the device's Credentials entry.
 - Connect each button between its `button1` through `button4` input and ground.
-  Inputs use pull-ups and are active low.
+  The supplied assembly uses `pull: up` and `activeLow: true`; firmware reads
+  these properties for each button. Other input circuits need matching settings.
 - Connect the DS18B20 data line to `thermometer.pins.data`, with the pull-up
   required by the sensor circuit. Use the modules' electrical specifications
   for power and signal levels, and share ground with the controller.
@@ -180,7 +182,7 @@ and can cause rollback after the configured boot-attempt limit. Inspect startup
 logs after upload; a completed transfer alone does not confirm a healthy image.
 If network recovery is unavailable, use USB/BOOTSEL.
 
-## Host storage regression test
+## Host storage and GPIO regression tests
 
 On Linux with GCC or Clang, run from the **repository root**:
 
@@ -195,6 +197,8 @@ ctest --test-dir .build/tests --output-on-failure
 The test compiles TimerNTP's MQTT handler and hardware code with the production
 RP flash/KV implementation over a RAM buffer. It checks schedule updates,
 published status, persistence after reinitialization and relay state storage.
+The same code runs with the supplied assembly and altered GPIO properties,
+checking input pulls, button release, relay polarity and boot restoration.
 It uses test credentials and mock peripherals; no board or broker is needed.
 It does not check physical flash timing or the mobile app.
 
