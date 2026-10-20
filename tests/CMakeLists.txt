@@ -14,6 +14,9 @@ foreach(name hal_mock jh_bearssl_host)
 endforeach()
 
 find_package(Python3 REQUIRED COMPONENTS Interpreter)
+# HAL headers include jhbase (hal_status.h, hal_array.h).
+include("${JH_ROOT}/cmake/jh_jhbase.cmake")
+jh_jhbase_include_dir(JH_JHBASE_INCLUDE)
 set(APP "${CMAKE_CURRENT_SOURCE_DIR}/../TimerNTP")
 # Keep the production RP storage path; replace only physical flash operations.
 add_library(rp_storage OBJECT
@@ -23,7 +26,7 @@ add_library(rp_storage OBJECT
     "${JH_ROOT}/src/hal/impl/rp2040/hal_eeprom.cpp"
     "${JH_ROOT}/src/hal/impl/rp2040/drivers/flash/rp_flash_storage.cpp")
 target_include_directories(rp_storage PRIVATE
-    "${JH_ROOT}/tests/fixtures/rp_flash" "${JH_ROOT}/src")
+    "${JH_ROOT}/tests/fixtures/rp_flash" "${JH_ROOT}/src" "${JH_JHBASE_INCLUDE}")
 target_compile_definitions(rp_storage PRIVATE
     HAL_TARGET_RP2040=1 HAL_ENABLE_KV=1 HAL_BOARD_PROFILE_RP_PICO_W=1
     HAL_RP_FLASH_EEPROM_SIZE=8192 PICO_FLASH_SIZE_BYTES=2097152)
@@ -58,7 +61,7 @@ foreach(case default alternate)
     add_dependencies(${target} ${target}_hardware)
     target_include_directories(${target} PRIVATE
         "${APP}" "${CMAKE_CURRENT_SOURCE_DIR}/../Credentials/src"
-        "${JH_ROOT}/src" "${JH_ROOT}/third_party/cJSON"
+        "${JH_ROOT}/src" "${JH_JHBASE_INCLUDE}" "${JH_ROOT}/third_party/cJSON"
         "${JH_ROOT}/tests/fixtures/rp_flash")
     target_compile_definitions(${target} PRIVATE
         # Mock GPIO has no CYW43 LED pin; use an unused mock GPIO for it.

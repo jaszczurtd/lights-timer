@@ -39,8 +39,12 @@ target_include_directories(Credentials PUBLIC
     "${CMAKE_CURRENT_SOURCE_DIR}"
     "${CMAKE_CURRENT_SOURCE_DIR}/src"
 )
+# hal_array.h includes jhbase; HAL's module selects its checkout.
+include("${CREDENTIALS_JASZCZURHAL_ROOT}/cmake/jh_jhbase.cmake")
+jh_jhbase_include_dir(CREDENTIALS_JHBASE_INCLUDE)
 target_include_directories(Credentials PRIVATE
     "${CREDENTIALS_JASZCZURHAL_ROOT}/src"
+    "${CREDENTIALS_JHBASE_INCLUDE}"
 )
 target_compile_features(Credentials PRIVATE cxx_std_17)
 target_compile_options(Credentials PRIVATE
