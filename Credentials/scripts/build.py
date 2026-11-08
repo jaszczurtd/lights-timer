@@ -177,13 +177,27 @@ def toolchain_environment(toolchain: Path) -> dict[str, str]:
     return environment
 
 
+def hal_scripts(jaszczurhal_root: Path) -> None:
+    """Make the JaszczurHAL scripts importable."""
+    sys.path.insert(0, str(jaszczurhal_root / "scripts"))
+
+
+def prepare_jh(jaszczurhal_root: Path, cmake: Path) -> None:
+    """Prepare the jh host CLI, through which the HAL scripts read the board
+    registry, with the CMake of this build: a managed CMake need not be on
+    PATH."""
+    hal_scripts(jaszczurhal_root)
+    import project_config
+
+    project_config.jh_executable(str(cmake))
+
+
 def target_toolchain(
     args: argparse.Namespace, state: dict[str, Any], jaszczurhal_root: Path
 ) -> tuple[list[str], dict[str, str] | None]:
     """CMake definitions selecting the firmware toolchain of the target, and
     the environment the build runs in (None: the current one)."""
-    scripts = jaszczurhal_root / "scripts"
-    sys.path.insert(0, str(scripts))
+    hal_scripts(jaszczurhal_root)
     from board_registry import tooling_target_registry
     from generate_board_config import load_registry
 
@@ -259,6 +273,7 @@ def main() -> int:
         jaszczurhal_root = resolve_jaszczurhal_root(
             root_dir, args.jaszczurhal_root
         )
+        prepare_jh(jaszczurhal_root, cmake)
         toolchain_args, environment = target_toolchain(args, state, jaszczurhal_root)
     except Exception as error:  # registry and ESP-IDF errors carry their own type
         print(f"error: {error}", file=sys.stderr)
