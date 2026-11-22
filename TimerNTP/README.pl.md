@@ -189,6 +189,7 @@ Jeśli odzyskanie dostępu przez sieć jest niemożliwe, użyj USB/BOOTSEL.
 Na Linuksie z GCC lub Clang uruchom z **katalogu głównego repozytorium**:
 
 ```bash
+../JaszczurHAL/scripts/jh --version
 cmake -S ../JaszczurHAL -B ../JaszczurHAL/.build/lights-timer-kv
 cmake --build ../JaszczurHAL/.build/lights-timer-kv --target hal_mock -j4
 cmake -S tests -B .build/tests

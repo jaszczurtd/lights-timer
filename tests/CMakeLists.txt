@@ -13,7 +13,7 @@ foreach(name hal_mock jh_bearssl_host)
     endif()
 endforeach()
 
-find_package(Python3 REQUIRED COMPONENTS Interpreter)
+include("${JH_ROOT}/cmake/jh_hardware_config.cmake")
 # HAL headers include jhbase (hal_status.h, hal_array.h).
 include("${JH_ROOT}/cmake/jh_jhbase.cmake")
 jh_jhbase_include_dir(JH_JHBASE_INCLUDE)
@@ -39,26 +39,38 @@ foreach(case default alternate)
     set(config "${APP}")
     if(case STREQUAL "alternate")
         set(config "${CMAKE_CURRENT_BINARY_DIR}/alternate/config")
-        execute_process(COMMAND "${Python3_EXECUTABLE}"
-            "${CMAKE_CURRENT_SOURCE_DIR}/generate_gpio_fixture.py"
-            "${APP}/device_tree.json" "${config}"
-            COMMAND_ERROR_IS_FATAL ANY)
+        file(READ "${APP}/device_tree.json" tree)
+        set(pulls down none up down)
+        foreach(index RANGE 1 4)
+            math(EXPR pull_index "${index} - 1")
+            list(GET pulls ${pull_index} pull)
+            math(EXPR relay_active "${index} % 2")
+            if(relay_active)
+                set(button_active false)
+                set(relay_value true)
+            else()
+                set(button_active true)
+                set(relay_value false)
+            endif()
+            string(JSON tree SET "${tree}" nodes "button${index}" properties
+                "{\"pull\": \"${pull}\", \"activeLow\": ${button_active}}")
+            string(JSON tree SET "${tree}" nodes "relay${index}" properties
+                "{\"activeLow\": ${relay_value}}")
+        endforeach()
+        file(MAKE_DIRECTORY "${config}")
+        file(WRITE "${config}/device_tree.json" "${tree}\n")
         set_property(DIRECTORY APPEND PROPERTY CMAKE_CONFIGURE_DEPENDS
-            "${APP}/device_tree.json" "${CMAKE_CURRENT_SOURCE_DIR}/generate_gpio_fixture.py")
+            "${APP}/device_tree.json")
     endif()
-    add_custom_target(${target}_hardware
-        COMMAND "${Python3_EXECUTABLE}" "${JH_ROOT}/scripts/generate_hardware_config.py"
-            resolve --config-dir "${config}" --assembly picow --output-dir "${GENERATED}"
-            --output-root "${CMAKE_CURRENT_BINARY_DIR}"
-        BYPRODUCTS "${GENERATED}/jh_hardware.h"
-        VERBATIM)
+    jh_resolve_hardware_header(hardware_header ROOT "${JH_ROOT}"
+        CONFIG_DIR "${config}" ASSEMBLY picow OUTPUT_DIR "${GENERATED}"
+        OUTPUT_ROOT "${CMAKE_CURRENT_BINARY_DIR}")
     add_executable(${target} test_schedule_storage.cpp
         "${APP}/MyHardware.cpp" "${APP}/MQTTClient.cpp"
         "${APP}/NTPMachine.cpp" "${APP}/OledDisplayFlow.cpp"
         "${APP}/CredentialValues.cpp" "${APP}/watchdog.cpp"
         "${APP}/OTAUpdates.cpp" "${APP}/DiscoverMe.cpp"
         $<TARGET_OBJECTS:rp_storage>)
-    add_dependencies(${target} ${target}_hardware)
     target_include_directories(${target} PRIVATE
         "${APP}" "${CMAKE_CURRENT_SOURCE_DIR}/../Credentials/src"
         "${JH_ROOT}/src" "${JH_JHBASE_INCLUDE}" "${JH_ROOT}/third_party/cJSON"
@@ -70,7 +82,7 @@ foreach(case default alternate)
         HAL_ENABLE_MCP2515=1 HAL_ENABLE_PWM_FREQ=1 HAL_ENABLE_RGB_LED=1)
     target_compile_options(${target} PRIVATE
         "SHELL:-include '${APP}/hal_project_config.h'"
-        "SHELL:-include '${GENERATED}/jh_hardware.h'")
+        "SHELL:-include '${hardware_header}'")
     target_compile_options(${target} PRIVATE -Wall -Wextra -Werror)
     target_link_libraries(${target} PRIVATE
         "${JH_HOST_BUILD}/libhal_mock.a" "${JH_HOST_BUILD}/libjh_bearssl_host.a")

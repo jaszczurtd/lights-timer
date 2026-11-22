@@ -186,6 +186,7 @@ If network recovery is unavailable, use USB/BOOTSEL.
 On Linux with GCC or Clang, run from the **repository root**:
 
 ```bash
+../JaszczurHAL/scripts/jh --version
 cmake -S ../JaszczurHAL -B ../JaszczurHAL/.build/lights-timer-kv
 cmake --build ../JaszczurHAL/.build/lights-timer-kv --target hal_mock -j4
 cmake -S tests -B .build/tests
