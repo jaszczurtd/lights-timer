@@ -12,5 +12,8 @@
         "**/.build": true
     },
     "files.autoSave": "afterDelay",
-    "files.autoSaveDelay": 500
+    "files.autoSaveDelay": 500,
+    "C_Cpp.files.exclude": {
+        "**/.build": true
+    }
 }
